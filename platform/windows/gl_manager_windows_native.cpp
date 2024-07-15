@@ -49,6 +49,7 @@
 #define WGL_CONTEXT_CORE_PROFILE_BIT_ARB 0x00000001
 
 #define _WGL_CONTEXT_DEBUG_BIT_ARB 0x0001
+#define _WGL_CONTEXT_DEBUG_BITSSS_ARB 0x0001
 
 #if defined(__GNUC__)
 // Workaround GCC warning from -Wcast-function-type.
