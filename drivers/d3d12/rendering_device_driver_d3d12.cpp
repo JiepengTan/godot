@@ -350,7 +350,7 @@ RenderingDeviceDriverD3D12::DescriptorsHeap::Walker RenderingDeviceDriverD3D12::
 	Walker walker;
 	walker.handle_size = handle_size;
 	walker.handle_count = desc.NumDescriptors;
-	if (heap) {
+	if (heap && true) {
 #if defined(_MSC_VER) || !defined(_WIN32)
 		walker.first_cpu_handle = heap->GetCPUDescriptorHandleForHeapStart();
 		if ((desc.Flags & D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE)) {
