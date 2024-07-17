@@ -45,7 +45,7 @@ extern "C" {
 #include "gdextension_interface.h"
 
 /**
- * @name libgodot_create_godot_instance
+ * @name libgodot_create_godot_instance_with_initfunc
  * @since 4.4
  *
  * Creates a new Godot instance.
@@ -56,7 +56,12 @@ extern "C" {
  *
  * @return A pointer to created \ref GodotInstance GDExtension object or nullptr if there was an error.
  */
-EXPORT_SYMBOL GDExtensionObjectPtr libgodot_create_godot_instance(int p_argc, char *p_argv[], GDExtensionInitializationFunction p_init_func, void *p_platform_data);
+EXPORT_SYMBOL GDExtensionObjectPtr libgodot_create_godot_instance_with_initfunc(int p_argc, char *p_argv[], void *p_platform_data,GDExtensionInitializationFunction p_init_func);
+
+
+EXPORT_SYMBOL GDExtensionObjectPtr libgodot_create_godot_instance(int p_argc, char *p_argv[], void *p_platform_data){
+    return libgodot_create_godot_instance_with_initfunc(p_argc, p_argv, p_platform_data, nullptr);
+}
 
 /**
  * @name libgodot_destroy_godot_instance

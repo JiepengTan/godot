@@ -39,7 +39,7 @@ static OS_MacOS *os = nullptr;
 
 static GodotInstance *instance = nullptr;
 
-GDExtensionObjectPtr libgodot_create_godot_instance(int p_argc, char *p_argv[], GDExtensionInitializationFunction p_init_func, void *p_platform_data) {
+GDExtensionObjectPtr libgodot_create_godot_instance_with_initfunc(int p_argc, char *p_argv[], void *p_platform_data,GDExtensionInitializationFunction p_init_func) {
 	ERR_FAIL_COND_V_MSG(instance != nullptr, nullptr, "Only one Godot Instance may be created.");
 
 	os = new OS_MacOS();
