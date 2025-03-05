@@ -41,10 +41,7 @@ void initialize_svg_module(ModuleInitializationLevel p_level) {
 		return;
 	}
 
-	tvg::CanvasEngine tvgEngine = tvg::CanvasEngine::Sw;
-	if (tvg::Initializer::init(tvgEngine, 1) != tvg::Result::Success) {
-		return;
-	}
+	std::unique_ptr<tvg::SwCanvas> sw_canvas = tvg::SwCanvas::gen();
 
 	image_loader_svg.instantiate();
 	ImageLoader::add_image_format_loader(image_loader_svg);
@@ -62,5 +59,4 @@ void uninitialize_svg_module(ModuleInitializationLevel p_level) {
 
 	ImageLoader::remove_image_format_loader(image_loader_svg);
 	image_loader_svg.unref();
-	tvg::Initializer::term(tvg::CanvasEngine::Sw);
 }
