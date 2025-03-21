@@ -1,0 +1,239 @@
+name: 🚀 Release Build
+on:
+  release:
+    types: [created, edited]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: '发布版本号 (如 v2.0.1)'
+        required: true
+        default: 'v2.0.1'
+      platforms:
+        description: '要构建的平台 (逗号分隔：android,ios,web,linux,macos,windows,all)'
+        required: true
+        default: 'android'
+
+concurrency:
+  group: ci-${{github.actor}}-${{github.head_ref || github.run_number}}-${{github.ref}}-release
+  cancel-in-progress: true
+
+env:
+  ENGINE_VERSION: 4.2.2.stable
+  VERSION: 2.0.1
+  GODOT_BASE_BRANCH: master
+
+jobs:
+  setup:
+    name: 📋 准备构建环境
+    runs-on: ubuntu-20.04
+    outputs:
+      version: ${{ steps.set-version.outputs.version }}
+      platforms: ${{ steps.set-platforms.outputs.platforms }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: 设置版本号
+        id: set-version
+        run: |
+          if [ "${{ github.event_name }}" == "release" ]; then
+            VERSION="${{ github.event.release.tag_name }}"
+          else
+            VERSION="${{ github.event.inputs.release_tag }}"
+          fi
+          VERSION="${VERSION#v}"  # 移除前缀的 v (如果有)
+          echo "VERSION=$VERSION"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: 设置构建平台
+        id: set-platforms
+        run: |
+          if [ "${{ github.event_name }}" == "release" ]; then
+            PLATFORMS="all"
+          else
+            PLATFORMS="${{ github.event.inputs.platforms }}"
+          fi
+          
+          if [ "$PLATFORMS" == "all" ]; then
+            PLATFORMS="android,ios,web,linux,macos,windows"
+          fi
+          
+          echo "PLATFORMS=$PLATFORMS"
+          echo "platforms=$PLATFORMS" >> $GITHUB_OUTPUT
+
+  android-build:
+    name: 🤖 Android Release
+    needs: setup
+    if: contains(needs.setup.outputs.platforms, 'android') || contains(needs.setup.outputs.platforms, 'all')
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: 设置 Java 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: 17
+
+      - name: 设置构建缓存
+        uses: ./.github/actions/godot-cache
+        with:
+          cache-name: android-release-template
+          scons-cache: ${{github.workspace}}/.scons-cache/
+
+      - name: 设置 Python 和 SCons
+        uses: ./.github/actions/godot-deps
+
+      - name: 构建 Android 32位调试模板
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=android target=template_debug arch=arm32
+          platform: android
+          target: template_debug
+
+      - name: 构建 Android 64位调试模板
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=android target=template_debug arch=arm64
+          platform: android
+          target: template_debug
+
+      - name: 构建 Android 32位发布模板
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=android target=template_release arch=arm32
+          platform: android
+          target: template_release
+
+      - name: 构建 Android 64位发布模板
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=android target=template_release arch=arm64
+          platform: android
+          target: template_release
+
+      - name: 生成最终的 Android 模板
+        run: |
+          cd platform/android/java
+          ./gradlew generateGodotTemplates
+          echo "查看生成的文件："
+          ls -la ../../..
+          ls -la ../../../bin/
+
+      - name: 上传 Android 构建结果
+        uses: actions/upload-artifact@v3
+        with:
+          name: android-templates-${{ needs.setup.outputs.version }}
+          path: |
+            bin/android*.apk
+            bin/android_source.zip
+          retention-days: 14
+
+      - name: 发布到 GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            bin/android*.apk
+            bin/android_source.zip
+          tag_name: ${{ github.event.release.tag_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+# 这里可以添加其他平台的构建作业
+# 下面是一个iOS构建的示例（可选）
+
+  ios-build:
+    name: 🍏 iOS Release
+    needs: setup
+    if: contains(needs.setup.outputs.platforms, 'ios') || contains(needs.setup.outputs.platforms, 'all')
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: 设置构建缓存
+        uses: ./.github/actions/godot-cache
+        with:
+          cache-name: ios-release-template
+          scons-cache: ${{github.workspace}}/.scons-cache/
+
+      - name: Python 设置
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+          
+      - name: 安装 SCons
+        run: |
+          python -c "import sys; print(sys.version)"
+          python -m pip install scons==4.7.0
+          scons --version
+
+      - name: 安装 Vulkan SDK
+        run: |
+          ./misc/scripts/install_vulkan_sdk_macos.sh
+
+      - name: 构建 iOS 模拟器（arm64）调试模板
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=ios vulkan=True target=template_debug ios_simulator=yes arch=arm64
+          platform: ios
+          target: template_debug
+
+      - name: 构建 iOS 模拟器（x86_64）调试模板
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=ios vulkan=True target=template_debug ios_simulator=yes arch=x86_64
+          platform: ios
+          target: template_debug
+
+      - name: 构建 iOS 模拟器（arm64）发布模板
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=ios vulkan=True target=template_release ios_simulator=yes arch=arm64
+          platform: ios
+          target: template_release
+
+      - name: 构建 iOS 模拟器（x86_64）发布模板
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=ios vulkan=True target=template_release ios_simulator=yes arch=x86_64 generate_bundle=yes
+          platform: ios
+          target: template_release
+
+      - name: 构建 iOS 设备调试模板
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=ios vulkan=True target=template_debug ios_simulator=no
+          platform: ios
+          target: template_debug
+
+      - name: 构建 iOS 设备发布模板
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=ios vulkan=True target=template_release ios_simulator=no generate_bundle=yes
+          platform: ios
+          target: template_release
+
+      - name: 上传 iOS 构建结果
+        uses: actions/upload-artifact@v3
+        with:
+          name: ios-templates-${{ needs.setup.outputs.version }}
+          path: bin/godot_ios.zip
+          retention-days: 14
+
+      - name: 发布到 GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: bin/godot_ios.zip
+          tag_name: ${{ github.event.release.tag_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
