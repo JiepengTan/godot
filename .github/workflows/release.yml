@@ -11,7 +11,7 @@ on:
       platforms:
         description: '要构建的平台 (逗号分隔：android,ios,web,linux,macos,windows,all)'
         required: true
-        default: 'android,linux,macos,windows,web'
+        default: 'android,ios,linux,macos,windows,web'
 
 concurrency:
   group: ci-${{github.actor}}-${{github.head_ref || github.run_number}}-${{github.ref}}-release
