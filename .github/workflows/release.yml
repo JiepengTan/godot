@@ -5,11 +5,11 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: '发布版本号 (如 v2.0.1)'
+        description: 'Release version (e.g. v2.0.1)'
         required: true
         default: 'v2.0.1'
       platforms:
-        description: '要构建的平台 (逗号分隔：android,ios,web,linux,macos,windows,all)'
+        description: 'Platforms to build (comma-separated: android,ios,web,linux,macos,windows,all)'
         required: true
         default: 'android,ios,linux,macos,windows,web'
 
@@ -19,7 +19,7 @@ concurrency:
 
 env:
   ENGINE_VERSION: 4.2.2.stable
-  # SCons缓存设置，确保缓存充分被利用
+  # SCons cache settings to ensure efficient cache utilization
   SCONS_CACHE: "${{github.workspace}}/.scons-cache/"
   SCONS_CACHE_LIMIT: "10000"
   VERSION: 2.0.1
@@ -27,7 +27,7 @@ env:
 
 jobs:
   setup:
-    name: 📋 准备构建环境
+    name: 📋 Prepare Build Environment
     runs-on: ubuntu-20.04
     outputs:
       version: ${{ steps.set-version.outputs.version }}
@@ -38,7 +38,7 @@ jobs:
         with:
           submodules: recursive
 
-      - name: 设置版本号
+      - name: Set Version Number
         id: set-version
         run: |
           if [ "${{ github.event_name }}" == "release" ]; then
@@ -46,11 +46,11 @@ jobs:
           else
             VERSION="${{ github.event.inputs.release_tag }}"
           fi
-          VERSION="${VERSION#v}"  # 移除前缀的 v (如果有)
+          VERSION="${VERSION#v}"  # Remove 'v' prefix (if present)
           echo "VERSION=$VERSION"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: 设置构建平台
+      - name: Set Build Platforms
         id: set-platforms
         run: |
           if [ "${{ github.event_name }}" == "release" ]; then
@@ -77,68 +77,68 @@ jobs:
         with:
           submodules: recursive
 
-      - name: 设置 Java 17
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: 17
 
-      # 为所有Android架构设置共享缓存
-      - name: 设置构建缓存
+      # Set up shared cache for all Android architectures
+      - name: Set up build cache
         uses: actions/cache@v4
         with:
           path: ${{github.workspace}}/.scons-cache/
-          # 不使用SHA作为缓存键，这样不同提交间也能复用缓存
+          # Do not use SHA in cache key to allow cache reuse across commits
           key: android-release-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}
           restore-keys: |
             android-release-${{env.GODOT_BASE_BRANCH}}-
             android-release-
 
-      - name: 设置 Python 和 SCons
+      - name: Setup Python and SCons
         uses: ./.github/actions/godot-deps
 
-      # 按照特定的顺序构建，以最大化缓存利用
-      # 先构建相同架构的调试和发布版本，这样可以复用编译缓存
+      # Build in specific order to maximize cache utilization
+      # First build debug and release versions of the same architecture to reuse compilation cache
 
-      # arm32 构建 (先调试后发布)
-      - name: 构建 Android 32位调试模板
+      # arm32 builds (debug first, then release)
+      - name: Build Android 32-bit Debug Template
         uses: ./.github/actions/godot-build
         with:
           sconsflags: platform=android target=template_debug arch=arm32
           platform: android
           target: template_debug
 
-      - name: 构建 Android 32位发布模板
+      - name: Build Android 32-bit Release Template
         uses: ./.github/actions/godot-build
         with:
           sconsflags: platform=android target=template_release arch=arm32
           platform: android
           target: template_release
 
-      # arm64 构建 (先调试后发布) 
-      - name: 构建 Android 64位调试模板
+      # arm64 builds (debug first, then release)
+      - name: Build Android 64-bit Debug Template
         uses: ./.github/actions/godot-build
         with:
           sconsflags: platform=android target=template_debug arch=arm64
           platform: android
           target: template_debug
 
-      - name: 构建 Android 64位发布模板
+      - name: Build Android 64-bit Release Template
         uses: ./.github/actions/godot-build
         with:
           sconsflags: platform=android target=template_release arch=arm64
           platform: android
           target: template_release
 
-      - name: 生成最终的 Android 模板
+      - name: Generate Final Android Templates
         run: |
           cd platform/android/java
           ./gradlew generateGodotTemplates
-          echo "查看生成的文件："
+          echo "View generated files:"
           ls -la ../../..
           ls -la ../../../bin/
 
-      - name: 上传 Android 构建结果
+      - name: Upload Android Build Results
         uses: actions/upload-artifact@v4
         with:
           name: android-templates-${{ needs.setup.outputs.version }}
@@ -147,7 +147,7 @@ jobs:
             bin/android_source.zip
           retention-days: 14
 
-      - name: 发布到 GitHub Release
+      - name: Publish to GitHub Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v1
         with:
@@ -157,9 +157,6 @@ jobs:
           tag_name: ${{ github.event.release.tag_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-# 这里可以添加其他平台的构建作业
-# 下面是一个iOS构建的示例（可选）
 
   ios-build:
     name: 🍏 iOS Release
@@ -172,77 +169,77 @@ jobs:
         with:
           submodules: recursive
 
-      # 为所有iOS构建设置共享缓存
-      - name: 设置构建缓存
+      # Set up shared cache for all iOS builds
+      - name: Set up build cache
         uses: actions/cache@v4
         with:
           path: ${{github.workspace}}/.scons-cache/
-          # 不使用SHA作为缓存键，这样不同提交间也能复用缓存
+          # Do not use SHA in cache key to allow cache reuse across commits
           key: ios-release-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}
           restore-keys: |
             ios-release-${{env.GODOT_BASE_BRANCH}}-
             ios-release-
 
-      - name: 设置 Python 和 SCons
+      - name: Setup Python and SCons
         uses: ./.github/actions/godot-deps
 
 
-      # 按照特定的顺序构建，以最大化缓存利用
-      # 按架构分组，并且先调试后发布
+      # Build in specific order to maximize cache utilization
+      # Group by architecture, debug first then release
 
-      # iOS 模拟器 arm64 构建
-      - name: 构建 iOS 模拟器（arm64）调试模板
+      # iOS Simulator arm64 builds
+      - name: Build iOS Simulator (arm64) Debug Template
         uses: ./.github/actions/godot-build
         with:
           sconsflags: platform=ios target=template_debug ios_simulator=yes arch=arm64
           platform: ios
           target: template_debug
 
-      - name: 构建 iOS 模拟器（arm64）发布模板
+      - name: Build iOS Simulator (arm64) Release Template
         uses: ./.github/actions/godot-build
         with:
           sconsflags: platform=ios target=template_release ios_simulator=yes arch=arm64
           platform: ios
           target: template_release
 
-      # iOS 模拟器 x86_64 构建
-      - name: 构建 iOS 模拟器（x86_64）调试模板
+      # iOS Simulator x86_64 builds
+      - name: Build iOS Simulator (x86_64) Debug Template
         uses: ./.github/actions/godot-build
         with:
           sconsflags: platform=ios target=template_debug ios_simulator=yes arch=x86_64
           platform: ios
           target: template_debug
 
-      - name: 构建 iOS 模拟器（x86_64）发布模板
+      - name: Build iOS Simulator (x86_64) Release Template
         uses: ./.github/actions/godot-build
         with:
           sconsflags: platform=ios target=template_release ios_simulator=yes arch=x86_64 generate_bundle=yes
           platform: ios
           target: template_release
 
-      # iOS 设备构建
-      - name: 构建 iOS 设备调试模板
+      # iOS Device builds
+      - name: Build iOS Device Debug Template
         uses: ./.github/actions/godot-build
         with:
           sconsflags: platform=ios target=template_debug ios_simulator=no
           platform: ios
           target: template_debug
 
-      - name: 构建 iOS 设备发布模板
+      - name: Build iOS Device Release Template
         uses: ./.github/actions/godot-build
         with:
           sconsflags: platform=ios target=template_release ios_simulator=no generate_bundle=yes
           platform: ios
           target: template_release
 
-      - name: 上传 iOS 构建结果
+      - name: Upload iOS Build Results
         uses: actions/upload-artifact@v4
         with:
           name: ios-templates-${{ needs.setup.outputs.version }}
           path: bin/godot_ios.zip
           retention-days: 14
 
-      - name: 发布到 GitHub Release
+      - name: Publish to GitHub Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v1
         with:
@@ -251,9 +248,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # Windows PC editor 构建
+  # Windows PC editor build
   windows-editor-build:
-    name: 🪟 Windows Editor 构建
+    name: 🪟 Windows Editor Build
     needs: setup
     if: contains(needs.setup.outputs.platforms, 'windows') || contains(needs.setup.outputs.platforms, 'all')
     runs-on: windows-latest
@@ -263,40 +260,40 @@ jobs:
         with:
           submodules: recursive
 
-      # 为 Windows 构建设置共享缓存
-      - name: 设置构建缓存
+      # Set up shared cache for Windows builds
+      - name: Set up build cache
         uses: actions/cache@v4
         with:
           path: ${{github.workspace}}/.scons-cache/
-          # 不使用SHA作为缓存键，这样不同提交间也能复用缓存
+          # Do not use SHA in cache key to allow cache reuse across commits
           key: windows-editor-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}
           restore-keys: |
             windows-editor-${{env.GODOT_BASE_BRANCH}}-
             windows-editor-
 
-      - name: 设置 Python 和 SCons
+      - name: Setup Python and SCons
         uses: ./.github/actions/godot-deps
 
-      # Windows x86_64 editor 构建
-      - name: 构建 Windows Editor (x86_64)
+      # Windows x86_64 editor build
+      - name: Build Windows Editor (x86_64)
         uses: ./.github/actions/godot-build
         with:
           sconsflags: platform=windows target=editor arch=x86_64
           platform: windows
           target: editor
 
-      - name: 压缩 Windows Editor 构建
+      - name: Compress Windows Editor Build
         run: Compress-Archive -Path bin/godot.windows.editor.x86_64.exe -DestinationPath bin/godot-windows-editor-x86_64.zip
         shell: pwsh
 
-      - name: 上传 Windows Editor 构建结果
+      - name: Upload Windows Editor Build Results
         uses: actions/upload-artifact@v4
         with:
           name: windows-editor-${{ needs.setup.outputs.version }}
           path: bin/godot-windows-editor-x86_64.zip
           retention-days: 14
 
-      - name: 发布到 GitHub Release
+      - name: Publish to GitHub Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v1
         with:
@@ -305,9 +302,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # Linux PC editor 构建
+  # Linux PC editor build
   linux-editor-build:
-    name: 🐧 Linux Editor 构建
+    name: 🐧 Linux Editor Build
     needs: setup
     if: contains(needs.setup.outputs.platforms, 'linux') || contains(needs.setup.outputs.platforms, 'all')
     runs-on: ubuntu-20.04
@@ -317,41 +314,41 @@ jobs:
         with:
           submodules: recursive
 
-      # 为 Linux 构建设置共享缓存
-      - name: 设置构建缓存
+      # Set up shared cache for Linux builds
+      - name: Set up build cache
         uses: actions/cache@v4
         with:
           path: ${{github.workspace}}/.scons-cache/
-          # 不使用SHA作为缓存键，这样不同提交间也能复用缓存
+          # Do not use SHA in cache key to allow cache reuse across commits
           key: linux-editor-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}
           restore-keys: |
             linux-editor-${{env.GODOT_BASE_BRANCH}}-
             linux-editor-
 
-      - name: 设置 Python 和 SCons
+      - name: Setup Python and SCons
         uses: ./.github/actions/godot-deps
 
-      # Linux x86_64 editor 构建
-      - name: 构建 Linux Editor (x86_64)
+      # Linux x86_64 editor build
+      - name: Build Linux Editor (x86_64)
         uses: ./.github/actions/godot-build
         with:
           sconsflags: platform=linuxbsd target=editor arch=x86_64
           platform: linuxbsd
           target: editor
 
-      - name: 压缩 Linux Editor 构建
+      - name: Compress Linux Editor Build
         run: |
           chmod +x bin/godot.linuxbsd.editor.x86_64
           tar -czf bin/godot-linux-editor-x86_64.tar.gz -C bin godot.linuxbsd.editor.x86_64
 
-      - name: 上传 Linux Editor 构建结果
+      - name: Upload Linux Editor Build Results
         uses: actions/upload-artifact@v4
         with:
           name: linux-editor-${{ needs.setup.outputs.version }}
           path: bin/godot-linux-editor-x86_64.tar.gz
           retention-days: 14
 
-      - name: 发布到 GitHub Release
+      - name: Publish to GitHub Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v1
         with:
@@ -360,9 +357,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # macOS PC editor 构建
+  # macOS PC editor build
   macos-editor-build:
-    name: 🍎 macOS Editor 构建
+    name: 🍎 macOS Editor Build
     needs: setup
     if: contains(needs.setup.outputs.platforms, 'macos') || contains(needs.setup.outputs.platforms, 'all')
     runs-on: macos-latest
@@ -372,58 +369,58 @@ jobs:
         with:
           submodules: recursive
 
-      # 为 macOS 构建设置共享缓存
-      - name: 设置构建缓存
+      # Set up shared cache for macOS builds
+      - name: Set up build cache
         uses: actions/cache@v4
         with:
           path: ${{github.workspace}}/.scons-cache/
-          # 不使用SHA作为缓存键，这样不同提交间也能复用缓存
+          # Do not use SHA in cache key to allow cache reuse across commits
           key: macos-editor-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}
           restore-keys: |
             macos-editor-${{env.GODOT_BASE_BRANCH}}-
             macos-editor-
 
-      - name: 设置 Python 和 SCons
+      - name: Setup Python and SCons
         uses: ./.github/actions/godot-deps
 
-      # macOS x86_64 editor 构建
-      - name: 构建 macOS Editor (x86_64)
+      # macOS x86_64 editor build
+      - name: Build macOS Editor (x86_64)
         uses: ./.github/actions/godot-build
         with:
           sconsflags: platform=macos target=editor arch=x86_64
           platform: macos
           target: editor
 
-      # macOS arm64 editor 构建
-      - name: 构建 macOS Editor (arm64)
+      # macOS arm64 editor build
+      - name: Build macOS Editor (arm64)
         uses: ./.github/actions/godot-build
         with:
           sconsflags: platform=macos target=editor arch=arm64
           platform: macos
           target: editor
 
-      # 创建 Universal Binary
-      - name: 创建 Universal Binary
+      # Create Universal Binary
+      - name: Create Universal Binary
         run: |
           mkdir -p universal/Godot.app/Contents/MacOS
           lipo -create -output universal/Godot.app/Contents/MacOS/Godot bin/godot.macos.editor.x86_64 bin/godot.macos.editor.arm64
-          # 复制必要的文件和目录
+          # Copy necessary files and directories
           cp -r misc/dist/macos_tools.app/* universal/Godot.app/
-          # 确保可执行权限
+          # Ensure executable permissions
           chmod +x universal/Godot.app/Contents/MacOS/Godot
-          # 压缩为 zip
+          # Compress to zip
           cd universal
           zip -r ../bin/godot-macos-editor-universal.zip Godot.app
           cd ..
 
-      - name: 上传 macOS Editor 构建结果
+      - name: Upload macOS Editor Build Results
         uses: actions/upload-artifact@v4
         with:
           name: macos-editor-${{ needs.setup.outputs.version }}
           path: bin/godot-macos-editor-universal.zip
           retention-days: 14
 
-      - name: 发布到 GitHub Release
+      - name: Publish to GitHub Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v1
         with:
@@ -432,9 +429,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # Web 平台构建
+  # Web platform build
   web-build:
-    name: 🌐 Web 构建
+    name: 🌐 Web Build
     needs: setup
     if: contains(needs.setup.outputs.platforms, 'web') || contains(needs.setup.outputs.platforms, 'all')
     runs-on: ubuntu-22.04
@@ -447,56 +444,56 @@ jobs:
         with:
           submodules: recursive
 
-      # 设置 Emscripten
-      - name: 设置 Emscripten
+      # Setup Emscripten
+      - name: Setup Emscripten
         uses: mymindstorm/setup-emsdk@v14
         with:
           version: ${{env.EM_VERSION}}
           actions-cache-folder: ${{env.EM_CACHE_FOLDER}}
           cache-key: emsdk-web-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}
       
-      - name: 验证 Emscripten 安装
+      - name: Verify Emscripten Installation
         run: |
           emcc -v
 
-      # 为 Web 构建设置共享缓存
-      - name: 设置构建缓存
+      # Set up shared cache for Web builds
+      - name: Set up build cache
         uses: actions/cache@v4
         with:
           path: ${{github.workspace}}/.scons-cache/
-          # 不使用SHA作为缓存键，这样不同提交间也能复用缓存
+          # Do not use SHA in cache key to allow cache reuse across commits
           key: web-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}
           restore-keys: |
             web-${{env.GODOT_BASE_BRANCH}}-
             web-
 
-      - name: 设置 Python 和 SCons
+      - name: Setup Python and SCons
         uses: ./.github/actions/godot-deps
 
-      # 构建 Web Editor
-      - name: 构建 Web Editor
+      # Build Web Editor
+      - name: Build Web Editor
         uses: ./.github/actions/godot-build
         with:
           sconsflags: platform=web target=editor
           platform: web
           target: editor
 
-      # 构建 Web template_release
-      - name: 构建 Web Template Release
+      # Build Web template_release
+      - name: Build Web Template Release
         uses: ./.github/actions/godot-build
         with:
           sconsflags: platform=web target=template_release threads=no
           platform: web
           target: template_release
 
-      # 准备文件以便上传
-      - name: 准备文件
+      # Prepare files for upload
+      - name: Prepare Files
         run: |
           mkdir -p artifacts
           cp bin/godot.web.editor.wasm32.zip artifacts/web_editor.zip
           cp bin/godot.web.template_release.wasm32.zip artifacts/web_template_release.zip
 
-      - name: 上传 Web 构建结果
+      - name: Upload Web Build Results
         uses: actions/upload-artifact@v4
         with:
           name: web-${{ needs.setup.outputs.version }}
@@ -505,7 +502,7 @@ jobs:
             artifacts/web_template_release.zip
           retention-days: 14
 
-      - name: 发布到 GitHub Release
+      - name: Publish to GitHub Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v1
         with:
