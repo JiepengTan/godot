@@ -19,6 +19,9 @@ concurrency:
 
 env:
   ENGINE_VERSION: 4.2.2.stable
+  # SCons缓存设置，确保缓存充分被利用
+  SCONS_CACHE: "${{github.workspace}}/.scons-cache/"
+  SCONS_CACHE_LIMIT: "10000"
   VERSION: 2.0.1
   GODOT_BASE_BRANCH: master
 
@@ -80,26 +83,28 @@ jobs:
           distribution: 'temurin'
           java-version: 17
 
+      # 为所有Android架构设置共享缓存
       - name: 设置构建缓存
-        uses: ./.github/actions/godot-cache
+        uses: actions/cache@v4
         with:
-          cache-name: android-release-template
-          scons-cache: ${{github.workspace}}/.scons-cache/
+          path: ${{github.workspace}}/.scons-cache/
+          key: android-release-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}-${{github.sha}}
+          restore-keys: |
+            android-release-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}-
+            android-release-${{env.GODOT_BASE_BRANCH}}-
+            android-release-
 
       - name: 设置 Python 和 SCons
         uses: ./.github/actions/godot-deps
 
+      # 按照特定的顺序构建，以最大化缓存利用
+      # 先构建相同架构的调试和发布版本，这样可以复用编译缓存
+
+      # arm32 构建 (先调试后发布)
       - name: 构建 Android 32位调试模板
         uses: ./.github/actions/godot-build
         with:
           sconsflags: platform=android target=template_debug arch=arm32
-          platform: android
-          target: template_debug
-
-      - name: 构建 Android 64位调试模板
-        uses: ./.github/actions/godot-build
-        with:
-          sconsflags: platform=android target=template_debug arch=arm64
           platform: android
           target: template_debug
 
@@ -109,6 +114,14 @@ jobs:
           sconsflags: platform=android target=template_release arch=arm32
           platform: android
           target: template_release
+
+      # arm64 构建 (先调试后发布) 
+      - name: 构建 Android 64位调试模板
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=android target=template_debug arch=arm64
+          platform: android
+          target: template_debug
 
       - name: 构建 Android 64位发布模板
         uses: ./.github/actions/godot-build
@@ -159,58 +172,66 @@ jobs:
         with:
           submodules: recursive
 
+      # 为所有iOS构建设置共享缓存
       - name: 设置构建缓存
-        uses: ./.github/actions/godot-cache
+        uses: actions/cache@v4
         with:
-          cache-name: ios-release-template
-          scons-cache: ${{github.workspace}}/.scons-cache/
+          path: ${{github.workspace}}/.scons-cache/
+          key: ios-release-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}-${{github.sha}}
+          restore-keys: |
+            ios-release-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}-
+            ios-release-${{env.GODOT_BASE_BRANCH}}-
+            ios-release-
 
       - name: 设置 Python 和 SCons
         uses: ./.github/actions/godot-deps
 
-      - name: 安装 Vulkan SDK
-        run: |
-          ./misc/scripts/install_vulkan_sdk_macos.sh
 
+      # 按照特定的顺序构建，以最大化缓存利用
+      # 按架构分组，并且先调试后发布
+
+      # iOS 模拟器 arm64 构建
       - name: 构建 iOS 模拟器（arm64）调试模板
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=ios vulkan=True target=template_debug ios_simulator=yes arch=arm64
-          platform: ios
-          target: template_debug
-
-      - name: 构建 iOS 模拟器（x86_64）调试模板
-        uses: ./.github/actions/godot-build
-        with:
-          sconsflags: platform=ios vulkan=True target=template_debug ios_simulator=yes arch=x86_64
+          sconsflags: platform=ios target=template_debug ios_simulator=yes arch=arm64
           platform: ios
           target: template_debug
 
       - name: 构建 iOS 模拟器（arm64）发布模板
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=ios vulkan=True target=template_release ios_simulator=yes arch=arm64
+          sconsflags: platform=ios target=template_release ios_simulator=yes arch=arm64
           platform: ios
           target: template_release
+
+      # iOS 模拟器 x86_64 构建
+      - name: 构建 iOS 模拟器（x86_64）调试模板
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=ios target=template_debug ios_simulator=yes arch=x86_64
+          platform: ios
+          target: template_debug
 
       - name: 构建 iOS 模拟器（x86_64）发布模板
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=ios vulkan=True target=template_release ios_simulator=yes arch=x86_64 generate_bundle=yes
+          sconsflags: platform=ios target=template_release ios_simulator=yes arch=x86_64 generate_bundle=yes
           platform: ios
           target: template_release
 
+      # iOS 设备构建
       - name: 构建 iOS 设备调试模板
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=ios vulkan=True target=template_debug ios_simulator=no
+          sconsflags: platform=ios target=template_debug ios_simulator=no
           platform: ios
           target: template_debug
 
       - name: 构建 iOS 设备发布模板
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=ios vulkan=True target=template_release ios_simulator=no generate_bundle=yes
+          sconsflags: platform=ios target=template_release ios_simulator=no generate_bundle=yes
           platform: ios
           target: template_release
 
