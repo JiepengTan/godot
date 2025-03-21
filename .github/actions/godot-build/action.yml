@@ -32,5 +32,20 @@ runs:
       run: |
         echo "Building with flags:" platform=${{ inputs.platform }} target=${{ inputs.target }} tests=${{ inputs.tests }} ${{ env.SCONSFLAGS }}
         if [ "${{ inputs.target }}" != "editor" ]; then rm -rf editor; fi  # Ensure we don't include editor code.
-        scons platform=${{ inputs.platform }} target=${{ inputs.target }} tests=${{ inputs.tests }} ${{ env.SCONSFLAGS }}
+        # 显示当前缓存状态
+        echo "SCons cache location: $SCONS_CACHE"
+        mkdir -p $SCONS_CACHE
+        if [ -d "$SCONS_CACHE" ]; then
+          echo "Cache directory exists. Content:"
+          ls -la $SCONS_CACHE
+          echo "Cache size: $(du -sh $SCONS_CACHE | cut -f1)"
+        else
+          echo "Cache directory does not exist yet"
+        fi
+        # 使用缓存进行构建
+        echo "Running SCons with cache"
+        scons platform=${{ inputs.platform }} target=${{ inputs.target }} tests=${{ inputs.tests }} ${{ env.SCONSFLAGS }} 
+        echo "Build completed. New cache status:"
+        ls -la $SCONS_CACHE
+        echo "New cache size: $(du -sh $SCONS_CACHE | cut -f1)"
         ls -l bin/

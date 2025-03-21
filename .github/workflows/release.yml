@@ -11,7 +11,7 @@ on:
       platforms:
         description: '要构建的平台 (逗号分隔：android,ios,web,linux,macos,windows,all)'
         required: true
-        default: 'android'
+        default: 'android,linux,macos,windows'
 
 concurrency:
   group: ci-${{github.actor}}-${{github.head_ref || github.run_number}}-${{github.ref}}-release
@@ -88,9 +88,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{github.workspace}}/.scons-cache/
-          key: android-release-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}-${{github.sha}}
+          # 不使用SHA作为缓存键，这样不同提交间也能复用缓存
+          key: android-release-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}
           restore-keys: |
-            android-release-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}-
             android-release-${{env.GODOT_BASE_BRANCH}}-
             android-release-
 
@@ -177,9 +177,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{github.workspace}}/.scons-cache/
-          key: ios-release-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}-${{github.sha}}
+          # 不使用SHA作为缓存键，这样不同提交间也能复用缓存
+          key: ios-release-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}
           restore-keys: |
-            ios-release-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}-
             ios-release-${{env.GODOT_BASE_BRANCH}}-
             ios-release-
 
@@ -247,6 +247,187 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: bin/godot_ios.zip
+          tag_name: ${{ github.event.release.tag_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Windows PC editor 构建
+  windows-editor-build:
+    name: 🪟 Windows Editor 构建
+    needs: setup
+    if: contains(needs.setup.outputs.platforms, 'windows') || contains(needs.setup.outputs.platforms, 'all')
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # 为 Windows 构建设置共享缓存
+      - name: 设置构建缓存
+        uses: actions/cache@v4
+        with:
+          path: ${{github.workspace}}/.scons-cache/
+          # 不使用SHA作为缓存键，这样不同提交间也能复用缓存
+          key: windows-editor-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}
+          restore-keys: |
+            windows-editor-${{env.GODOT_BASE_BRANCH}}-
+            windows-editor-
+
+      - name: 设置 Python 和 SCons
+        uses: ./.github/actions/godot-deps
+
+      # Windows x86_64 editor 构建
+      - name: 构建 Windows Editor (x86_64)
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=windows target=editor arch=x86_64
+          platform: windows
+          target: editor
+
+      - name: 压缩 Windows Editor 构建
+        run: Compress-Archive -Path bin/godot.windows.editor.x86_64.exe -DestinationPath bin/godot-windows-editor-x86_64.zip
+        shell: pwsh
+
+      - name: 上传 Windows Editor 构建结果
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-editor-${{ needs.setup.outputs.version }}
+          path: bin/godot-windows-editor-x86_64.zip
+          retention-days: 14
+
+      - name: 发布到 GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: bin/godot-windows-editor-x86_64.zip
+          tag_name: ${{ github.event.release.tag_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Linux PC editor 构建
+  linux-editor-build:
+    name: 🐧 Linux Editor 构建
+    needs: setup
+    if: contains(needs.setup.outputs.platforms, 'linux') || contains(needs.setup.outputs.platforms, 'all')
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # 为 Linux 构建设置共享缓存
+      - name: 设置构建缓存
+        uses: actions/cache@v4
+        with:
+          path: ${{github.workspace}}/.scons-cache/
+          # 不使用SHA作为缓存键，这样不同提交间也能复用缓存
+          key: linux-editor-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}
+          restore-keys: |
+            linux-editor-${{env.GODOT_BASE_BRANCH}}-
+            linux-editor-
+
+      - name: 设置 Python 和 SCons
+        uses: ./.github/actions/godot-deps
+
+      # Linux x86_64 editor 构建
+      - name: 构建 Linux Editor (x86_64)
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=linuxbsd target=editor arch=x86_64
+          platform: linuxbsd
+          target: editor
+
+      - name: 压缩 Linux Editor 构建
+        run: |
+          chmod +x bin/godot.linuxbsd.editor.x86_64
+          tar -czf bin/godot-linux-editor-x86_64.tar.gz -C bin godot.linuxbsd.editor.x86_64
+
+      - name: 上传 Linux Editor 构建结果
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-editor-${{ needs.setup.outputs.version }}
+          path: bin/godot-linux-editor-x86_64.tar.gz
+          retention-days: 14
+
+      - name: 发布到 GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: bin/godot-linux-editor-x86_64.tar.gz
+          tag_name: ${{ github.event.release.tag_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # macOS PC editor 构建
+  macos-editor-build:
+    name: 🍎 macOS Editor 构建
+    needs: setup
+    if: contains(needs.setup.outputs.platforms, 'macos') || contains(needs.setup.outputs.platforms, 'all')
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # 为 macOS 构建设置共享缓存
+      - name: 设置构建缓存
+        uses: actions/cache@v4
+        with:
+          path: ${{github.workspace}}/.scons-cache/
+          # 不使用SHA作为缓存键，这样不同提交间也能复用缓存
+          key: macos-editor-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}
+          restore-keys: |
+            macos-editor-${{env.GODOT_BASE_BRANCH}}-
+            macos-editor-
+
+      - name: 设置 Python 和 SCons
+        uses: ./.github/actions/godot-deps
+
+      # macOS x86_64 editor 构建
+      - name: 构建 macOS Editor (x86_64)
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=macos target=editor arch=x86_64
+          platform: macos
+          target: editor
+
+      # macOS arm64 editor 构建
+      - name: 构建 macOS Editor (arm64)
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=macos target=editor arch=arm64
+          platform: macos
+          target: editor
+
+      # 创建 Universal Binary
+      - name: 创建 Universal Binary
+        run: |
+          mkdir -p universal/Godot.app/Contents/MacOS
+          lipo -create -output universal/Godot.app/Contents/MacOS/Godot bin/godot.macos.editor.x86_64 bin/godot.macos.editor.arm64
+          # 复制必要的文件和目录
+          cp -r misc/dist/macos_tools.app/* universal/Godot.app/
+          # 确保可执行权限
+          chmod +x universal/Godot.app/Contents/MacOS/Godot
+          # 压缩为 zip
+          cd universal
+          zip -r ../bin/godot-macos-editor-universal.zip Godot.app
+          cd ..
+
+      - name: 上传 macOS Editor 构建结果
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-editor-${{ needs.setup.outputs.version }}
+          path: bin/godot-macos-editor-universal.zip
+          retention-days: 14
+
+      - name: 发布到 GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: bin/godot-macos-editor-universal.zip
           tag_name: ${{ github.event.release.tag_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
