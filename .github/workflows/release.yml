@@ -11,7 +11,7 @@ on:
       platforms:
         description: '要构建的平台 (逗号分隔：android,ios,web,linux,macos,windows,all)'
         required: true
-        default: 'android,linux,macos,windows'
+        default: 'android,linux,macos,windows,web'
 
 concurrency:
   group: ci-${{github.actor}}-${{github.head_ref || github.run_number}}-${{github.ref}}-release
@@ -428,6 +428,90 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: bin/godot-macos-editor-universal.zip
+          tag_name: ${{ github.event.release.tag_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Web 平台构建
+  web-build:
+    name: 🌐 Web 构建
+    needs: setup
+    if: contains(needs.setup.outputs.platforms, 'web') || contains(needs.setup.outputs.platforms, 'all')
+    runs-on: ubuntu-22.04
+    env:
+      EM_VERSION: 3.1.39
+      EM_CACHE_FOLDER: "emsdk-cache"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # 设置 Emscripten
+      - name: 设置 Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: ${{env.EM_VERSION}}
+          actions-cache-folder: ${{env.EM_CACHE_FOLDER}}
+          cache-key: emsdk-web-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}
+      
+      - name: 验证 Emscripten 安装
+        run: |
+          emcc -v
+
+      # 为 Web 构建设置共享缓存
+      - name: 设置构建缓存
+        uses: actions/cache@v4
+        with:
+          path: ${{github.workspace}}/.scons-cache/
+          # 不使用SHA作为缓存键，这样不同提交间也能复用缓存
+          key: web-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}
+          restore-keys: |
+            web-${{env.GODOT_BASE_BRANCH}}-
+            web-
+
+      - name: 设置 Python 和 SCons
+        uses: ./.github/actions/godot-deps
+
+      # 构建 Web Editor
+      - name: 构建 Web Editor
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=web target=editor
+          platform: web
+          target: editor
+
+      # 构建 Web template_release
+      - name: 构建 Web Template Release
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=web target=template_release threads=no
+          platform: web
+          target: template_release
+
+      # 准备文件以便上传
+      - name: 准备文件
+        run: |
+          mkdir -p artifacts
+          cp bin/godot.web.editor.wasm32.zip artifacts/web_editor.zip
+          cp bin/godot.web.template_release.wasm32.zip artifacts/web_template_release.zip
+
+      - name: 上传 Web 构建结果
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-${{ needs.setup.outputs.version }}
+          path: |
+            artifacts/web_editor.zip
+            artifacts/web_template_release.zip
+          retention-days: 14
+
+      - name: 发布到 GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/web_editor.zip
+            artifacts/web_template_release.zip
           tag_name: ${{ github.event.release.tag_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
