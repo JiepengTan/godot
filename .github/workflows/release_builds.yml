@@ -259,6 +259,18 @@ jobs:
     needs: setup
     if: contains(needs.setup.outputs.platforms, 'windows') || contains(needs.setup.outputs.platforms, 'all')
     runs-on: windows-latest
+    strategy:
+      matrix:
+        arch: [x86_64, x86_32]
+        include:
+          - arch: x86_64
+            output_name: godot-windows-editor-x86_64.zip
+            renamed_output: editor-windows-x86-64.zip
+            artifact_name: editor-windows-x86-64
+          - arch: x86_32
+            output_name: godot-windows-editor-x86_32.zip
+            renamed_output: editor-windows-x86-32.zip
+            artifact_name: editor-windows-x86-32
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -271,44 +283,44 @@ jobs:
         with:
           path: ${{github.workspace}}/.scons-cache/
           # Do not use SHA in cache key to allow cache reuse across commits
-          key: windows-editor-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}
+          key: windows-editor-${{ matrix.arch }}-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}
           restore-keys: |
-            windows-editor-${{env.GODOT_BASE_BRANCH}}-
-            windows-editor-
+            windows-editor-${{ matrix.arch }}-${{env.GODOT_BASE_BRANCH}}-
+            windows-editor-${{ matrix.arch }}-
 
       - name: Setup Python and SCons
         uses: ./.github/actions/godot-deps
 
-      # Windows x86_64 editor build
-      - name: Build Windows Editor (x86_64)
+      # Windows editor build with matrix arch
+      - name: Build Windows Editor (${{ matrix.arch }})
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=windows target=editor arch=x86_64
+          sconsflags: platform=windows target=editor arch=${{ matrix.arch }}
           platform: windows
           target: editor
 
       - name: Compress Windows Editor Build
-        run: Compress-Archive -Path bin/godot.windows.editor.x86_64.exe -DestinationPath bin/godot-windows-editor-x86_64.zip
+        run: Compress-Archive -Path bin/godot.windows.editor.${{ matrix.arch }}.exe -DestinationPath bin/${{ matrix.output_name }}
         shell: pwsh
 
       - name: Upload Windows Editor Build Results
         uses: actions/upload-artifact@v4
         with:
-          name: editor-windows-x86-64-${{ needs.setup.outputs.version }}
-          path: bin/godot-windows-editor-x86_64.zip
+          name: ${{ matrix.artifact_name }}-${{ needs.setup.outputs.version }}
+          path: bin/${{ matrix.output_name }}
           retention-days: 14
 
       - name: Rename Windows file for GitHub Release
         if: github.event_name == 'release'
         run: |
-          cp bin/godot-windows-editor-x86_64.zip bin/editor-windows-x86-64.zip
+          cp bin/${{ matrix.output_name }} bin/${{ matrix.renamed_output }}
         shell: bash
 
       - name: Publish to GitHub Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v1
         with:
-          files: bin/editor-windows-x86-64.zip
+          files: bin/${{ matrix.renamed_output }}
           tag_name: ${{ github.event.release.tag_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -319,6 +331,26 @@ jobs:
     needs: setup
     if: contains(needs.setup.outputs.platforms, 'linux') || contains(needs.setup.outputs.platforms, 'all')
     runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        arch: [x86_64, x86_32, arm64, arm32]
+        include:
+          - arch: x86_64
+            output_name: godot-linux-editor-x86_64.zip
+            renamed_output: editor-linux-x86-64.zip
+            artifact_name: editor-linux-x86-64
+          - arch: x86_32
+            output_name: godot-linux-editor-x86_32.zip
+            renamed_output: editor-linux-x86-32.zip
+            artifact_name: editor-linux-x86-32
+          - arch: arm64
+            output_name: godot-linux-editor-arm64.zip
+            renamed_output: editor-linux-arm64.zip
+            artifact_name: editor-linux-arm64
+          - arch: arm32
+            output_name: godot-linux-editor-arm32.zip
+            renamed_output: editor-linux-arm32.zip
+            artifact_name: editor-linux-arm32
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -331,78 +363,44 @@ jobs:
         with:
           path: ${{github.workspace}}/.scons-cache/
           # Do not use SHA in cache key to allow cache reuse across commits
-          key: linux-editor-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}
+          key: linux-editor-${{ matrix.arch }}-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}
           restore-keys: |
-            linux-editor-${{env.GODOT_BASE_BRANCH}}-
-            linux-editor-
+            linux-editor-${{ matrix.arch }}-${{env.GODOT_BASE_BRANCH}}-
+            linux-editor-${{ matrix.arch }}-
 
       - name: Setup Python and SCons
         uses: ./.github/actions/godot-deps
 
-      # Linux x86_64 editor build
-      - name: Build Linux Editor (x86_64)
+      # Linux editor build with matrix arch
+      - name: Build Linux Editor (${{ matrix.arch }})
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=linuxbsd target=editor arch=x86_64
+          sconsflags: platform=linuxbsd target=editor arch=${{ matrix.arch }}
           platform: linuxbsd
           target: editor
 
       - name: Compress Linux Editor Build
         run: |
-          chmod +x bin/godot.linuxbsd.editor.x86_64
-          zip -r bin/godot-linux-editor-x86_64.zip bin/godot.linuxbsd.editor.x86_64
+          chmod +x bin/godot.linuxbsd.editor.${{ matrix.arch }}
+          zip -r bin/${{ matrix.output_name }} bin/godot.linuxbsd.editor.${{ matrix.arch }}
 
       - name: Upload Linux Editor Build Results
         uses: actions/upload-artifact@v4
         with:
-          name: editor-linux-x86-64-${{ needs.setup.outputs.version }}
-          path: bin/godot-linux-editor-x86_64.zip
+          name: ${{ matrix.artifact_name }}-${{ needs.setup.outputs.version }}
+          path: bin/${{ matrix.output_name }}
           retention-days: 14
 
-      - name: Rename Linux x86-64 file for GitHub Release
+      - name: Rename Linux file for GitHub Release
         if: github.event_name == 'release'
         run: |
-          cp bin/godot-linux-editor-x86_64.zip bin/editor-linux-x86-64.zip
+          cp bin/${{ matrix.output_name }} bin/${{ matrix.renamed_output }}
 
       - name: Publish to GitHub Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v1
         with:
-          files: bin/editor-linux-x86-64.zip
-          tag_name: ${{ github.event.release.tag_name }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # Linux ARM64 editor build
-      - name: Build Linux Editor (arm64)
-        uses: ./.github/actions/godot-build
-        with:
-          sconsflags: platform=linuxbsd target=editor arch=arm64
-          platform: linuxbsd
-          target: editor
-
-      - name: Compress Linux ARM64 Editor Build
-        run: |
-          chmod +x bin/godot.linuxbsd.editor.arm64
-          zip -r bin/godot-linux-editor-arm64.zip bin/godot.linuxbsd.editor.arm64
-
-      - name: Upload Linux ARM64 Editor Build Results
-        uses: actions/upload-artifact@v4
-        with:
-          name: editor-linux-arm64-${{ needs.setup.outputs.version }}
-          path: bin/godot-linux-editor-arm64.zip
-          retention-days: 14
-
-      - name: Rename Linux ARM64 file for GitHub Release
-        if: github.event_name == 'release'
-        run: |
-          cp bin/godot-linux-editor-arm64.zip bin/editor-linux-arm64.zip
-
-      - name: Publish to GitHub Release
-        if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v1
-        with:
-          files: bin/editor-linux-arm64.zip
+          files: bin/${{ matrix.renamed_output }}
           tag_name: ${{ github.event.release.tag_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
