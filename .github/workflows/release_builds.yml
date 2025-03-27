@@ -235,15 +235,20 @@ jobs:
       - name: Upload iOS Build Results
         uses: actions/upload-artifact@v4
         with:
-          name: ios-templates-${{ needs.setup.outputs.version }}
+          name: ios-${{ needs.setup.outputs.version }}
           path: bin/godot_ios.zip
           retention-days: 14
+
+      - name: Rename iOS file for GitHub Release
+        if: github.event_name == 'release'
+        run: |
+          cp bin/godot_ios.zip bin/ios.zip
 
       - name: Publish to GitHub Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v1
         with:
-          files: bin/godot_ios.zip
+          files: bin/ios.zip
           tag_name: ${{ github.event.release.tag_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -289,15 +294,21 @@ jobs:
       - name: Upload Windows Editor Build Results
         uses: actions/upload-artifact@v4
         with:
-          name: windows-editor-${{ needs.setup.outputs.version }}
+          name: editor-windows-x86-64-${{ needs.setup.outputs.version }}
           path: bin/godot-windows-editor-x86_64.zip
           retention-days: 14
+
+      - name: Rename Windows file for GitHub Release
+        if: github.event_name == 'release'
+        run: |
+          cp bin/godot-windows-editor-x86_64.zip bin/editor-windows-x86-64.zip
+        shell: bash
 
       - name: Publish to GitHub Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v1
         with:
-          files: bin/godot-windows-editor-x86_64.zip
+          files: bin/editor-windows-x86-64.zip
           tag_name: ${{ github.event.release.tag_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -339,20 +350,59 @@ jobs:
       - name: Compress Linux Editor Build
         run: |
           chmod +x bin/godot.linuxbsd.editor.x86_64
-          tar -czf bin/godot-linux-editor-x86_64.tar.gz -C bin godot.linuxbsd.editor.x86_64
+          zip -r bin/godot-linux-editor-x86_64.zip bin/godot.linuxbsd.editor.x86_64
 
       - name: Upload Linux Editor Build Results
         uses: actions/upload-artifact@v4
         with:
-          name: linux-editor-${{ needs.setup.outputs.version }}
-          path: bin/godot-linux-editor-x86_64.tar.gz
+          name: editor-linux-x86-64-${{ needs.setup.outputs.version }}
+          path: bin/godot-linux-editor-x86_64.zip
           retention-days: 14
+
+      - name: Rename Linux x86-64 file for GitHub Release
+        if: github.event_name == 'release'
+        run: |
+          cp bin/godot-linux-editor-x86_64.zip bin/editor-linux-x86-64.zip
 
       - name: Publish to GitHub Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v1
         with:
-          files: bin/godot-linux-editor-x86_64.tar.gz
+          files: bin/editor-linux-x86-64.zip
+          tag_name: ${{ github.event.release.tag_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Linux ARM64 editor build
+      - name: Build Linux Editor (arm64)
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=linuxbsd target=editor arch=arm64
+          platform: linuxbsd
+          target: editor
+
+      - name: Compress Linux ARM64 Editor Build
+        run: |
+          chmod +x bin/godot.linuxbsd.editor.arm64
+          zip -r bin/godot-linux-editor-arm64.zip bin/godot.linuxbsd.editor.arm64
+
+      - name: Upload Linux ARM64 Editor Build Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: editor-linux-arm64-${{ needs.setup.outputs.version }}
+          path: bin/godot-linux-editor-arm64.zip
+          retention-days: 14
+
+      - name: Rename Linux ARM64 file for GitHub Release
+        if: github.event_name == 'release'
+        run: |
+          cp bin/godot-linux-editor-arm64.zip bin/editor-linux-arm64.zip
+
+      - name: Publish to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: bin/editor-linux-arm64.zip
           tag_name: ${{ github.event.release.tag_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -416,15 +466,20 @@ jobs:
       - name: Upload macOS Editor Build Results
         uses: actions/upload-artifact@v4
         with:
-          name: macos-editor-${{ needs.setup.outputs.version }}
+          name: editor-macos-universal-${{ needs.setup.outputs.version }}
           path: bin/godot-macos-editor-universal.zip
           retention-days: 14
+
+      - name: Rename macOS file for GitHub Release
+        if: github.event_name == 'release'
+        run: |
+          cp bin/godot-macos-editor-universal.zip bin/editor-macos-universal.zip
 
       - name: Publish to GitHub Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v1
         with:
-          files: bin/godot-macos-editor-universal.zip
+          files: bin/editor-macos-universal.zip
           tag_name: ${{ github.event.release.tag_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -487,15 +542,20 @@ jobs:
       - name: Upload Web Editor Build Results
         uses: actions/upload-artifact@v4
         with:
-          name: web-editor-${{ needs.setup.outputs.version }}
+          name: editor-web-${{ needs.setup.outputs.version }}
           path: artifacts/web_editor.zip
           retention-days: 14
+
+      - name: Rename Web Editor file for GitHub Release
+        if: github.event_name == 'release'
+        run: |
+          cp artifacts/web_editor.zip bin/editor-web.zip
 
       - name: Publish to GitHub Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v1
         with:
-          files: artifacts/web_editor.zip
+          files: bin/editor-web.zip
           tag_name: ${{ github.event.release.tag_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -558,15 +618,20 @@ jobs:
       - name: Upload Web Template Build Results
         uses: actions/upload-artifact@v4
         with:
-          name: web-template-${{ needs.setup.outputs.version }}
+          name: web-${{ needs.setup.outputs.version }}
           path: artifacts/web_template_release.zip
           retention-days: 14
+
+      - name: Rename Web Template file for GitHub Release
+        if: github.event_name == 'release'
+        run: |
+          cp artifacts/web_template_release.zip bin/web.zip
 
       - name: Publish to GitHub Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v1
         with:
-          files: artifacts/web_template_release.zip
+          files: bin/web.zip
           tag_name: ${{ github.event.release.tag_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
