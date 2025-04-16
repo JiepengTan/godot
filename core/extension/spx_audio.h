@@ -39,9 +39,9 @@ class AudioStreamPlayer2D;
 
 class SpxAudio {
 private:
+	RBMap<GdObj, AudioStreamPlayer2D *> id_audios;
 	List<AudioStreamPlayer2D *> audios;
 	List<AudioStreamPlayer2D *> loop_audios;
-	AudioStreamPlayer2D *cur_audio = nullptr;
 	Node *root;
 	GdObj id;
 
@@ -52,7 +52,7 @@ private:
 
 private:
 	void on_bus_dirty();
-
+	AudioStreamPlayer2D *_get_audio(GdInt aid);
 public:
 	void on_create(GdObj id, Node *root);
 	void on_destroy();
@@ -67,16 +67,16 @@ public:
 	void set_volume(GdFloat volume);
 	GdFloat get_volume();
 
-	void play(GdString path);
-	void pause();
-	void resume();
-	void stop();
-    void set_loop(GdBool loop);
-	GdBool get_loop();
+	void play(GdInt aid, GdString path);
+	void pause(GdInt aid);
+	void resume(GdInt aid);
+	void stop(GdInt aid);
+    void set_loop(GdInt aid, GdBool loop);
+	GdBool get_loop(GdInt aid);
 
-	GdFloat get_timer();
-	void set_timer(GdFloat time);
-	GdBool is_playing();
+	GdFloat get_timer(GdInt aid);
+	void set_timer(GdInt aid, GdFloat time);
+	GdBool is_playing(GdInt aid);
 };
 
 #endif // SPX_AUDIO_H

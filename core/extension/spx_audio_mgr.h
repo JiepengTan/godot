@@ -48,11 +48,14 @@ class SpxAudioMgr : SpxBaseMgr {
 
 private:
 	RBMap<GdObj, SpxAudio *> id_audios;
+	RBMap<GdInt, SpxAudio *> aid_audios;
 	Node *root = nullptr;
+	GdObj g_audio_id;
 
 	static Mutex lock;
 	SpxAudio *_get_audio(GdObj obj);
-
+	SpxAudio *_get_aid_audio(GdInt aid);
+	
 public:
 	virtual ~SpxAudioMgr() = default; // Added virtual destructor to fix -Werror=non-virtual-dtor
 
@@ -71,19 +74,21 @@ public:
 	GdFloat get_pitch(GdObj obj);
 	void set_pan(GdObj obj, GdFloat pan);
 	GdFloat get_pan(GdObj obj);
-
-	void play(GdObj obj, GdString path);
-	void pause(GdObj obj);
-	void resume(GdObj obj);
-	void stop(GdObj obj);
-	void set_loop(GdObj obj, GdBool loop);
-	GdBool get_loop(GdObj obj);
-	
-	GdFloat get_timer(GdObj obj);
-	void set_timer(GdObj obj, GdFloat time);
-	GdBool is_playing(GdObj obj);
 	void set_volume(GdObj obj, GdFloat volume);
 	GdFloat get_volume(GdObj obj);
+
+	// play audio and return the audioid
+	GdInt play(GdObj obj, GdString path);
+	void pause(GdInt aid);
+	void resume(GdInt aid);
+	void stop(GdInt aid);
+	void set_loop(GdInt aid, GdBool loop);
+	GdBool get_loop(GdInt aid);
+	
+	GdFloat get_timer(GdInt aid);
+	void set_timer(GdInt aid, GdFloat time);
+	GdBool is_playing(GdInt aid);
+	
 };
 
 #endif // SPX_AUDIO_MGR_H

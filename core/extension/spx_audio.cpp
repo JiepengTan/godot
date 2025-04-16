@@ -39,7 +39,29 @@
 #define audioMgr SpxEngine::get_singleton()->get_audio()
 #define audioPool SpxAudioBusPool::get_singleton()
 
-void SpxAudio::on_create(GdObj id, Node *root) {
+#define check_and_get_audio_v()                                               \
+	auto audio = _get_audio(aid);                                             \
+	if (audio == nullptr) {                                                   \
+		print_error("try to get property of a null audio gaid=" + itos(aid)); \
+		return;                                                               \
+	}
+
+#define check_and_get_audio_r(VALUE)                                          \
+	auto audio = _get_audio(aid);                                             \
+	if (audio == nullptr) {                                                   \
+		print_error("try to get property of a null audio gaid=" + itos(aid)); \
+		return VALUE;                                                         \
+	}
+
+AudioStreamPlayer2D *SpxAudio::_get_audio(GdInt aid) {
+	if (id_audios.has(aid)) {
+		return id_audios[id];
+	}
+	return nullptr;
+}
+
+
+void SpxAudio::on_create(GdInt id, Node *root) {
 	this->root = root;
 	this->id = id;
 	bus_id = SpxAudioBusPool::BUS_SFX;
@@ -59,24 +81,17 @@ void SpxAudio::stop_all() {
 	}
 	loop_audios.clear();
 
-	if (cur_audio) {
-		pause();
-	}
+	id_audios.clear();
 }
 
 void SpxAudio::on_destroy() {
 	stop_all();
-	if (cur_audio) {
-		cur_audio->queue_free();
-		cur_audio = nullptr;
-	}
 	// free the bus
 	if (bus_id != SpxAudioBusPool::BUS_SFX) {
 		audioPool->free(bus_id);
 	}
 }
 void SpxAudio::on_update(float delta) {
-
 	// check the audio is done
 	for (auto item = audios.front(); item;) {
 		const auto audio = item->get();
@@ -84,9 +99,7 @@ void SpxAudio::on_update(float delta) {
 		if (!audio->is_playing()) {
 			audio->queue_free();
 			audios.erase(item);
-			if (cur_audio == audio) {
-				cur_audio = nullptr;
-			}
+			id_audios.erase(id);
 		}
 		item = next;
 	}
@@ -101,7 +114,7 @@ void SpxAudio::on_update(float delta) {
 	}
 }
 
-void SpxAudio::play(GdString path) {
+void SpxAudio::play(GdInt aid, GdString path) {
 	auto path_str = SpxStr(path);
 	Ref<AudioStream> stream = resMgr->load_audio(path_str);
 	auto audio = memnew(AudioStreamPlayer2D);
@@ -112,77 +125,62 @@ void SpxAudio::play(GdString path) {
 	audio->set_name(path_str);
 	audio->set_pitch_scale(get_pitch());
 	audios.push_back(audio);
-	cur_audio = audio;
+	id_audios[id] = audio;
 }
 
-GdBool SpxAudio::is_playing() {
-	if (!cur_audio) {
-		return false;
-	}
-	return cur_audio->is_playing();
+GdBool SpxAudio::is_playing(GdInt aid) {
+	check_and_get_audio_r(false)
+	return audio->is_playing();
 }
 
-void SpxAudio::pause() {
-	if (!cur_audio) {
-		return;
-	}
-	cur_audio->set_stream_paused(true);
+void SpxAudio::pause(GdInt aid) {
+	check_and_get_audio_v()
+	audio->set_stream_paused(true);
 }
 
-void SpxAudio::resume() {
-	if (!cur_audio) {
-		return;
-	}
-	cur_audio->set_stream_paused(false);
+void SpxAudio::resume(GdInt aid) {
+	check_and_get_audio_v()
+	audio->set_stream_paused(false);
 }
 
-void SpxAudio::stop() {
-	if (!cur_audio) {
-		return;
-	}
-	cur_audio->stop();
+void SpxAudio::stop(GdInt aid) {
+	check_and_get_audio_v()
+	audio->stop();
 }
 
-void SpxAudio::set_loop(GdBool loop) {
-	if (!cur_audio) {
-		return;
-	}
+void SpxAudio::set_loop(GdInt aid, GdBool loop) {
+	check_and_get_audio_v()
 	if (loop) {
-		auto succ = audios.erase(cur_audio);
+		auto succ = audios.erase(audio);
 		if (succ) {
-			loop_audios.push_back(cur_audio);
+			loop_audios.push_back(audio);
 		}
 	} else {
-		auto succ = loop_audios.erase(cur_audio);
+		auto succ = loop_audios.erase(audio);
 		if (succ) {
-			audios.push_back(cur_audio);
+			audios.push_back(audio);
 		}
 	}
 }
 
-GdBool SpxAudio::get_loop() {
-	if (!cur_audio) {
-		return false;
-	}
-	return loop_audios.find(cur_audio) != nullptr;
+GdBool SpxAudio::get_loop(GdInt aid) {
+	check_and_get_audio_r(false)
+	return loop_audios.find(audio) != nullptr;
 }
 
-GdFloat SpxAudio::get_timer() {
-	if (!cur_audio) {
-		return 0;
-	}
-	return cur_audio->get_playback_position();
+GdFloat SpxAudio::get_timer(GdInt aid) {
+	check_and_get_audio_r(0)
+	return audio->get_playback_position();
 }
 
-void SpxAudio::set_timer(GdFloat time) {
-	if (!cur_audio) {
-		return;
-	}
-	cur_audio->seek(time);
+void SpxAudio::set_timer(GdInt aid, GdFloat time) {
+	check_and_get_audio_v()
+	audio->seek(time);
 }
 
 void SpxAudio::set_pitch(GdFloat pitch) {
 	cur_pitch = pitch;
+	// is need to update the pitch of the all audios ?
 }
 
 GdFloat SpxAudio::get_pitch() {
@@ -211,8 +209,15 @@ void SpxAudio::on_bus_dirty() {
 	if (bus_id == SpxAudioBusPool::BUS_SFX) {
 		bus_id = audioPool->alloc();
 		bus_name = audioPool->get_bus_name(bus_id);
-		if (cur_audio != nullptr) {
-			cur_audio->set_bus(bus_name);
+
+		for (auto item = audios.front(); item;) {
+			item->get()->set_bus(bus_name);
+			item = item->next();
+		}
+
+		for (auto item = loop_audios.front(); item;) {
+			item->get()->set_bus(bus_name);
+			item = item->next();
 		}
 	}
 }

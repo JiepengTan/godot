@@ -89,48 +89,48 @@ void gdspx_audio_get_pan(GdObj* obj,GdFloat* ret_val) {
 	*ret_val = audioMgr->get_pan(*obj);
 }
 EMSCRIPTEN_KEEPALIVE
-void gdspx_audio_play(GdObj* obj,GdString* path) {
-	 audioMgr->play(*obj, *path);
-}
-EMSCRIPTEN_KEEPALIVE
-void gdspx_audio_pause(GdObj* obj) {
-	 audioMgr->pause(*obj);
-}
-EMSCRIPTEN_KEEPALIVE
-void gdspx_audio_resume(GdObj* obj) {
-	 audioMgr->resume(*obj);
-}
-EMSCRIPTEN_KEEPALIVE
-void gdspx_audio_stop(GdObj* obj) {
-	 audioMgr->stop(*obj);
-}
-EMSCRIPTEN_KEEPALIVE
-void gdspx_audio_set_loop(GdObj* obj,GdBool* loop) {
-	 audioMgr->set_loop(*obj, *loop);
-}
-EMSCRIPTEN_KEEPALIVE
-void gdspx_audio_get_loop(GdObj* obj,GdBool* ret_val) {
-	*ret_val = audioMgr->get_loop(*obj);
-}
-EMSCRIPTEN_KEEPALIVE
-void gdspx_audio_get_timer(GdObj* obj,GdFloat* ret_val) {
-	*ret_val = audioMgr->get_timer(*obj);
-}
-EMSCRIPTEN_KEEPALIVE
-void gdspx_audio_set_timer(GdObj* obj,GdFloat* time) {
-	 audioMgr->set_timer(*obj, *time);
-}
-EMSCRIPTEN_KEEPALIVE
-void gdspx_audio_is_playing(GdObj* obj,GdBool* ret_val) {
-	*ret_val = audioMgr->is_playing(*obj);
-}
-EMSCRIPTEN_KEEPALIVE
 void gdspx_audio_set_volume(GdObj* obj,GdFloat* volume) {
 	 audioMgr->set_volume(*obj, *volume);
 }
 EMSCRIPTEN_KEEPALIVE
 void gdspx_audio_get_volume(GdObj* obj,GdFloat* ret_val) {
 	*ret_val = audioMgr->get_volume(*obj);
+}
+EMSCRIPTEN_KEEPALIVE
+void gdspx_audio_play(GdObj* obj,GdString* path,GdInt* ret_val) {
+	*ret_val = audioMgr->play(*obj, *path);
+}
+EMSCRIPTEN_KEEPALIVE
+void gdspx_audio_pause(GdInt* aid) {
+	 audioMgr->pause(*aid);
+}
+EMSCRIPTEN_KEEPALIVE
+void gdspx_audio_resume(GdInt* aid) {
+	 audioMgr->resume(*aid);
+}
+EMSCRIPTEN_KEEPALIVE
+void gdspx_audio_stop(GdInt* aid) {
+	 audioMgr->stop(*aid);
+}
+EMSCRIPTEN_KEEPALIVE
+void gdspx_audio_set_loop(GdInt* aid,GdBool* loop) {
+	 audioMgr->set_loop(*aid, *loop);
+}
+EMSCRIPTEN_KEEPALIVE
+void gdspx_audio_get_loop(GdInt* aid,GdBool* ret_val) {
+	*ret_val = audioMgr->get_loop(*aid);
+}
+EMSCRIPTEN_KEEPALIVE
+void gdspx_audio_get_timer(GdInt* aid,GdFloat* ret_val) {
+	*ret_val = audioMgr->get_timer(*aid);
+}
+EMSCRIPTEN_KEEPALIVE
+void gdspx_audio_set_timer(GdInt* aid,GdFloat* time) {
+	 audioMgr->set_timer(*aid, *time);
+}
+EMSCRIPTEN_KEEPALIVE
+void gdspx_audio_is_playing(GdInt* aid,GdBool* ret_val) {
+	*ret_val = audioMgr->is_playing(*aid);
 }
 EMSCRIPTEN_KEEPALIVE
 void gdspx_camera_get_camera_position(GdVec2* ret_val) {

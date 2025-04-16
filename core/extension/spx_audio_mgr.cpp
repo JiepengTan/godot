@@ -51,6 +51,37 @@
 		return VALUE;                                                         \
 	}
 
+#define check_and_get_aid_audio_v()                                           \
+	auto audio = _get_aid_audio(aid);                                         \
+	if (audio == nullptr) {                                                   \
+		print_error("try to get property of a null audio gid=" + itos(aid));  \
+		return;                                                               \
+	}
+
+#define check_and_get_aid_audio_r(VALUE)                                      \
+	auto audio = _get_aid_audio(aid);                                         \
+	if (audio == nullptr) {                                                   \
+		print_error("try to get property of a null audio gid=" + itos(aid));  \
+		return VALUE;                                                         \
+	}
+
+
+SpxAudio *SpxAudioMgr::_get_audio(GdObj obj) {
+	if (id_audios.has(obj)) {
+		return id_audios[obj];
+	}
+	return nullptr;
+}
+
+SpxAudio *SpxAudioMgr::_get_aid_audio(GdInt aid) {
+	if (aid_audios.has(aid)) {
+		return aid_audios[aid];
+	}
+	return nullptr;
+}
+	
+
+
 Mutex SpxAudioMgr::lock;
 
 void SpxAudioMgr::on_awake() {
@@ -61,6 +92,7 @@ void SpxAudioMgr::on_awake() {
 	root = memnew(Node2D);
 	root->set_name("audio_root");
 	get_spx_root()->add_child(root);
+	g_audio_id = 0;
 
 }
 
@@ -83,22 +115,18 @@ void SpxAudioMgr::on_destroy() {
 		root->queue_free();
 		root = nullptr;
 	}
+	aid_audios.clear();
 	lock.unlock();
 	SpxBaseMgr::on_destroy();
 }
 
-SpxAudio *SpxAudioMgr::_get_audio(GdObj obj) {
-	if (id_audios.has(obj)) {
-		return id_audios[obj];
-	}
-	return nullptr;
-}
 
 void SpxAudioMgr::stop_all() {
 	lock.lock();
 	for (const KeyValue<GdObj, SpxAudio *> &E : id_audios) {
 		E.value->stop_all();
 	}
+	aid_audios.clear();
 	lock.unlock();
 }
 
@@ -118,54 +146,21 @@ void SpxAudioMgr::destroy_audio(GdObj obj) {
 	if (audio != nullptr) {
 		id_audios.erase(obj);
 		audio->on_destroy();
+
+		// remove audio from aid_audios
+		Vector<GdInt> keys;
+		for (const KeyValue<GdInt, SpxAudio *> &E : aid_audios) {
+			if (E.value == audio) {
+				keys.push_back(E.key);
+			}
+		}
+		for (const GdInt &key : keys) {
+			aid_audios.erase(key);
+		}
 	}
 	lock.unlock();
 }
 
-GdBool SpxAudioMgr::is_playing(GdObj obj) {
-	check_and_get_audio_r(false)
-	return audio->is_playing();
-}
-
-void SpxAudioMgr::play(GdObj obj, GdString path) {
-	check_and_get_audio_v()
-	audio->play(path);
-}
-
-void SpxAudioMgr::pause(GdObj obj) {
-	check_and_get_audio_v()
-	audio->pause();
-}
-
-void SpxAudioMgr::resume(GdObj obj) {
-	check_and_get_audio_v()
-	audio->resume();
-}
-
-void SpxAudioMgr::stop(GdObj obj) {
-	check_and_get_audio_v()
-	audio->stop();
-}
-
-void SpxAudioMgr::set_loop(GdObj obj, GdBool loop) {
-	check_and_get_audio_v()
-	audio->set_loop(loop);
-}
-
-GdBool SpxAudioMgr::get_loop(GdObj obj) {
-	check_and_get_audio_r(false)
-	return audio->get_loop();
-}
-
-GdFloat SpxAudioMgr::get_timer(GdObj obj) {
-	check_and_get_audio_r(0.0)
-	return audio->get_timer();
-}
-
-void SpxAudioMgr::set_timer(GdObj obj, GdFloat time) {
-	check_and_get_audio_v()
-	audio->set_timer(time);
-}
 
 void SpxAudioMgr::set_pitch(GdObj obj, GdFloat pitch) {
 	check_and_get_audio_v()
@@ -193,3 +188,52 @@ GdFloat SpxAudioMgr::get_volume(GdObj obj) {
 	check_and_get_audio_r(0.0)
 	return audio->get_volume();
 }
+
+GdInt SpxAudioMgr::play(GdObj obj, GdString path) {
+	check_and_get_audio_r(0)
+	g_audio_id++;
+	aid_audios[g_audio_id] = audio;
+	audio->play(g_audio_id, path);
+	return g_audio_id;
+}
+
+GdBool SpxAudioMgr::is_playing(GdInt aid) {
+	check_and_get_aid_audio_r(false)
+	return audio->is_playing(aid);
+}
+
+void SpxAudioMgr::pause(GdInt aid) {
+	check_and_get_aid_audio_v()
+	audio->pause(aid);
+}
+
+void SpxAudioMgr::resume(GdInt aid) {
+	check_and_get_aid_audio_v()
+	audio->resume(aid);
+}
+
+void SpxAudioMgr::stop(GdInt aid) {
+	check_and_get_aid_audio_v()
+	audio->stop(aid);
+}
+
+void SpxAudioMgr::set_loop(GdInt aid, GdBool loop) {
+	check_and_get_aid_audio_v()
+	audio->set_loop(aid, loop);
+}
+
+GdBool SpxAudioMgr::get_loop(GdInt aid) {
+	check_and_get_aid_audio_r(false)
+	return audio->get_loop(aid);
+}
+
+GdFloat SpxAudioMgr::get_timer(GdInt aid) {
+	check_and_get_aid_audio_r(0.0)
+	return audio->get_timer(aid);
+}
+
+void SpxAudioMgr::set_timer(GdInt aid, GdFloat time) {
+	check_and_get_aid_audio_v()
+	audio->set_timer(aid, time);
+}
+
