@@ -40,7 +40,6 @@ public:                               \
 
 #define SpxCharPtr(str) (((const String *)str)->utf8().get_data())
 #define SpxStr(str) (((const String *)str)->clone())
-#define SpxStrName(str) StringName(*(const String *)str)
 
 #define inputMgr SpxEngine::get_singleton()->get_input()
 #define audioMgr SpxEngine::get_singleton()->get_audio()
