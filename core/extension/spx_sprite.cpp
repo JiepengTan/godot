@@ -465,7 +465,6 @@ GdBool SpxSprite::is_playing_anim() const {
 }
 
 void SpxSprite::set_anim(GdString p_name) {
-	print_line("set_anim: ====================" + SpxStr(p_name));
 	auto anim_name = SpxStr(p_name);
 	anim2d->set_animation(StringName(anim_name));
 }
