@@ -226,7 +226,7 @@ GdInt SpxSpriteMgr::create_sprite(GdString path) {
 
 // sprite
 GdInt SpxSpriteMgr::_create_sprite(GdString path, GdBool is_backdrop) {
-	const String path_str = String(*(const String *)path);
+	const String path_str = SpxStr(path);
 	SpxSprite *sprite = nullptr;
 	if (path_str == "") {
 		sprite = memnew(SpxSprite);
