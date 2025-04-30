@@ -33,10 +33,15 @@
 #include "scene/2d/node_2d.h"
 #include "scene/main/window.h"
 
-String SpxBaseMgr::temp_return_str;
-
 GdInt SpxBaseMgr::get_unique_id() {
 	return SpxEngine::get_singleton()->get_unique_id();
+}
+
+GdString SpxBaseMgr::to_return_cstr(const String& ret_val) {
+	auto cstr = ret_val.utf8();
+	char* result = (char*)malloc(cstr.size() + 1);
+	strcpy(result, cstr.get_data());
+	return result;
 }
 
 Window *SpxBaseMgr::get_root() {

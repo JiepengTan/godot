@@ -130,8 +130,7 @@ void SpxUi::set_font(GdString path) {
 }
 
 GdString SpxUi::get_font() {
-	SpxBaseMgr::temp_return_str = "";
-	return &SpxBaseMgr::temp_return_str;
+	return SpxReturnStr("");
 }
 
 void SpxUi::set_visible(GdBool visible) {
@@ -185,8 +184,7 @@ GdString SpxUi::get_text() {
 			print_error("not support get_text() type " + itos(type));
 			break;
 	}
-	SpxBaseMgr::temp_return_str = value;
-	return &SpxBaseMgr::temp_return_str;
+	return SpxReturnStr(value);
 }
 
 void SpxUi::set_texture(GdString path) {
@@ -232,8 +230,7 @@ GdString SpxUi::get_texture() {
 	}
 	if (value == nullptr)
 		return nullptr;
-	SpxBaseMgr::temp_return_str = value->get_name();
-	return &SpxBaseMgr::temp_return_str;
+	return SpxReturnStr(value->get_name());
 }
 
 GdInt SpxUi::get_layout_direction() {

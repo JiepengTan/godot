@@ -326,8 +326,8 @@ GdString SpxSprite::get_material_shader() {
 	{
 		return nullptr;
 	}
-	SpxBaseMgr::temp_return_str = default_material.ptr()->get_shader()->get_path();
-	return &SpxBaseMgr::temp_return_str;
+	auto path = default_material.ptr()->get_shader()->get_path();
+	return SpxReturnStr(path);
 }
 
 void SpxSprite::set_material_params(GdString effect, GdFloat amount) {
@@ -433,8 +433,7 @@ GdString SpxSprite::get_texture() {
 	auto tex = anim2d->get_sprite_frames()->get_frame_texture(SpxSpriteMgr::default_texture_anim, 0);
 	if (tex == nullptr)
 		return nullptr;
-	SpxBaseMgr::temp_return_str = tex->get_name();
-	return &SpxBaseMgr::temp_return_str;
+	return SpxReturnStr(tex->get_name());
 }
 
 void SpxSprite::play_anim(GdString p_name, GdFloat p_speed, GdBool isLoop, GdBool p_from_end) {

@@ -326,7 +326,7 @@ GdString SpxResMgr::read_all_text(GdString p_path) {
 	auto path = SpxStr(p_path);
 	path = _to_engine_path(path);
 	Ref<FileAccess> file = FileAccess::open(path, FileAccess::READ);
-	SpxBaseMgr::temp_return_str = "";
+	String value = "";
 	if (file.is_null()) {
 		print_line("Unable to open file.", path);
 	} else {
@@ -335,10 +335,10 @@ GdString SpxResMgr::read_all_text(GdString p_path) {
 			String line = file->get_line();
 			file_content += line + "\n";
 		}
-		SpxBaseMgr::temp_return_str = file_content;
+		value = file_content;
 	}
 	file->close();
-	return &SpxBaseMgr::temp_return_str;
+	return SpxReturnStr(value);
 }
 
 GdBool SpxResMgr::has_file(GdString p_path) {

@@ -60,9 +60,8 @@ void SpxPlatformMgr::set_window_title(GdString title) {
 }
 
 GdString SpxPlatformMgr::get_window_title() {
-	auto title = "";
-	SpxBaseMgr::temp_return_str = title;
-	return &SpxBaseMgr::temp_return_str;
+	String title = "";
+	return SpxReturnStr(title);
 }
 
 void SpxPlatformMgr::set_window_fullscreen(GdBool enable) {
@@ -92,23 +91,23 @@ GdFloat SpxPlatformMgr::get_time_scale() {
 }
 
 GdString SpxPlatformMgr::get_persistant_data_dir(){
-	SpxBaseMgr::temp_return_str = _get_persistant_data_dir();
-	return &SpxBaseMgr::temp_return_str;
+	auto value = _get_persistant_data_dir();
+	return SpxReturnStr(value);
 }
 
-String SpxPlatformMgr::_get_persistant_data_dir(){	
+String SpxPlatformMgr::_get_persistant_data_dir(){
 	return persistant_data_dir;
 }
 
-void SpxPlatformMgr::_set_persistant_data_dir(String path){	
+void SpxPlatformMgr::_set_persistant_data_dir(String path){
 	persistant_data_dir = path;
 }
-void SpxPlatformMgr::set_persistant_data_dir(GdString path){	
+void SpxPlatformMgr::set_persistant_data_dir(GdString path){
 	auto path_str = SpxStr(path);
 	_set_persistant_data_dir(path_str);
 }
 
-GdBool SpxPlatformMgr::is_in_persistant_data_dir(GdString path){	
+GdBool SpxPlatformMgr::is_in_persistant_data_dir(GdString path){
 	auto path_str = SpxStr(path);
 	return path_str.begins_with(persistant_data_dir);
 }

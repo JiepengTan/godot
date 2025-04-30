@@ -39,6 +39,7 @@ public:                               \
 	String get_class_name() const override { return #m_class; }
 
 #define SpxStr(str) (((const String *)str)->clone())
+#define SpxReturnStr(str) (SpxBaseMgr::to_return_cstr(str))
 
 #define inputMgr SpxEngine::get_singleton()->get_input()
 #define audioMgr SpxEngine::get_singleton()->get_audio()
@@ -53,7 +54,7 @@ class Window;
 class SceneTree;
 class SpxBaseMgr {
 public:
-	static String temp_return_str;
+	static GdString to_return_cstr(const String& ret_val);
 protected:
 	Node *owner;
 protected:
