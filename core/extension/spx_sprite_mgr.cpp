@@ -358,7 +358,8 @@ void SpxSpriteMgr::set_material_shader(GdObj obj, GdString path) {
 }
 
 GdString SpxSpriteMgr::get_material_shader(GdObj obj) {
-	check_and_get_sprite_r(GdString()) return sprite->get_material_shader();
+	check_and_get_sprite_r(GdString()) 
+	return sprite->get_material_shader();
 }
 
 void SpxSpriteMgr::set_material_params(GdObj obj, GdString effect, GdFloat amount) {

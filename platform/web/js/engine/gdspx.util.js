@@ -131,7 +131,7 @@ function FreeGdFloat(ptr) {
 function ToGdString(str) {
     const encoder = new TextEncoder();
     const stringBytes = encoder.encode(str);
-    const ptr = GodotModule._malloc(stringBytes.length + 1); 
+    const ptr = GodotModule._cmalloc(stringBytes.length + 1); 
     GodotModule.HEAPU8.set(stringBytes, ptr);
     GodotModule.HEAPU8[ptr + stringBytes.length] = 0;
     const func = GodotEngine.rtenv['_gdspx_new_string']; 
@@ -140,6 +140,10 @@ function ToGdString(str) {
 }
 
 function ToJsString(gdstrPtr) {
+    return _toJsString(gdstrPtr,true);
+}
+
+function _toJsString(gdstrPtr, isFree) {
     var func = GodotEngine.rtenv['_gdspx_get_string_len']; 
     length = func(gdstrPtr)
     func = GodotEngine.rtenv['_gdspx_get_string']; 
@@ -149,16 +153,18 @@ function ToJsString(gdstrPtr) {
     const nonSharedBytes = stringBytes.slice();
     const decoder = new TextDecoder("utf-8")
     result = decoder.decode(nonSharedBytes)
-    GodotEngine.rtenv['_gdspx_free_cstr'](ptr);
+    if(isFree) {
+        GodotEngine.rtenv['_gdspx_free_cstr'](ptr);
+    }
     return result;
 }
+
 
 function AllocGdString() {
     return GodotEngine.rtenv['_gdspx_alloc_string']();
 }
-
 function PrintGdString(ptr) {
-    console.log(ToJsString(ptr));
+    console.log(_toJsString(gdstrPtr,false));
 }
 
 function FreeGdString(ptr) {

@@ -2,7 +2,7 @@
 #include "core/extension/gdextension.h"
 
 #include "godot_js_spx_util.h"
-
+#include <string.h>
 #include <emscripten.h>
 
 
@@ -212,19 +212,13 @@ GdString* gdspx_alloc_string() {
 EMSCRIPTEN_KEEPALIVE
 GdString* gdspx_new_string(const char* str) {
     GdString* ptr = gdspx_alloc_string();
-    auto tmp_str = new String();
-    tmp_str->parse_utf8(str);
-    *ptr = tmp_str;
+    (*(const char **)ptr) = str;
     return ptr;
 }
 
 EMSCRIPTEN_KEEPALIVE
 const char* gdspx_get_string(GdString* ptr) {
-    auto csutf = (*(const String **)ptr)->utf8();
-    auto cstr = csutf.get_data();
-    char* buffer = (char*)malloc(csutf.length() + 1);  // +1 to add a'\0' to the end
-    strcpy(buffer, cstr); 
-    return buffer;
+    return (*(const char **)ptr);
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -234,8 +228,8 @@ void gdspx_free_cstr(const char* str) {
 
 EMSCRIPTEN_KEEPALIVE
 int32_t gdspx_get_string_len(GdString* ptr) {
-    auto csutf =(*(const String **)ptr)->utf8();
-    return csutf.length();
+    auto length = strlen((*(const char **)ptr)) + 1;
+    return length;
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -244,7 +238,7 @@ void gdspx_free_string(GdString* p_gdstr) {
         print_line("gdspx_free_stringptr: null pointer");
         return;
     }
-    delete *(String**)p_gdstr; 
+    free((void*)*p_gdstr);
     *p_gdstr = nullptr;
     stringPool.release(p_gdstr);
 }

@@ -475,7 +475,7 @@ void SpxSprite::set_anim(GdString p_name) {
 
 GdString SpxSprite::get_anim() const {
 	auto name = anim2d->get_animation();
-	return name;
+	return SpxReturnStr(String(name));
 }
 
 void SpxSprite::set_anim_frame(GdInt p_frame) {

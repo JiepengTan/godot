@@ -97,7 +97,8 @@ const Engine = (function () {
 						gdmodule = me.config.getModuleConfig(loadPath, me.config.wasmEngine);
 						Godot(gdmodule).then(function (module) {
 							GodotModule = gdmodule
-							GodotModule._malloc = createWrapper(gdmodule,"malloc");
+							GodotModule._cmalloc = createWrapper(gdmodule,"malloc");
+							GodotModule._cfree = createWrapper(gdmodule,"free");
 							const paths = me.config.persistentPaths;
 							module['initFS'](paths).then(function (err) {
 								me.rtenv = module;
