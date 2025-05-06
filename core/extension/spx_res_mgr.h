@@ -80,6 +80,7 @@ public:
 	GdString read_all_text(GdString p_path);
 	GdBool has_file(GdString p_path);
 	void reload_texture(GdString path);
+	void free_str(GdString str);
 };
 
 #endif // SPX_RES_MGR_H

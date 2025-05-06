@@ -55,6 +55,7 @@ class SceneTree;
 class SpxBaseMgr {
 public:
 	static GdString to_return_cstr(const String& ret_val);
+	static void free_return_cstr(GdString ret_val);
 protected:
 	Node *owner;
 protected:

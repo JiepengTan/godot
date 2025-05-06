@@ -675,6 +675,14 @@ function gdspx_res_reload_texture(path) {
 	FreeGdString(_arg0); 
 
 }
+function gdspx_res_free_str(str) {
+	_gdFuncPtr =  GodotEngine.rtenv['_gdspx_res_free_str']; 
+	
+	_arg0 = ToGdString(str);
+	_gdFuncPtr(_arg0);
+	FreeGdString(_arg0); 
+
+}
 function gdspx_scene_change_scene_to_file(path) {
 	_gdFuncPtr =  GodotEngine.rtenv['_gdspx_scene_change_scene_to_file']; 
 	

@@ -274,6 +274,9 @@ static void gdextension_spx_res_has_file(GdString p_path,GdBool* ret_val) {
 static void gdextension_spx_res_reload_texture(GdString path) {
 	 resMgr->reload_texture(path);
 }
+static void gdextension_spx_res_free_str(GdString str) {
+	 resMgr->free_str(str);
+}
 static void gdextension_spx_scene_change_scene_to_file(GdString path) {
 	 sceneMgr->change_scene_to_file(path);
 }
@@ -804,6 +807,7 @@ void gdextension_spx_setup_interface() {
 	REGISTER_SPX_INTERFACE_FUNC(spx_res_read_all_text);
 	REGISTER_SPX_INTERFACE_FUNC(spx_res_has_file);
 	REGISTER_SPX_INTERFACE_FUNC(spx_res_reload_texture);
+	REGISTER_SPX_INTERFACE_FUNC(spx_res_free_str);
 	REGISTER_SPX_INTERFACE_FUNC(spx_scene_change_scene_to_file);
 	REGISTER_SPX_INTERFACE_FUNC(spx_scene_destroy_all_sprites);
 	REGISTER_SPX_INTERFACE_FUNC(spx_scene_reload_current_scene);

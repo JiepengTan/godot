@@ -345,6 +345,10 @@ void gdspx_res_reload_texture(GdString* path) {
 	 resMgr->reload_texture(*path);
 }
 EMSCRIPTEN_KEEPALIVE
+void gdspx_res_free_str(GdString* str) {
+	 resMgr->free_str(*str);
+}
+EMSCRIPTEN_KEEPALIVE
 void gdspx_scene_change_scene_to_file(GdString* path) {
 	 sceneMgr->change_scene_to_file(*path);
 }
