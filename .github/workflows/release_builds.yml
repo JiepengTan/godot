@@ -550,10 +550,18 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   macos-editor-build:
-    name: 🍎 macOS Editor Build
+    name: 🍎 macOS ${{ matrix.arch }} Editor Build
     needs: setup
     if: contains(needs.setup.outputs.platforms, 'macos') || contains(needs.setup.outputs.platforms, 'all')
     runs-on: macos-latest
+    strategy:
+      matrix:
+        arch: [x86_64, arm64]
+        include:
+          - arch: x86_64
+            artifact_suffix: x86_64
+          - arch: arm64
+            artifact_suffix: arm64
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -574,53 +582,31 @@ jobs:
       - name: Setup Python and SCons
         uses: ./.github/actions/godot-deps
 
-      # macOS x86_64 editor build
-      - name: Build macOS Editor (x86_64)
+      # Build macOS Editor for specific architecture
+      - name: Build macOS Editor (${{ matrix.arch }})
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=macos target=editor arch=x86_64 ${{ env.COMMON_ARGS }} ${{ env.EDITOR_ARGS }}
+          sconsflags: platform=macos target=editor arch=${{ matrix.arch }} ${{ env.COMMON_ARGS }} ${{ env.EDITOR_ARGS }}
           platform: macos
           target: editor
 
-      # macOS arm64 editor build
-      - name: Build macOS Editor (arm64)
-        uses: ./.github/actions/godot-build
-        with:
-          sconsflags: platform=macos target=editor arch=arm64 ${{ env.COMMON_ARGS }} ${{ env.EDITOR_ARGS }}
-          platform: macos
-          target: editor
-
-      # Create Universal Binary
-      - name: Create Universal Binary
+      - name: Compress macOS Editor Build
         run: |
-          mkdir -p universal/Godot.app/Contents/MacOS
-          lipo -create -output universal/Godot.app/Contents/MacOS/Godot bin/godot.macos.editor.x86_64 bin/godot.macos.editor.arm64
-          # Copy necessary files and directories
-          cp -r misc/dist/macos_tools.app/* universal/Godot.app/
-          # Ensure executable permissions
-          chmod +x universal/Godot.app/Contents/MacOS/Godot
-          # Compress to zip
-          cd universal
-          zip -r ../bin/godot-macos-editor-universal.zip Godot.app
-          cd ..
-
-      - name: Prepare macOS Editor files for release
-        if: github.event_name == 'release'
-        run: |
-          cp bin/godot-macos-editor-universal.zip bin/editor-macos-universal.zip
+          chmod +x bin/godot.macos.editor.${{ matrix.arch }}
+          zip -j bin/editor-macos-${{ matrix.artifact_suffix }}.zip bin/godot.macos.editor.${{ matrix.arch }}
 
       - name: Upload macOS Editor Build Results
         uses: actions/upload-artifact@v4
         with:
-          name: macos-editor-${{ needs.setup.outputs.version }}
-          path: bin/editor-macos-universal.zip
+          name: macos-${{ matrix.arch }}-editor-${{ needs.setup.outputs.version }}
+          path: bin/editor-macos-${{ matrix.artifact_suffix }}.zip
           retention-days: 14
 
       - name: Publish to GitHub Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v1
         with:
-          files: bin/editor-macos-universal.zip
+          files: bin/editor-macos-${{ matrix.artifact_suffix }}.zip
           tag_name: ${{ github.event.release.tag_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
