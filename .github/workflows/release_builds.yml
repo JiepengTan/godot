@@ -24,6 +24,33 @@ env:
   SCONS_CACHE_LIMIT: "10000"
   VERSION: 2.0.1
   GODOT_BASE_BRANCH: master
+  RELEASE_ARGS: >-
+    debug_symbols=false
+    disable_3d=true
+  EDITOR_ARGS: >-
+    debug_symbols=true
+  COMMON_ARGS: >-
+    optimize=size 
+    use_volk=no 
+    deprecated=no 
+    minizip=no  
+    openxr=false 
+    vulkan=false 
+    graphite=false 
+    disable_3d_physics=true 
+    disable_navigation=true 
+    module_msdfgen_enabled=false 
+    module_text_server_adv_enabled=false 
+    module_text_server_fb_enabled=true 
+    modules_enabled_by_default=false 
+    module_gdscript_enabled=true 
+    module_freetype_enabled=true 
+    module_minimp3_enabled=true 
+    module_svg_enabled=true 
+    module_jpg_enabled=true 
+    module_ogg_enabled=true 
+    module_godot_physics_2d_enabled=true
+
 
 jobs:
   setup:
@@ -104,14 +131,14 @@ jobs:
       - name: Build Android 32-bit Debug Template
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=android target=template_debug arch=arm32
+          sconsflags: platform=android target=template_debug arch=arm32 ${{ env.COMMON_ARGS }} ${{ env.RELEASE_ARGS }}
           platform: android
           target: template_debug
 
       - name: Build Android 32-bit Release Template
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=android target=template_release arch=arm32
+          sconsflags: platform=android target=template_release arch=arm32 ${{ env.COMMON_ARGS }} ${{ env.RELEASE_ARGS }}
           platform: android
           target: template_release
 
@@ -119,14 +146,14 @@ jobs:
       - name: Build Android 64-bit Debug Template
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=android target=template_debug arch=arm64
+          sconsflags: platform=android target=template_debug arch=arm64 ${{ env.COMMON_ARGS }} ${{ env.RELEASE_ARGS }}
           platform: android
           target: template_debug
 
       - name: Build Android 64-bit Release Template
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=android target=template_release arch=arm64
+          sconsflags: platform=android target=template_release arch=arm64 ${{ env.COMMON_ARGS }} ${{ env.RELEASE_ARGS }}
           platform: android
           target: template_release
 
@@ -187,14 +214,14 @@ jobs:
       - name: Build iOS Simulator (arm64) Debug Template
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=ios target=template_debug ios_simulator=yes arch=arm64
+          sconsflags: platform=ios target=template_debug ios_simulator=yes arch=arm64 ${{ env.COMMON_ARGS }} ${{ env.RELEASE_ARGS }}
           platform: ios
           target: template_debug
 
       - name: Build iOS Simulator (arm64) Release Template
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=ios target=template_release ios_simulator=yes arch=arm64
+          sconsflags: platform=ios target=template_release ios_simulator=yes arch=arm64 ${{ env.COMMON_ARGS }} ${{ env.RELEASE_ARGS }}
           platform: ios
           target: template_release
 
@@ -202,14 +229,14 @@ jobs:
       - name: Build iOS Simulator (x86_64) Debug Template
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=ios target=template_debug ios_simulator=yes arch=x86_64
+          sconsflags: platform=ios target=template_debug ios_simulator=yes arch=x86_64 ${{ env.COMMON_ARGS }} ${{ env.RELEASE_ARGS }}
           platform: ios
           target: template_debug
 
       - name: Build iOS Simulator (x86_64) Release Template
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=ios target=template_release ios_simulator=yes arch=x86_64 generate_bundle=yes
+          sconsflags: platform=ios target=template_release ios_simulator=yes arch=x86_64 ${{ env.COMMON_ARGS }} ${{ env.RELEASE_ARGS }} generate_bundle=yes
           platform: ios
           target: template_release
 
@@ -288,7 +315,7 @@ jobs:
       - name: Build Windows Editor (${{ matrix.arch }})
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=windows target=editor arch=${{ matrix.arch }}
+          sconsflags: platform=windows target=editor arch=${{ matrix.arch }} ${{ env.COMMON_ARGS }} ${{ env.EDITOR_ARGS }}
           platform: windows
           target: editor
 
@@ -352,14 +379,14 @@ jobs:
       - name: Build Windows Template Debug (${{ matrix.arch }})
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=windows target=template_debug arch=${{ matrix.arch }}
+          sconsflags: platform=windows target=template_debug arch=${{ matrix.arch }} ${{ env.COMMON_ARGS }} ${{ env.RELEASE_ARGS }}
           platform: windows
           target: template_debug
 
       - name: Build Windows Template Release (${{ matrix.arch }})
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=windows target=template_release arch=${{ matrix.arch }}
+          sconsflags: platform=windows target=template_release arch=${{ matrix.arch }} ${{ env.COMMON_ARGS }} ${{ env.RELEASE_ARGS }}
           platform: windows
           target: template_release
 
@@ -420,11 +447,11 @@ jobs:
       - name: Setup Python and SCons
         uses: ./.github/actions/godot-deps
 
-      # Linux editor build
+      # Linux editor build, no debug symbols
       - name: Build Linux Editor (${{ matrix.arch }})
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=linuxbsd target=editor arch=${{ matrix.arch }}
+          sconsflags: platform=linuxbsd target=editor ${{ env.COMMON_ARGS }} arch=${{ matrix.arch }}
           platform: linuxbsd
           target: editor
 
@@ -489,14 +516,14 @@ jobs:
       - name: Build Linux Template Debug (${{ matrix.arch }})
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=linuxbsd target=template_debug arch=${{ matrix.arch }}
+          sconsflags: platform=linuxbsd target=template_debug ${{ env.COMMON_ARGS }} ${{ env.RELEASE_ARGS }} arch=${{ matrix.arch }}
           platform: linuxbsd
           target: template_debug
 
       - name: Build Linux Template Release (${{ matrix.arch }})
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=linuxbsd target=template_release arch=${{ matrix.arch }}
+          sconsflags: platform=linuxbsd target=template_release ${{ env.COMMON_ARGS }} ${{ env.RELEASE_ARGS }} arch=${{ matrix.arch }}
           platform: linuxbsd
           target: template_release
 
@@ -523,10 +550,18 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   macos-editor-build:
-    name: 🍎 macOS Editor Build
+    name: 🍎 macOS ${{ matrix.arch }} Editor Build
     needs: setup
     if: contains(needs.setup.outputs.platforms, 'macos') || contains(needs.setup.outputs.platforms, 'all')
     runs-on: macos-latest
+    strategy:
+      matrix:
+        arch: [x86_64, arm64]
+        include:
+          - arch: x86_64
+            artifact_suffix: x86_64
+          - arch: arm64
+            artifact_suffix: arm64
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -547,59 +582,108 @@ jobs:
       - name: Setup Python and SCons
         uses: ./.github/actions/godot-deps
 
-      # macOS x86_64 editor build
-      - name: Build macOS Editor (x86_64)
+      # Build macOS Editor for specific architecture
+      - name: Build macOS Editor (${{ matrix.arch }})
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=macos target=editor arch=x86_64
+          sconsflags: platform=macos target=editor arch=${{ matrix.arch }} ${{ env.COMMON_ARGS }} ${{ env.EDITOR_ARGS }}
           platform: macos
           target: editor
 
-      # macOS arm64 editor build
-      - name: Build macOS Editor (arm64)
-        uses: ./.github/actions/godot-build
-        with:
-          sconsflags: platform=macos target=editor arch=arm64
-          platform: macos
-          target: editor
-
-      # Create Universal Binary
-      - name: Create Universal Binary
+      - name: Compress macOS Editor Build
         run: |
-          mkdir -p universal/Godot.app/Contents/MacOS
-          lipo -create -output universal/Godot.app/Contents/MacOS/Godot bin/godot.macos.editor.x86_64 bin/godot.macos.editor.arm64
-          # Copy necessary files and directories
-          cp -r misc/dist/macos_tools.app/* universal/Godot.app/
-          # Ensure executable permissions
-          chmod +x universal/Godot.app/Contents/MacOS/Godot
-          # Compress to zip
-          cd universal
-          zip -r ../bin/godot-macos-editor-universal.zip Godot.app
-          cd ..
-
-      - name: Prepare macOS Editor files for release
-        if: github.event_name == 'release'
-        run: |
-          cp bin/godot-macos-editor-universal.zip bin/editor-macos-universal.zip
+          chmod +x bin/godot.macos.editor.${{ matrix.arch }}
+          zip -j bin/editor-macos-${{ matrix.artifact_suffix }}.zip bin/godot.macos.editor.${{ matrix.arch }}
 
       - name: Upload macOS Editor Build Results
         uses: actions/upload-artifact@v4
         with:
-          name: macos-editor-${{ needs.setup.outputs.version }}
-          path: bin/editor-macos-universal.zip
+          name: macos-${{ matrix.arch }}-editor-${{ needs.setup.outputs.version }}
+          path: bin/editor-macos-${{ matrix.artifact_suffix }}.zip
           retention-days: 14
 
       - name: Publish to GitHub Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v1
         with:
-          files: bin/editor-macos-universal.zip
+          files: bin/editor-macos-${{ matrix.artifact_suffix }}.zip
           tag_name: ${{ github.event.release.tag_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   macos-template-build:
-    name: 🍎 macOS Template Build
+    name: 🍎 macOS ${{ matrix.arch }} Template Build
+    needs: setup
+    if: contains(needs.setup.outputs.platforms, 'macos') || contains(needs.setup.outputs.platforms, 'all')
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        arch: [x86_64, arm64]
+        include:
+          - arch: x86_64
+            artifact_suffix: x86_64
+          - arch: arm64
+            artifact_suffix: arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # Set up shared cache for macOS builds
+      - name: Set up build cache
+        uses: actions/cache@v4
+        with:
+          path: ${{github.workspace}}/.scons-cache/
+          # Do not use SHA in cache key to allow cache reuse across commits
+          key: macos-template-bin-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}
+          restore-keys: |
+            macos-template-bin-${{env.GODOT_BASE_BRANCH}}-
+            macos-template-bin-
+
+      - name: Setup Python and SCons
+        uses: ./.github/actions/godot-deps
+
+      # Build macOS Template for specific architecture
+      - name: Build macOS Template Release (${{ matrix.arch }})
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=macos target=template_release ${{ env.COMMON_ARGS }} ${{ env.RELEASE_ARGS }} arch=${{ matrix.arch }}
+          platform: macos
+          target: template_release
+          
+      - name: Build macOS Template Debug (${{ matrix.arch }})
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=macos target=template_debug ${{ env.COMMON_ARGS }} ${{ env.RELEASE_ARGS }} arch=${{ matrix.arch }}
+          platform: macos
+          target: template_debug
+
+      - name: Compress macOS Template Builds
+        run: |
+          chmod +x bin/godot.macos.template_debug.${{ matrix.arch }}
+          chmod +x bin/godot.macos.template_release.${{ matrix.arch }}
+          zip -j bin/macos-${{ matrix.artifact_suffix }}.zip bin/godot.macos.template_debug.${{ matrix.arch }} bin/godot.macos.template_release.${{ matrix.arch }}
+
+      - name: Upload macOS Template Build Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.arch }}-template-${{ needs.setup.outputs.version }}
+          path: bin/macos-${{ matrix.artifact_suffix }}.zip
+          retention-days: 14
+
+      - name: Publish to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: bin/macos-${{ matrix.artifact_suffix }}.zip
+          tag_name: ${{ github.event.release.tag_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
+  macos-template-app-build:
+    name: 🍎 macOS Template App Build
     needs: setup
     if: contains(needs.setup.outputs.platforms, 'macos') || contains(needs.setup.outputs.platforms, 'all')
     runs-on: macos-latest
@@ -626,14 +710,14 @@ jobs:
       - name: Build macOS Template Release (x86_64)
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=macos target=template_release arch=x86_64
+          sconsflags: platform=macos target=template_release arch=x86_64 ${{ env.COMMON_ARGS }} ${{ env.RELEASE_ARGS }}
           platform: macos
           target: template_release
 
       - name: Build macOS Template Debug (x86_64)
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=macos target=template_debug arch=x86_64
+          sconsflags: platform=macos target=template_debug arch=x86_64 ${{ env.COMMON_ARGS }} ${{ env.RELEASE_ARGS }}
           platform: macos
           target: template_debug
 
@@ -641,14 +725,14 @@ jobs:
       - name: Build macOS Template Release (arm64)
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=macos target=template_release arch=arm64
+          sconsflags: platform=macos target=template_release arch=arm64 ${{ env.COMMON_ARGS }} ${{ env.RELEASE_ARGS }}
           platform: macos
           target: template_release
 
       - name: Build macOS Template Debug (arm64)
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=macos target=template_debug arch=arm64
+          sconsflags: platform=macos target=template_debug arch=arm64 ${{ env.COMMON_ARGS }} ${{ env.RELEASE_ARGS }}
           platform: macos
           target: template_debug
 
@@ -734,7 +818,7 @@ jobs:
       - name: Build Web Editor
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=web target=editor
+          sconsflags: platform=web target=editor ${{ env.COMMON_ARGS }} ${{ env.EDITOR_ARGS }}
           platform: web
           target: editor
 
@@ -803,7 +887,7 @@ jobs:
       - name: Build Web Template Release
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=web target=template_release threads=no
+          sconsflags: platform=web target=template_release threads=no ${{ env.COMMON_ARGS }} ${{ env.RELEASE_ARGS }}
           platform: web
           target: template_release
 
