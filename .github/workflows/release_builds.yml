@@ -1,7 +1,7 @@
 name: 🚀 Release Build
 on:
   release:
-    types: [created, edited]
+    types: [created, edited, published]
   workflow_dispatch:
     inputs:
       release_tag:
@@ -19,6 +19,7 @@ concurrency:
 
 env:
   ENGINE_VERSION: 4.2.2.stable
+  # SCons cache settings to ensure efficient cache utilization
   SCONS_CACHE: "${{github.workspace}}/.scons-cache/"
   SCONS_CACHE_LIMIT: "10000"
   VERSION: 2.0.1
