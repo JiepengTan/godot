@@ -447,11 +447,11 @@ jobs:
       - name: Setup Python and SCons
         uses: ./.github/actions/godot-deps
 
-      # Linux editor build
+      # Linux editor build, no debug symbols
       - name: Build Linux Editor (${{ matrix.arch }})
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=linuxbsd target=editor ${{ env.COMMON_ARGS }} ${{ env.EDITOR_ARGS }} arch=${{ matrix.arch }}
+          sconsflags: platform=linuxbsd target=editor ${{ env.COMMON_ARGS }} arch=${{ matrix.arch }}
           platform: linuxbsd
           target: editor
 
@@ -612,7 +612,70 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   macos-template-build:
-    name: 🍎 macOS Template Build
+    name: 🍎 macOS ${{ matrix.arch }} Template Build
+    needs: setup
+    if: contains(needs.setup.outputs.platforms, 'macos') || contains(needs.setup.outputs.platforms, 'all')
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        arch: [x86_64, arm64]
+        include:
+          - arch: x86_64
+            artifact_suffix: x86_64
+          - arch: arm64
+            artifact_suffix: arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # Set up shared cache for macOS builds
+      - name: Set up build cache
+        uses: actions/cache@v4
+        with:
+          path: ${{github.workspace}}/.scons-cache/
+          # Do not use SHA in cache key to allow cache reuse across commits
+          key: macos-template-bin-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}
+          restore-keys: |
+            macos-template-bin-${{env.GODOT_BASE_BRANCH}}-
+            macos-template-bin-
+
+      - name: Setup Python and SCons
+        uses: ./.github/actions/godot-deps
+
+      # Build macOS Template for specific architecture
+      - name: Build macOS Template (${{ matrix.arch }})
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=macos target=template_release arch=${{ matrix.arch }} ${{ env.COMMON_ARGS }} ${{ env.RELEASE_ARGS }}
+          platform: macos
+          target: template_release
+
+      - name: Compress macOS Template Build
+        run: |
+          chmod +x bin/godot.macos.template_release.${{ matrix.arch }}
+          zip -j bin/macos-${{ matrix.artifact_suffix }}.zip bin/godot.macos.template_release.${{ matrix.arch }}
+
+      - name: Upload macOS Template Build Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.arch }}-template_release-${{ needs.setup.outputs.version }}
+          path: bin/macos-${{ matrix.artifact_suffix }}.zip
+          retention-days: 14
+
+      - name: Publish to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: bin/macos-${{ matrix.artifact_suffix }}.zip
+          tag_name: ${{ github.event.release.tag_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
+  macos-template-app-build:
+    name: 🍎 macOS Template App Build
     needs: setup
     if: contains(needs.setup.outputs.platforms, 'macos') || contains(needs.setup.outputs.platforms, 'all')
     runs-on: macos-latest
