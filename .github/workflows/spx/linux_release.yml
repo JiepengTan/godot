@@ -1,0 +1,150 @@
+name: 🚀 Linux Release Build
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+  workflow_dispatch:
+
+env:
+  ENGINE_VERSION: 4.2.2.stable
+  # SCons cache settings to ensure efficient cache utilization
+  SCONS_CACHE: "${{github.workspace}}/.scons-cache/"
+  SCONS_CACHE_LIMIT: "10000"
+  GODOT_BASE_BRANCH: master
+
+jobs:
+  linux-editor-build:
+    name: 🐧 Linux ${{ matrix.arch }} Editor Build
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        arch: [x86_64, arm64]
+        include:
+          - arch: x86_64
+            artifact_suffix: x86_64
+          - arch: arm64
+            artifact_suffix: arm64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # Set up shared cache for Linux builds
+      - name: Set up build cache
+        uses: actions/cache@v4
+        with:
+          path: ${{github.workspace}}/.scons-cache/
+          # Use arch-specific cache key but allow fallback to other architectures
+          key: linux-${{ matrix.arch }}-editor-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}
+          restore-keys: |
+            linux-${{ matrix.arch }}-editor-${{env.GODOT_BASE_BRANCH}}-
+            linux-${{ matrix.arch }}-editor-
+            linux-editor-${{env.GODOT_BASE_BRANCH}}-
+            linux-editor-
+
+      - name: Setup Python and SCons
+        uses: ./.github/actions/godot-deps
+
+      # Linux editor build
+      - name: Build Linux Editor (${{ matrix.arch }})
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=linuxbsd target=editor arch=${{ matrix.arch }}
+          platform: linuxbsd
+          target: editor
+
+      - name: Compress Linux Editor Build
+        run: |
+          chmod +x bin/godot.linuxbsd.editor.${{ matrix.arch }}
+          zip -j bin/editor-linux-${{ matrix.artifact_suffix }}.zip bin/godot.linuxbsd.editor.${{ matrix.arch }}
+
+      - name: Upload Linux Editor Build Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ matrix.arch }}-editor-${{ inputs.version }}
+          path: bin/editor-linux-${{ matrix.artifact_suffix }}.zip
+          retention-days: 14
+
+      - name: Publish to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: bin/editor-linux-${{ matrix.artifact_suffix }}.zip
+          tag_name: ${{ github.event.release.tag_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  linux-template-build:
+    name: 🐧 Linux ${{ matrix.arch }} Template Build
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        arch: [x86_64, arm64]
+        include:
+          - arch: x86_64
+            artifact_suffix: x86_64
+          - arch: arm64
+            artifact_suffix: arm64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # Set up shared cache for Linux builds
+      - name: Set up build cache
+        uses: actions/cache@v4
+        with:
+          path: ${{github.workspace}}/.scons-cache/
+          # Use arch-specific cache key but allow fallback to other architectures
+          key: linux-${{ matrix.arch }}-template-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}
+          restore-keys: |
+            linux-${{ matrix.arch }}-template-${{env.GODOT_BASE_BRANCH}}-
+            linux-${{ matrix.arch }}-template-
+            linux-template-${{env.GODOT_BASE_BRANCH}}-
+            linux-template-
+
+      - name: Setup Python and SCons
+        uses: ./.github/actions/godot-deps
+
+      # Build debug template first to maximize cache utilization
+      - name: Build Linux Template Debug (${{ matrix.arch }})
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=linuxbsd target=template_debug arch=${{ matrix.arch }}
+          platform: linuxbsd
+          target: template_debug
+
+      - name: Build Linux Template Release (${{ matrix.arch }})
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=linuxbsd target=template_release arch=${{ matrix.arch }}
+          platform: linuxbsd
+          target: template_release
+
+      - name: Compress Linux Template Builds
+        run: |
+          chmod +x bin/godot.linuxbsd.template_debug.${{ matrix.arch }}
+          chmod +x bin/godot.linuxbsd.template_release.${{ matrix.arch }}
+          zip -j bin/linux-${{ matrix.artifact_suffix }}.zip bin/godot.linuxbsd.template_debug.${{ matrix.arch }} bin/godot.linuxbsd.template_release.${{ matrix.arch }}
+
+      - name: Upload Linux Template Build Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ matrix.arch }}-template-${{ inputs.version }}
+          path: bin/linux-${{ matrix.artifact_suffix }}.zip
+          retention-days: 14
+
+      - name: Publish to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: bin/linux-${{ matrix.artifact_suffix }}.zip
+          tag_name: ${{ github.event.release.tag_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,114 @@
+name: 🚀 iOS Release Build
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+  workflow_dispatch:
+
+env:
+  ENGINE_VERSION: 4.2.2.stable
+  # SCons cache settings to ensure efficient cache utilization
+  SCONS_CACHE: "${{github.workspace}}/.scons-cache/"
+  SCONS_CACHE_LIMIT: "10000"
+  GODOT_BASE_BRANCH: master
+
+jobs:
+  ios-build:
+    name: 🍏 iOS Release
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # Set up shared cache for all iOS builds
+      - name: Set up build cache
+        uses: actions/cache@v4
+        with:
+          path: ${{github.workspace}}/.scons-cache/
+          # Do not use SHA in cache key to allow cache reuse across commits
+          key: ios-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}
+          restore-keys: |
+            ios-${{env.GODOT_BASE_BRANCH}}-
+            ios-
+
+      - name: Setup Python and SCons
+        uses: ./.github/actions/godot-deps
+
+      # iOS Device builds
+      - name: Build iOS Device Debug Template
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=ios target=template_debug ios_simulator=no arch=arm64
+          platform: ios
+          target: template_debug
+
+      - name: Build iOS Device Release Template
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=ios target=template_release ios_simulator=no arch=arm64
+          platform: ios
+          target: template_release
+
+      # iOS Simulator ARM64 builds
+      - name: Build iOS Simulator (arm64) Debug Template
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=ios target=template_debug ios_simulator=yes arch=arm64
+          platform: ios
+          target: template_debug
+
+      - name: Build iOS Simulator (arm64) Release Template
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=ios target=template_release ios_simulator=yes arch=arm64
+          platform: ios
+          target: template_release
+
+      # iOS Simulator x86_64 builds
+      - name: Build iOS Simulator (x86_64) Debug Template
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=ios target=template_debug ios_simulator=yes arch=x86_64
+          platform: ios
+          target: template_debug
+
+      - name: Build iOS Simulator (x86_64) Release Template
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=ios target=template_release ios_simulator=yes arch=x86_64
+          platform: ios
+          target: template_release
+
+      - name: Create universal binaries and package for Xcode
+        run: |
+          # Create bin directory if it doesn't exist
+          mkdir -p bin
+
+          # Create iOS XCFramework
+          cd misc/dist
+          ./ios_xcode.sh ../../bin
+
+      - name: Upload iOS Build Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-template-${{ inputs.version }}
+          path: bin/godot_ios.zip
+          retention-days: 14
+
+      - name: Prepare iOS files for release
+        if: github.event_name == 'release'
+        run: |
+          cp bin/godot_ios.zip bin/ios.zip
+
+      - name: Publish to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: bin/ios.zip
+          tag_name: ${{ github.event.release.tag_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
