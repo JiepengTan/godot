@@ -1,4 +1,4 @@
-name: 🚀 Release Build
+name: 🚀 Release Setup
 on:
   release:
     types: [created, edited]
@@ -19,6 +19,7 @@ concurrency:
 
 env:
   ENGINE_VERSION: 4.2.2.stable
+  # SCons cache settings to ensure efficient cache utilization
   SCONS_CACHE: "${{github.workspace}}/.scons-cache/"
   SCONS_CACHE_LIMIT: "10000"
   VERSION: 2.0.1
@@ -64,51 +65,3 @@ jobs:
           
           echo "PLATFORMS=$PLATFORMS"
           echo "platforms=$PLATFORMS" >> $GITHUB_OUTPUT
-
-  android-build:
-    name: 🤖 Android Release
-    needs: setup
-    if: contains(needs.setup.outputs.platforms, 'android') || contains(needs.setup.outputs.platforms, 'all')
-    uses: ./.github/workflows/spx/android_release.yml
-    with:
-      version: ${{ needs.setup.outputs.version }}
-
-  ios-build:
-    name: 🍏 iOS Release
-    needs: setup
-    if: contains(needs.setup.outputs.platforms, 'ios') || contains(needs.setup.outputs.platforms, 'all')
-    uses: ./.github/workflows/spx/ios_release.yml
-    with:
-      version: ${{ needs.setup.outputs.version }}
-
-  windows-build:
-    name: 🪟 Windows Release
-    needs: setup
-    if: contains(needs.setup.outputs.platforms, 'windows') || contains(needs.setup.outputs.platforms, 'all')
-    uses: ./.github/workflows/spx/windows_release.yml
-    with:
-      version: ${{ needs.setup.outputs.version }}
-
-  linux-build:
-    name: 🐧 Linux Release
-    needs: setup
-    if: contains(needs.setup.outputs.platforms, 'linux') || contains(needs.setup.outputs.platforms, 'all')
-    uses: ./.github/workflows/spx/linux_release.yml
-    with:
-      version: ${{ needs.setup.outputs.version }}
-
-  macos-build:
-    name: 🍎 macOS Release
-    needs: setup
-    if: contains(needs.setup.outputs.platforms, 'macos') || contains(needs.setup.outputs.platforms, 'all')
-    uses: ./.github/workflows/spx/macos_release.yml
-    with:
-      version: ${{ needs.setup.outputs.version }}
-
-  web-build:
-    name: 🌐 Web Release
-    needs: setup
-    if: contains(needs.setup.outputs.platforms, 'web') || contains(needs.setup.outputs.platforms, 'all')
-    uses: ./.github/workflows/spx/web_release.yml
-    with:
-      version: ${{ needs.setup.outputs.version }}

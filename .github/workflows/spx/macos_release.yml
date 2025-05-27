@@ -1,0 +1,180 @@
+name: 🚀 macOS Release Build
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+  workflow_dispatch:
+
+env:
+  ENGINE_VERSION: 4.2.2.stable
+  # SCons cache settings to ensure efficient cache utilization
+  SCONS_CACHE: "${{github.workspace}}/.scons-cache/"
+  SCONS_CACHE_LIMIT: "10000"
+  GODOT_BASE_BRANCH: master
+
+jobs:
+  macos-editor-build:
+    name: 🍎 macOS Editor Build
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # Set up shared cache for macOS builds
+      - name: Set up build cache
+        uses: actions/cache@v4
+        with:
+          path: ${{github.workspace}}/.scons-cache/
+          # Do not use SHA in cache key to allow cache reuse across commits
+          key: macos-editor-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}
+          restore-keys: |
+            macos-editor-${{env.GODOT_BASE_BRANCH}}-
+            macos-editor-
+
+      - name: Setup Python and SCons
+        uses: ./.github/actions/godot-deps
+
+      # macOS x86_64 editor build
+      - name: Build macOS Editor (x86_64)
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=macos target=editor arch=x86_64
+          platform: macos
+          target: editor
+
+      # macOS arm64 editor build
+      - name: Build macOS Editor (arm64)
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=macos target=editor arch=arm64
+          platform: macos
+          target: editor
+
+      # Create Universal Binary
+      - name: Create Universal Binary
+        run: |
+          mkdir -p universal/Godot.app/Contents/MacOS
+          lipo -create -output universal/Godot.app/Contents/MacOS/Godot bin/godot.macos.editor.x86_64 bin/godot.macos.editor.arm64
+          # Copy necessary files and directories
+          cp -r misc/dist/macos_tools.app/* universal/Godot.app/
+          # Ensure executable permissions
+          chmod +x universal/Godot.app/Contents/MacOS/Godot
+          # Compress to zip
+          cd universal
+          zip -r ../bin/godot-macos-editor-universal.zip Godot.app
+          cd ..
+
+      - name: Prepare macOS Editor files for release
+        if: github.event_name == 'release'
+        run: |
+          cp bin/godot-macos-editor-universal.zip bin/editor-macos-universal.zip
+
+      - name: Upload macOS Editor Build Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-editor-${{ inputs.version }}
+          path: bin/editor-macos-universal.zip
+          retention-days: 14
+
+      - name: Publish to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: bin/editor-macos-universal.zip
+          tag_name: ${{ github.event.release.tag_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  macos-template-build:
+    name: 🍎 macOS Template Build
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # Set up shared cache for macOS builds
+      - name: Set up build cache
+        uses: actions/cache@v4
+        with:
+          path: ${{github.workspace}}/.scons-cache/
+          key: macos-template-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}
+          restore-keys: |
+            macos-template-${{env.GODOT_BASE_BRANCH}}-
+            macos-template-
+
+      - name: Setup Python and SCons
+        uses: ./.github/actions/godot-deps
+
+      # Build x86_64 templates
+      - name: Build macOS Template Release (x86_64)
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=macos target=template_release arch=x86_64
+          platform: macos
+          target: template_release
+
+      - name: Build macOS Template Debug (x86_64)
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=macos target=template_debug arch=x86_64
+          platform: macos
+          target: template_debug
+
+      # Build arm64 templates
+      - name: Build macOS Template Release (arm64)
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=macos target=template_release arch=arm64
+          platform: macos
+          target: template_release
+
+      - name: Build macOS Template Debug (arm64)
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=macos target=template_debug arch=arm64
+          platform: macos
+          target: template_debug
+
+      # Create Universal Binaries
+      - name: Create Universal Template Binaries
+        run: |
+          # Create universal binaries using lipo
+          lipo -create bin/godot.macos.template_release.x86_64 bin/godot.macos.template_release.arm64 -output bin/godot.macos.template_release.universal
+          lipo -create bin/godot.macos.template_debug.x86_64 bin/godot.macos.template_debug.arm64 -output bin/godot.macos.template_debug.universal
+          
+          # Create app bundle structure
+          cp -r misc/dist/macos_template.app .
+          mkdir -p macos_template.app/Contents/MacOS
+          mkdir -p macos_template.app/Contents/Frameworks
+          
+          # Copy binaries to app bundle
+          cp bin/godot.macos.template_release.universal macos_template.app/Contents/MacOS/godot_macos_release.universal
+          cp bin/godot.macos.template_debug.universal macos_template.app/Contents/MacOS/godot_macos_debug.universal
+          
+          # Set executable permissions
+          chmod +x macos_template.app/Contents/MacOS/godot_macos*
+          
+          # Create final zip
+          zip -q -9 -r bin/macos.zip macos_template.app
+
+      - name: Upload macOS Template Build Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-template-${{ inputs.version }}
+          path: bin/macos.zip
+          retention-days: 14
+
+      - name: Publish to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: bin/macos.zip
+          tag_name: ${{ github.event.release.tag_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

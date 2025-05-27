@@ -1,0 +1,146 @@
+name: 🚀 Web Release Build
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+  workflow_dispatch:
+
+env:
+  ENGINE_VERSION: 4.2.2.stable
+  # SCons cache settings to ensure efficient cache utilization
+  SCONS_CACHE: "${{github.workspace}}/.scons-cache/"
+  SCONS_CACHE_LIMIT: "10000"
+  GODOT_BASE_BRANCH: master
+  EM_VERSION: 3.1.39
+  EM_CACHE_FOLDER: "emsdk-cache"
+
+jobs:
+  web-editor-build:
+    name: 🌐 Web Editor Build
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # Setup Emscripten
+      - name: Setup Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: ${{env.EM_VERSION}}
+          actions-cache-folder: ${{env.EM_CACHE_FOLDER}}
+          cache-key: emsdk-web-editor-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}
+      
+      - name: Verify Emscripten Installation
+        run: |
+          emcc -v
+
+      # Set up shared cache for Web Editor builds
+      - name: Set up build cache
+        uses: actions/cache@v4
+        with:
+          path: ${{github.workspace}}/.scons-cache/
+          # Do not use SHA in cache key to allow cache reuse across commits
+          key: web-editor-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}
+          restore-keys: |
+            web-editor-${{env.GODOT_BASE_BRANCH}}-
+            web-editor-
+
+      - name: Setup Python and SCons
+        uses: ./.github/actions/godot-deps
+
+      # Build Web Editor
+      - name: Build Web Editor
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=web target=editor
+          platform: web
+          target: editor
+
+      - name: Prepare Files
+        run: |
+          mkdir -p artifacts
+          cp bin/godot.web.editor.wasm32.zip artifacts/editor-web.zip
+
+      - name: Upload Web Editor Build Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-editor-${{ inputs.version }}
+          path: artifacts/editor-web.zip
+          retention-days: 14
+
+      - name: Publish to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: artifacts/editor-web.zip
+          tag_name: ${{ github.event.release.tag_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  web-template-build:
+    name: 🌐 Web Template Build
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # Setup Emscripten
+      - name: Setup Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: ${{env.EM_VERSION}}
+          actions-cache-folder: ${{env.EM_CACHE_FOLDER}}
+          cache-key: emsdk-web-template-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}
+      
+      - name: Verify Emscripten Installation
+        run: |
+          emcc -v
+
+      # Set up shared cache for Web Template builds
+      - name: Set up build cache
+        uses: actions/cache@v4
+        with:
+          path: ${{github.workspace}}/.scons-cache/
+          # Do not use SHA in cache key to allow cache reuse across commits
+          key: web-template-${{env.GODOT_BASE_BRANCH}}-${{github.ref}}
+          restore-keys: |
+            web-template-${{env.GODOT_BASE_BRANCH}}-
+            web-template-
+
+      - name: Setup Python and SCons
+        uses: ./.github/actions/godot-deps
+
+      # Build Web template_release
+      - name: Build Web Template Release
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: platform=web target=template_release threads=no
+          platform: web
+          target: template_release
+
+      - name: Prepare Files
+        run: |
+          mkdir -p artifacts
+          cp bin/godot.web.template_release.wasm32.zip artifacts/web.zip
+
+      - name: Upload Web Template Build Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-template-${{ inputs.version }}
+          path: artifacts/web.zip
+          retention-days: 14
+
+      - name: Publish to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: artifacts/web.zip
+          tag_name: ${{ github.event.release.tag_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
