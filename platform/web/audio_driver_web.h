@@ -109,7 +109,6 @@ private:
 protected:
 	virtual Error create(int &p_buffer_size, int p_output_channels) override;
 	virtual void start(float *p_out_buf, int p_out_buf_size, float *p_in_buf, int p_in_buf_size) override;
-	virtual void finish_driver() override;
 
 public:
 	virtual const char *get_name() const override {
