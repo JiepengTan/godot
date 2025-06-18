@@ -1,1 +1,1 @@
-scons custom=custom_minigame.py
+scons platform=web target=template_debug threads="no" optimize="debug"  extra_cflags=["-sMINIFY=0"] 
