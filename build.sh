@@ -1,0 +1,1 @@
+scons custom=custom_minigame.py
