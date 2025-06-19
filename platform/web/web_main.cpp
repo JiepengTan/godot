@@ -128,12 +128,14 @@ extern EMSCRIPTEN_KEEPALIVE int godot_web_main(int argc, char *argv[]) {
 	// Ease up compatibility.
 	ResourceLoader::set_abort_on_missing_resources(false);
 
+	print_line("OS_Web::godot_web_main");
 	Main::start();
 	os->get_main_loop()->initialize();
 	String install_project_name = Engine::get_singleton()->get_install_project_name();
 	if(install_project_name == ""){
 		install_project_name = "Preload";
 	}
+	print_line("OS_Web::godot_web_main2");
 #ifdef TOOLS_ENABLED
 	if (Engine::get_singleton()->is_project_manager_hint() && FileAccess::exists("/tmp/preload.zip")) {
 		PackedStringArray ps;
@@ -142,10 +144,12 @@ extern EMSCRIPTEN_KEEPALIVE int godot_web_main(int argc, char *argv[]) {
 		SceneTree::get_singleton()->get_root()->emit_signal(SNAME("files_dropped"), ps);
 	}
 #endif
+	print_line("OS_Web::godot_web_main3");
 	emscripten_set_main_loop(main_loop_callback, -1, false);
 	// Immediately run the first iteration.
 	// We are inside an animation frame, we want to immediately draw on the newly setup canvas.
 	main_loop_callback();
+	print_line("OS_Web::godot_web_main4");
 
 	return 0;
 }

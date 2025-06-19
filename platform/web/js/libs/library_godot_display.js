@@ -724,16 +724,23 @@ const GodotDisplay = {
 	godot_js_display_fullscreen_cb__proxy: 'sync',
 	godot_js_display_fullscreen_cb__sig: 'vi',
 	godot_js_display_fullscreen_cb: function (callback) {
+		console.log("godot_js_display_fullscreen_cb 1")
 		const canvas = GodotConfig.canvas;
+		console.log("godot_js_display_fullscreen_cb 2",canvas)
 		const func = GodotRuntime.get_func(callback);
+		console.log("godot_js_display_fullscreen_cb 3",)
 		function change_cb(evt) {
 			if (evt.target === canvas) {
 				func(GodotDisplayScreen.isFullscreen());
 			}
 		}
+		console.log("godot_js_display_fullscreen_cb 4",)
 		GodotEventListeners.add(document, 'fullscreenchange', change_cb, false);
+		console.log("godot_js_display_fullscreen_cb 5",)
 		GodotEventListeners.add(document, 'mozfullscreenchange', change_cb, false);
+		console.log("godot_js_display_fullscreen_cb 6",)
 		GodotEventListeners.add(document, 'webkitfullscreenchange', change_cb, false);
+		console.log("godot_js_display_fullscreen_cb 7",)
 	},
 
 	godot_js_display_window_blur_cb__proxy: 'sync',

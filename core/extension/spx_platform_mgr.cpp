@@ -35,7 +35,7 @@
 
 void SpxPlatformMgr::on_awake() {
 	SpxBaseMgr::on_awake();
-	persistant_data_dir = ::OS::get_singleton()->get_user_data_dir();
+	persistant_data_dir = "engine";//::OS::get_singleton()->get_user_data_dir();
 }
 
 void SpxPlatformMgr::set_window_position(GdVec2 pos) {
@@ -94,7 +94,7 @@ GdString SpxPlatformMgr::get_persistant_data_dir(){
 }
 
 String SpxPlatformMgr::_get_persistant_data_dir(){
-	return persistant_data_dir;
+	return  "engine";
 }
 
 void SpxPlatformMgr::_set_persistant_data_dir(String path){

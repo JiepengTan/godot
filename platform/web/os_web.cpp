@@ -85,6 +85,7 @@ bool OS_Web::main_loop_iterate() {
 		godot_js_os_fs_sync(&fs_sync_callback);
 		last_dirty_frame = current_frames_drawn;
 	}
+	print_line("OS_Web::main_loop_iterate1", current_frames_drawn);
 	godot_js_os_on_main_iterater((uint32_t)current_frames_drawn);
 	static int wait_frame_count = 10;
 	int target_fs_sync_frame = last_dirty_frame + wait_frame_count;
@@ -92,11 +93,14 @@ bool OS_Web::main_loop_iterate() {
 		// TODO temp solution: use print_line to force fs to sync when canvas is not visible.
 		print_line("wait fs sync ");
 	}
+	print_line("OS_Web::main_loop_iterate2", current_frames_drawn);
 	if (current_frames_drawn >= target_fs_sync_frame) {
 		godot_js_os_on_fs_sync_done();
 	}
+	print_line("OS_Web::main_loop_iterate3", current_frames_drawn);
 
 	DisplayServer::get_singleton()->process_events();
+	print_line("OS_Web::main_loop_iterate4", current_frames_drawn);
 
 	return Main::iteration();
 }
@@ -310,10 +314,12 @@ OS_Web::OS_Web() {
 	setenv("LANG", locale_ptr, true);
 
 	godot_js_pwa_cb(&OS_Web::update_pwa_state_callback);
-
+	print_line("OS_Web::OS_Web");
 	if (AudioDriverWeb::is_available()) {
 		audio_drivers.push_back(memnew(AudioDriverWorklet));
-		//audio_drivers.push_back(memnew(AudioDriverScriptProcessor));
+#ifndef THREADS_ENABLED
+		audio_drivers.push_back(memnew(AudioDriverScriptProcessor));
+#endif
 	}
 	for (int i = 0; i < audio_drivers.size(); i++) {
 		AudioDriverManager::add_driver(audio_drivers[i]);

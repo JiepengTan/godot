@@ -770,9 +770,12 @@ const GodotInput = {
 	godot_js_set_ime_cb__proxy: 'sync',
 	godot_js_set_ime_cb__sig: 'viiii',
 	godot_js_set_ime_cb: function (p_ime_cb, p_key_cb, code, key) {
+		console.log("godot_js_set_ime_cb",p_ime_cb,p_key_cb,code,key);
 		const ime_cb = GodotRuntime.get_func(p_ime_cb);
+		console.log("godot_js_set_ime_cb2 ",p_ime_cb,p_key_cb,code,key);
 		const key_cb = GodotRuntime.get_func(p_key_cb);
 		GodotIME.init(ime_cb, key_cb, code, key);
+		console.log("godot_js_set_ime_cb end",p_ime_cb,p_key_cb,code,key);
 	},
 
 	godot_js_is_ime_focused__proxy: 'sync',

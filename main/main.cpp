@@ -377,7 +377,7 @@ void finalize_theme_db() {
 	theme_db = nullptr;
 }
 
-//#define DEBUG_INIT
+#define DEBUG_INIT
 #ifdef DEBUG_INIT
 #define MAIN_PRINT(m_txt) print_line(m_txt)
 #else
@@ -416,6 +416,7 @@ void Main::print_help(const char *p_binary) {
 	OS::get_singleton()->print("  --path <directory>                Path to a project (<directory> must contain a 'project.godot' file).\n");
 	OS::get_singleton()->print("  -u, --upwards                     Scan folders upwards for project.godot file.\n");
 	OS::get_singleton()->print("  --main-pack <file>                Path to a pack (.pck) file to load.\n");
+	OS::get_singleton()->print("  --main-project-data <file>        Path to a project data (.zip) file to load.\n");
 	OS::get_singleton()->print("  --render-thread <mode>            Render thread mode ['unsafe', 'safe', 'separate'].\n");
 	OS::get_singleton()->print("  --remote-fs <address>             Remote filesystem (<host/IP>[:<port>] address).\n");
 	OS::get_singleton()->print("  --remote-fs-password <password>   Password for remote filesystem.\n");
@@ -833,6 +834,7 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 	String debug_uri = "";
 	bool skip_breakpoints = false;
 	String main_pack;
+	String main_project_data;
 	bool quiet_stdout = false;
 	int rtm = -1;
 
@@ -1453,6 +1455,16 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 				goto error;
 			}
 
+		} else if (I->get() == "--main-project-data") {
+			if (I->next()) {
+				main_project_data = I->next()->get();
+				Spx::project_data_path = main_project_data;
+				print_line("setup main project_data ", main_project_data);
+				N = I->next()->next();
+			} else {
+				OS::get_singleton()->print("Missing path to main pack file, aborting.\n");
+				goto error;
+			};
 		} else if (I->get() == "--main-pack") {
 			if (I->next()) {
 				main_pack = I->next()->get();
@@ -2423,6 +2435,7 @@ Error Main::setup2() {
 	}
 #endif
 
+	print_line("setup DisplayServer0");
 	/* Initialize Input */
 
 	input = memnew(Input);
@@ -2444,31 +2457,40 @@ Error Main::setup2() {
 		// rendering_driver now held in static global String in main and initialized in setup()
 		Error err;
 		display_server = DisplayServer::create(display_driver_idx, rendering_driver, window_mode, window_vsync_mode, window_flags, window_position, window_size, init_screen, err);
+
+	print_line("setup DisplayServer0.1",display_server == nullptr);
 		if (err != OK || display_server == nullptr) {
 			// We can't use this display server, try other ones as fallback.
 			// Skip headless (always last registered) because that's not what users
 			// would expect if they didn't request it explicitly.
 			for (int i = 0; i < DisplayServer::get_create_function_count() - 1; i++) {
+	print_line("setup DisplayServer0.2",i );
 				if (i == display_driver_idx) {
 					continue; // Don't try the same twice.
 				}
+	print_line("setup DisplayServer0.3",i);
 				display_server = DisplayServer::create(i, rendering_driver, window_mode, window_vsync_mode, window_flags, window_position, window_size, init_screen, err);
 				if (err == OK && display_server != nullptr) {
 					break;
 				}
 			}
+	print_line("setup DisplayServer0.4");
 		}
+	print_line("setup DisplayServer0.5");
 
 		if (err != OK || display_server == nullptr) {
 			ERR_PRINT("Unable to create DisplayServer, all display drivers failed.");
+	print_line("setup DisplayServer0.6");
 			return err;
 		}
 	}
 
+	print_line("setup DisplayServer1");
 	if (display_server->has_feature(DisplayServer::FEATURE_ORIENTATION)) {
 		display_server->screen_set_orientation(window_orientation);
 	}
 
+	print_line("setup DisplayServer2");
 	if (GLOBAL_GET("debug/settings/stdout/print_fps") || print_fps) {
 		// Print requested V-Sync mode at startup to diagnose the printed FPS not going above the monitor refresh rate.
 		switch (window_vsync_mode) {
@@ -2487,6 +2509,7 @@ Error Main::setup2() {
 		}
 	}
 
+	print_line("setup DisplayServer3");
 	if (OS::get_singleton()->_render_thread_mode == OS::RENDER_SEPARATE_THREAD) {
 		WARN_PRINT("The Multi-Threaded rendering thread model is experimental, and has known issues which can lead to project crashes. Use the Single-Safe option in the project settings instead.");
 	}
@@ -2498,6 +2521,7 @@ Error Main::setup2() {
 		GLOBAL_DEF_RST_NOVAL(PropertyInfo(Variant::STRING, "input_devices/pen_tablet/driver.windows", PROPERTY_HINT_ENUM, "wintab,winink"), "");
 	}
 
+	print_line("setup DisplayServer4");
 	if (tablet_driver.is_empty()) { // specified in project.godot
 		tablet_driver = GLOBAL_GET("input_devices/pen_tablet/driver");
 		if (tablet_driver.is_empty()) {
@@ -2505,6 +2529,7 @@ Error Main::setup2() {
 		}
 	}
 
+	print_line("setup DisplayServer5");
 	for (int i = 0; i < DisplayServer::get_singleton()->tablet_get_driver_count(); i++) {
 		if (tablet_driver == DisplayServer::get_singleton()->tablet_get_driver_name(i)) {
 			DisplayServer::get_singleton()->tablet_set_current_driver(DisplayServer::get_singleton()->tablet_get_driver_name(i));
@@ -2512,11 +2537,12 @@ Error Main::setup2() {
 		}
 	}
 
+	print_line("setup DisplayServer");
 	if (DisplayServer::get_singleton()->tablet_get_current_driver().is_empty()) {
 		DisplayServer::get_singleton()->tablet_set_current_driver(DisplayServer::get_singleton()->tablet_get_driver_name(0));
 	}
 
-	print_verbose("Using \"" + tablet_driver + "\" pen tablet driver...");
+	print_line("Using \"" + tablet_driver + "\" pen tablet driver...");
 
 	/* Initialize Rendering Server */
 
