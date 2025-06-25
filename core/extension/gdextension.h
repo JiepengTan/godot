@@ -159,6 +159,8 @@ public:
 	static void initialize_gdextensions();
 	static void finalize_gdextensions();
 
+	static String ext_path;
+
 	GDExtension();
 	~GDExtension();
 };

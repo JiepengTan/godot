@@ -49,6 +49,7 @@ class OS_Web : public OS_Unix {
 	bool idb_available = false;
 	bool idb_needs_sync = false;
 	bool pwa_is_waiting = false;
+	int64_t last_dirty_frame = 0;
 
 	WASM_EXPORT static void main_loop_callback();
 
@@ -108,8 +109,8 @@ public:
 	void alert(const String &p_alert, const String &p_title = "ALERT!") override;
 
 	Error open_dynamic_library(const String p_path, void *&p_library_handle, bool p_also_set_library_path = false, String *r_resolved_path = nullptr) override;
-
 	void resume_audio();
+	void register_spx_callbacks();
 
 	OS_Web();
 };

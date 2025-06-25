@@ -129,6 +129,9 @@ public:
 	virtual void get_argument_options(const StringName &p_function, int p_idx, List<String> *r_options) const override;
 
 	AnimatedSprite2D();
+
+
+	Rect2 get_uv_rect() const;
 };
 
 #endif // ANIMATED_SPRITE_2D_H
