@@ -61,6 +61,18 @@
 
 extern "C" {
 EMSCRIPTEN_KEEPALIVE
+void* cmalloc(int size) {
+	auto ptr = malloc(size);
+	print_line("cmalloc: ",size, ptr);
+	return ptr;
+}
+EMSCRIPTEN_KEEPALIVE
+void cfree(void* ptr) {
+	print_line("cfree: ", ptr);
+	free(ptr);
+}
+
+EMSCRIPTEN_KEEPALIVE
 void gdspx_audio_stop_all() {
 	 audioMgr->stop_all();
 }
