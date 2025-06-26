@@ -37,9 +37,9 @@
 #include "spx_sprite_mgr.h"
 
 #include "scene/2d/camera_2d.h"
-#include "scene/2d/collision_shape_2d.h"
+#include "scene/2d/physics/collision_shape_2d.h"
 #include "scene/main/window.h"
-#include "scene/resources/rectangle_shape_2d.h"
+#include "scene/resources/2d/rectangle_shape_2d.h"
 #include "spx_engine.h"
 #include "spx_sprite_mgr.h"
 

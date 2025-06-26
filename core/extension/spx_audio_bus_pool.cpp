@@ -56,7 +56,7 @@ StringName SpxAudioBusPool::get_bus_name(int id) {
 	} else if (id == BUS_MUSIC) {
 		return STR_BUS_MUSIC;
 	}
-	return String::num_real(id);
+	return String::num_real(float(id));
 }
 void SpxAudioBusPool::init() {
 
@@ -70,15 +70,15 @@ void SpxAudioBusPool::init() {
 	// Master bus is at index 0, so we start from 1
 	singleton->current_bus_count = DEFAULT_BUS_COUNT;
 	// Set up buses
-	AudioServer::get_singleton()->set_bus_name(BUS_SFX, String::num_real(BUS_SFX));
-	AudioServer::get_singleton()->set_bus_name(BUS_MUSIC, String::num_real(BUS_MUSIC));
+	AudioServer::get_singleton()->set_bus_name(BUS_SFX, String::num_real(float(BUS_SFX)));
+	AudioServer::get_singleton()->set_bus_name(BUS_MUSIC, String::num_real(float(BUS_MUSIC)));
 
 	AudioServer::get_singleton()->set_bus_send(BUS_SFX, STR_BUS_MASTER);
 	AudioServer::get_singleton()->set_bus_send(BUS_MUSIC, STR_BUS_MASTER);
 
 	// Add initial buses to pool (skipping the first 3 buses: Master, SFX, MUSIC)
 	for (int i = 3; i < DEFAULT_BUS_COUNT; i++) {
-		AudioServer::get_singleton()->set_bus_name(i, String::num_real(i));
+		AudioServer::get_singleton()->set_bus_name(i, String::num_real(float(i)));
 		AudioServer::get_singleton()->set_bus_send(i, STR_BUS_MASTER);
 		singleton->free_buses.push_back(i);
 	}
@@ -191,7 +191,7 @@ void SpxAudioBusPool::expand_buses() {
 
 	// Initialize new buses and add them to the pool
 	for (int i = current_bus_count; i < new_count; i++) {
-		AudioServer::get_singleton()->set_bus_name(i, String::num_real(i));
+		AudioServer::get_singleton()->set_bus_name(i, String::num_real(float(i)));
 		AudioServer::get_singleton()->set_bus_send(i, STR_BUS_MASTER);
 		free_buses.push_back(i);
 	}
