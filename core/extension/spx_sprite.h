@@ -33,7 +33,8 @@
 
 #include "gdextension_spx_ext.h"
 #include "scene/2d/node_2d.h"
-#include "scene/2d/physics_body_2d.h"
+#include "scene/2d/physics/character_body_2d.h"
+#include "scene/2d/physics/physics_body_2d.h"
 #include "scene/2d/sprite_2d.h"
 #include "spx.h"
 

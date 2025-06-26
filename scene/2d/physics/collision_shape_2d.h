@@ -47,7 +47,6 @@ class CollisionShape2D : public Node2D {
 	real_t one_way_collision_margin = 1.0;
 
 	// spx
-	Color debug_color;
 	bool is_enable_spx_debug;
 
 	void _shape_changed();

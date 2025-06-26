@@ -30,7 +30,7 @@
 
 #include "core/extension/gdextension_spx_ext.h"
 #include "core/extension/gdextension.h"
-#include "core/extension/gdextension_compat_hashes.h"
+#include "core/extension/gdextension_special_compat_hashes.h"
 #include "core/variant/variant.h"
 #include "core/extension/gdextension_interface.h"
 #include "scene/main/window.h"
@@ -60,6 +60,16 @@
 
 
 extern "C" {
+EMSCRIPTEN_KEEPALIVE
+void* cmalloc(int size) {
+	auto ptr = malloc(size);
+	return ptr;
+}
+EMSCRIPTEN_KEEPALIVE
+void cfree(void* ptr) {
+	free(ptr);
+}
+
 EMSCRIPTEN_KEEPALIVE
 void gdspx_audio_stop_all() {
 	 audioMgr->stop_all();

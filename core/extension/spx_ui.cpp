@@ -194,13 +194,13 @@ void SpxUi::set_texture(GdString path) {
 		auto etype = (ESpxUiType)type;
 		switch (etype) {
 			case ESpxUiType::Button:
-				get_button()->set_icon(value);
+				get_button()->set_button_icon(value);
 				break;
 			case ESpxUiType::Image:
 				get_image()->set_texture(value);
 				break;
 			case ESpxUiType::Toggle:
-				get_toggle()->set_icon(value);
+				get_toggle()->set_button_icon(value);
 				break;
 			default:
 				print_error("not support set_icon() type " + itos(type));
@@ -216,13 +216,13 @@ GdString SpxUi::get_texture() {
 	auto etype = (ESpxUiType)type;
 	switch (etype) {
 		case ESpxUiType::Button:
-			value = get_button()->get_icon();
+			value = get_button()->get_button_icon();
 			break;
 		case ESpxUiType::Image:
 			value = get_image()->get_texture();
 			break;
 		case ESpxUiType::Toggle:
-			value = get_toggle()->get_icon();
+			value = get_toggle()->get_button_icon();
 			break;
 		default:
 			print_error("not support get_texture() type " + itos(type));

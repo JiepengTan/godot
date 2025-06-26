@@ -83,11 +83,6 @@ const Engine = (function () {
 				loadPath = this.config.executable;
 				GodotEngine = this;
 				const me = this;
-				createWrapper = function (module, name) {
-					return function() {
-						return module["asm"][name].apply(null, arguments);
-					};
-				}
 				function doInit() {
 					// Care! Promise chaining is bogus with old emscripten versions.
 					// This caused a regression with the Mono build (which uses an older emscripten version).
@@ -97,8 +92,6 @@ const Engine = (function () {
 						gdmodule = me.config.getModuleConfig(loadPath, me.config.wasmEngine);
 						Godot(gdmodule).then(function (module) {
 							GodotModule = gdmodule
-							GodotModule._cmalloc = createWrapper(gdmodule,"malloc");
-							GodotModule._cfree = createWrapper(gdmodule,"free");
 							const paths = me.config.persistentPaths;
 							module['initFS'](paths).then(function (err) {
 								me.rtenv = module;
@@ -200,9 +193,7 @@ const Engine = (function () {
 							resolve();
 						});
 					}
-					return Promise.all(libs).then(function () {
-						return executeMainLogic();
-					});
+					return executeMainLogic();
 					
 				});
 			},
