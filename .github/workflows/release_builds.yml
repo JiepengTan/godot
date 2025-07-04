@@ -109,7 +109,7 @@ jobs:
       event_name: ${{ github.event_name }}
       release_tag: ${{ github.event.release.tag_name }}
     secrets:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   ios-build:
     name: 🍏 iOS Build
@@ -126,7 +126,7 @@ jobs:
       event_name: ${{ github.event_name }}
       release_tag: ${{ github.event.release.tag_name }}
     secrets:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   windows-build:
     name: 🪟 Windows Build
@@ -144,7 +144,7 @@ jobs:
       event_name: ${{ github.event_name }}
       release_tag: ${{ github.event.release.tag_name }}
     secrets:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   linux-build:
     name: 🐧 Linux Build
@@ -161,7 +161,7 @@ jobs:
       event_name: ${{ github.event_name }}
       release_tag: ${{ github.event.release.tag_name }}
     secrets:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   macos-build:
     name: 🍎 macOS Build
@@ -179,7 +179,7 @@ jobs:
       event_name: ${{ github.event_name }}
       release_tag: ${{ github.event.release.tag_name }}
     secrets:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   web-build:
     name: 🌐 Web Build
@@ -197,4 +197,4 @@ jobs:
       event_name: ${{ github.event_name }}
       release_tag: ${{ github.event.release.tag_name }}
     secrets:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

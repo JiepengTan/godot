@@ -36,7 +36,7 @@ on:
         type: string
         description: "Release tag name"
     secrets:
-      GITHUB_TOKEN:
+      GH_TOKEN:
         required: true
 
 env:
@@ -130,4 +130,4 @@ jobs:
           files: release/android.zip
           tag_name: ${{ inputs.release_tag }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }} 

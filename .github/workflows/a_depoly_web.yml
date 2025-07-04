@@ -40,7 +40,7 @@ on:
         type: string
         description: "Release tag name"
     secrets:
-      GITHUB_TOKEN:
+      GH_TOKEN:
         required: true
 
 env:
@@ -178,7 +178,7 @@ jobs:
           files: artifacts/web.zip
           tag_name: ${{ inputs.release_tag }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
           
   web-template-build-threads:
     name: 🌐 Web Template Build (threads)
@@ -243,5 +243,5 @@ jobs:
           files: artifacts/web-threads.zip
           tag_name: ${{ inputs.release_tag }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
           

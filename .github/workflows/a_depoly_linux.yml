@@ -36,7 +36,7 @@ on:
         type: string
         description: "Release tag name"
     secrets:
-      GITHUB_TOKEN:
+      GH_TOKEN:
         required: true
 
 env:
@@ -106,7 +106,7 @@ jobs:
           files: bin/editor-linux-${{ matrix.artifact_suffix }}.zip
           tag_name: ${{ inputs.release_tag }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
   linux-template-build:
     name: 🐧 Linux ${{ matrix.arch }} Template Build
@@ -178,4 +178,4 @@ jobs:
           files: bin/linux-${{ matrix.artifact_suffix }}.zip
           tag_name: ${{ inputs.release_tag }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }} 
