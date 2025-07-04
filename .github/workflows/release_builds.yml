@@ -60,6 +60,11 @@ jobs:
     outputs:
       version: ${{ steps.set-version.outputs.version }}
       platforms: ${{ steps.set-platforms.outputs.platforms }}
+      godot_base_branch: ${{ steps.set-build-params.outputs.godot_base_branch }}
+      engine_version: ${{ steps.set-build-params.outputs.engine_version }}
+      common_args: ${{ steps.set-build-params.outputs.common_args }}
+      release_args: ${{ steps.set-build-params.outputs.release_args }}
+      editor_args: ${{ steps.set-build-params.outputs.editor_args }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -94,6 +99,15 @@ jobs:
           echo "PLATFORMS=$PLATFORMS"
           echo "platforms=$PLATFORMS" >> $GITHUB_OUTPUT
 
+      - name: Set Build Parameters
+        id: set-build-params
+        run: |
+          echo "godot_base_branch=${{ env.GODOT_BASE_BRANCH }}" >> $GITHUB_OUTPUT
+          echo "engine_version=${{ env.ENGINE_VERSION }}" >> $GITHUB_OUTPUT
+          echo "common_args=${{ env.COMMON_ARGS }}" >> $GITHUB_OUTPUT
+          echo "release_args=${{ env.RELEASE_ARGS }}" >> $GITHUB_OUTPUT
+          echo "editor_args=${{ env.EDITOR_ARGS }}" >> $GITHUB_OUTPUT
+
   android-build:
     name: 🤖 Android Build
     needs: setup
@@ -102,33 +116,10 @@ jobs:
     with:
       version: ${{ needs.setup.outputs.version }}
       platforms: ${{ needs.setup.outputs.platforms }}
-      godot_base_branch: master
-      engine_version: 4.4.1.stable
-      common_args: >-
-        optimize=size
-        use_volk=no 
-        deprecated=no 
-        minizip=yes  
-        openxr=false 
-        vulkan=false 
-        graphite=false 
-        disable_3d_physics=true 
-        disable_navigation=true 
-        module_msdfgen_enabled=false 
-        module_text_server_adv_enabled=false 
-        module_text_server_fb_enabled=true 
-        modules_enabled_by_default=true 
-        module_gdscript_enabled=true 
-        module_freetype_enabled=true 
-        module_minimp3_enabled=true 
-        module_svg_enabled=true 
-        module_jpg_enabled=true 
-        module_ogg_enabled=true 
-        module_regex_enabled=true 
-        module_godot_physics_2d_enabled=true 
-      release_args: >-
-        debug_symbols=false
-        disable_3d=true
+      godot_base_branch: ${{ needs.setup.outputs.godot_base_branch }}
+      engine_version: ${{ needs.setup.outputs.engine_version }}
+      common_args: ${{ needs.setup.outputs.common_args }}
+      release_args: ${{ needs.setup.outputs.release_args }}
       event_name: ${{ github.event_name }}
       release_tag: ${{ github.event.release.tag_name }}
     secrets:
@@ -142,33 +133,10 @@ jobs:
     with:
       version: ${{ needs.setup.outputs.version }}
       platforms: ${{ needs.setup.outputs.platforms }}
-      godot_base_branch: master
-      engine_version: 4.4.1.stable
-      common_args: >-
-        optimize=size
-        use_volk=no 
-        deprecated=no 
-        minizip=yes  
-        openxr=false 
-        vulkan=false 
-        graphite=false 
-        disable_3d_physics=true 
-        disable_navigation=true 
-        module_msdfgen_enabled=false 
-        module_text_server_adv_enabled=false 
-        module_text_server_fb_enabled=true 
-        modules_enabled_by_default=true 
-        module_gdscript_enabled=true 
-        module_freetype_enabled=true 
-        module_minimp3_enabled=true 
-        module_svg_enabled=true 
-        module_jpg_enabled=true 
-        module_ogg_enabled=true 
-        module_regex_enabled=true 
-        module_godot_physics_2d_enabled=true 
-      release_args: >-
-        debug_symbols=false
-        disable_3d=true
+      godot_base_branch: ${{ needs.setup.outputs.godot_base_branch }}
+      engine_version: ${{ needs.setup.outputs.engine_version }}
+      common_args: ${{ needs.setup.outputs.common_args }}
+      release_args: ${{ needs.setup.outputs.release_args }}
       event_name: ${{ github.event_name }}
       release_tag: ${{ github.event.release.tag_name }}
     secrets:
@@ -182,34 +150,11 @@ jobs:
     with:
       version: ${{ needs.setup.outputs.version }}
       platforms: ${{ needs.setup.outputs.platforms }}
-      godot_base_branch: master
-      engine_version: 4.4.1.stable
-      common_args: >-
-        optimize=size
-        use_volk=no 
-        deprecated=no 
-        minizip=yes  
-        openxr=false 
-        vulkan=false 
-        graphite=false 
-        disable_3d_physics=true 
-        disable_navigation=true 
-        module_msdfgen_enabled=false 
-        module_text_server_adv_enabled=false 
-        module_text_server_fb_enabled=true 
-        modules_enabled_by_default=true 
-        module_gdscript_enabled=true 
-        module_freetype_enabled=true 
-        module_minimp3_enabled=true 
-        module_svg_enabled=true 
-        module_jpg_enabled=true 
-        module_ogg_enabled=true 
-        module_regex_enabled=true 
-        module_godot_physics_2d_enabled=true 
-      release_args: >-
-        debug_symbols=false
-        disable_3d=true
-      editor_args: debug_symbols=true
+      godot_base_branch: ${{ needs.setup.outputs.godot_base_branch }}
+      engine_version: ${{ needs.setup.outputs.engine_version }}
+      common_args: ${{ needs.setup.outputs.common_args }}
+      release_args: ${{ needs.setup.outputs.release_args }}
+      editor_args: ${{ needs.setup.outputs.editor_args }}
       event_name: ${{ github.event_name }}
       release_tag: ${{ github.event.release.tag_name }}
     secrets:
@@ -223,33 +168,10 @@ jobs:
     with:
       version: ${{ needs.setup.outputs.version }}
       platforms: ${{ needs.setup.outputs.platforms }}
-      godot_base_branch: master
-      engine_version: 4.4.1.stable
-      common_args: >-
-        optimize=size
-        use_volk=no 
-        deprecated=no 
-        minizip=yes  
-        openxr=false 
-        vulkan=false 
-        graphite=false 
-        disable_3d_physics=true 
-        disable_navigation=true 
-        module_msdfgen_enabled=false 
-        module_text_server_adv_enabled=false 
-        module_text_server_fb_enabled=true 
-        modules_enabled_by_default=true 
-        module_gdscript_enabled=true 
-        module_freetype_enabled=true 
-        module_minimp3_enabled=true 
-        module_svg_enabled=true 
-        module_jpg_enabled=true 
-        module_ogg_enabled=true 
-        module_regex_enabled=true 
-        module_godot_physics_2d_enabled=true 
-      release_args: >-
-        debug_symbols=false
-        disable_3d=true
+      godot_base_branch: ${{ needs.setup.outputs.godot_base_branch }}
+      engine_version: ${{ needs.setup.outputs.engine_version }}
+      common_args: ${{ needs.setup.outputs.common_args }}
+      release_args: ${{ needs.setup.outputs.release_args }}
       event_name: ${{ github.event_name }}
       release_tag: ${{ github.event.release.tag_name }}
     secrets:
@@ -263,34 +185,11 @@ jobs:
     with:
       version: ${{ needs.setup.outputs.version }}
       platforms: ${{ needs.setup.outputs.platforms }}
-      godot_base_branch: master
-      engine_version: 4.4.1.stable
-      common_args: >-
-        optimize=size
-        use_volk=no 
-        deprecated=no 
-        minizip=yes  
-        openxr=false 
-        vulkan=false 
-        graphite=false 
-        disable_3d_physics=true 
-        disable_navigation=true 
-        module_msdfgen_enabled=false 
-        module_text_server_adv_enabled=false 
-        module_text_server_fb_enabled=true 
-        modules_enabled_by_default=true 
-        module_gdscript_enabled=true 
-        module_freetype_enabled=true 
-        module_minimp3_enabled=true 
-        module_svg_enabled=true 
-        module_jpg_enabled=true 
-        module_ogg_enabled=true 
-        module_regex_enabled=true 
-        module_godot_physics_2d_enabled=true 
-      release_args: >-
-        debug_symbols=false
-        disable_3d=true
-      editor_args: debug_symbols=true
+      godot_base_branch: ${{ needs.setup.outputs.godot_base_branch }}
+      engine_version: ${{ needs.setup.outputs.engine_version }}
+      common_args: ${{ needs.setup.outputs.common_args }}
+      release_args: ${{ needs.setup.outputs.release_args }}
+      editor_args: ${{ needs.setup.outputs.editor_args }}
       event_name: ${{ github.event_name }}
       release_tag: ${{ github.event.release.tag_name }}
     secrets:
@@ -304,34 +203,11 @@ jobs:
     with:
       version: ${{ needs.setup.outputs.version }}
       platforms: ${{ needs.setup.outputs.platforms }}
-      godot_base_branch: master
-      engine_version: 4.4.1.stable
-      common_args: >-
-        optimize=size
-        use_volk=no 
-        deprecated=no 
-        minizip=yes  
-        openxr=false 
-        vulkan=false 
-        graphite=false 
-        disable_3d_physics=true 
-        disable_navigation=true 
-        module_msdfgen_enabled=false 
-        module_text_server_adv_enabled=false 
-        module_text_server_fb_enabled=true 
-        modules_enabled_by_default=true 
-        module_gdscript_enabled=true 
-        module_freetype_enabled=true 
-        module_minimp3_enabled=true 
-        module_svg_enabled=true 
-        module_jpg_enabled=true 
-        module_ogg_enabled=true 
-        module_regex_enabled=true 
-        module_godot_physics_2d_enabled=true 
-      release_args: >-
-        debug_symbols=false
-        disable_3d=true
-      editor_args: debug_symbols=true
+      godot_base_branch: ${{ needs.setup.outputs.godot_base_branch }}
+      engine_version: ${{ needs.setup.outputs.engine_version }}
+      common_args: ${{ needs.setup.outputs.common_args }}
+      release_args: ${{ needs.setup.outputs.release_args }}
+      editor_args: ${{ needs.setup.outputs.editor_args }}
       event_name: ${{ github.event_name }}
       release_tag: ${{ github.event.release.tag_name }}
     secrets:
