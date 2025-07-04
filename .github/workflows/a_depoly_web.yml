@@ -232,7 +232,7 @@ jobs:
       - name: Upload Web Template Build Results
         uses: actions/upload-artifact@v4
         with:
-          name: web-template-${{ inputs.version }}
+          name: web-template-threads-${{ inputs.version }}
           path: artifacts/web-threads.zip
           retention-days: 14
 
