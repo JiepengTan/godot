@@ -102,10 +102,33 @@ jobs:
     with:
       version: ${{ needs.setup.outputs.version }}
       platforms: ${{ needs.setup.outputs.platforms }}
-      godot_base_branch: ${{ env.GODOT_BASE_BRANCH }}
-      engine_version: ${{ env.ENGINE_VERSION }}
-      common_args: ${{ env.COMMON_ARGS }}
-      release_args: ${{ env.RELEASE_ARGS }}
+      godot_base_branch: master
+      engine_version: 4.4.1.stable
+      common_args: >-
+        optimize=size
+        use_volk=no 
+        deprecated=no 
+        minizip=yes  
+        openxr=false 
+        vulkan=false 
+        graphite=false 
+        disable_3d_physics=true 
+        disable_navigation=true 
+        module_msdfgen_enabled=false 
+        module_text_server_adv_enabled=false 
+        module_text_server_fb_enabled=true 
+        modules_enabled_by_default=true 
+        module_gdscript_enabled=true 
+        module_freetype_enabled=true 
+        module_minimp3_enabled=true 
+        module_svg_enabled=true 
+        module_jpg_enabled=true 
+        module_ogg_enabled=true 
+        module_regex_enabled=true 
+        module_godot_physics_2d_enabled=true 
+      release_args: >-
+        debug_symbols=false
+        disable_3d=true
       event_name: ${{ github.event_name }}
       release_tag: ${{ github.event.release.tag_name }}
     secrets:
@@ -119,10 +142,33 @@ jobs:
     with:
       version: ${{ needs.setup.outputs.version }}
       platforms: ${{ needs.setup.outputs.platforms }}
-      godot_base_branch: ${{ env.GODOT_BASE_BRANCH }}
-      engine_version: ${{ env.ENGINE_VERSION }}
-      common_args: ${{ env.COMMON_ARGS }}
-      release_args: ${{ env.RELEASE_ARGS }}
+      godot_base_branch: master
+      engine_version: 4.4.1.stable
+      common_args: >-
+        optimize=size
+        use_volk=no 
+        deprecated=no 
+        minizip=yes  
+        openxr=false 
+        vulkan=false 
+        graphite=false 
+        disable_3d_physics=true 
+        disable_navigation=true 
+        module_msdfgen_enabled=false 
+        module_text_server_adv_enabled=false 
+        module_text_server_fb_enabled=true 
+        modules_enabled_by_default=true 
+        module_gdscript_enabled=true 
+        module_freetype_enabled=true 
+        module_minimp3_enabled=true 
+        module_svg_enabled=true 
+        module_jpg_enabled=true 
+        module_ogg_enabled=true 
+        module_regex_enabled=true 
+        module_godot_physics_2d_enabled=true 
+      release_args: >-
+        debug_symbols=false
+        disable_3d=true
       event_name: ${{ github.event_name }}
       release_tag: ${{ github.event.release.tag_name }}
     secrets:
@@ -136,11 +182,34 @@ jobs:
     with:
       version: ${{ needs.setup.outputs.version }}
       platforms: ${{ needs.setup.outputs.platforms }}
-      godot_base_branch: ${{ env.GODOT_BASE_BRANCH }}
-      engine_version: ${{ env.ENGINE_VERSION }}
-      common_args: ${{ env.COMMON_ARGS }}
-      release_args: ${{ env.RELEASE_ARGS }}
-      editor_args: ${{ env.EDITOR_ARGS }}
+      godot_base_branch: master
+      engine_version: 4.4.1.stable
+      common_args: >-
+        optimize=size
+        use_volk=no 
+        deprecated=no 
+        minizip=yes  
+        openxr=false 
+        vulkan=false 
+        graphite=false 
+        disable_3d_physics=true 
+        disable_navigation=true 
+        module_msdfgen_enabled=false 
+        module_text_server_adv_enabled=false 
+        module_text_server_fb_enabled=true 
+        modules_enabled_by_default=true 
+        module_gdscript_enabled=true 
+        module_freetype_enabled=true 
+        module_minimp3_enabled=true 
+        module_svg_enabled=true 
+        module_jpg_enabled=true 
+        module_ogg_enabled=true 
+        module_regex_enabled=true 
+        module_godot_physics_2d_enabled=true 
+      release_args: >-
+        debug_symbols=false
+        disable_3d=true
+      editor_args: debug_symbols=true
       event_name: ${{ github.event_name }}
       release_tag: ${{ github.event.release.tag_name }}
     secrets:
@@ -154,10 +223,33 @@ jobs:
     with:
       version: ${{ needs.setup.outputs.version }}
       platforms: ${{ needs.setup.outputs.platforms }}
-      godot_base_branch: ${{ env.GODOT_BASE_BRANCH }}
-      engine_version: ${{ env.ENGINE_VERSION }}
-      common_args: ${{ env.COMMON_ARGS }}
-      release_args: ${{ env.RELEASE_ARGS }}
+      godot_base_branch: master
+      engine_version: 4.4.1.stable
+      common_args: >-
+        optimize=size
+        use_volk=no 
+        deprecated=no 
+        minizip=yes  
+        openxr=false 
+        vulkan=false 
+        graphite=false 
+        disable_3d_physics=true 
+        disable_navigation=true 
+        module_msdfgen_enabled=false 
+        module_text_server_adv_enabled=false 
+        module_text_server_fb_enabled=true 
+        modules_enabled_by_default=true 
+        module_gdscript_enabled=true 
+        module_freetype_enabled=true 
+        module_minimp3_enabled=true 
+        module_svg_enabled=true 
+        module_jpg_enabled=true 
+        module_ogg_enabled=true 
+        module_regex_enabled=true 
+        module_godot_physics_2d_enabled=true 
+      release_args: >-
+        debug_symbols=false
+        disable_3d=true
       event_name: ${{ github.event_name }}
       release_tag: ${{ github.event.release.tag_name }}
     secrets:
@@ -171,11 +263,34 @@ jobs:
     with:
       version: ${{ needs.setup.outputs.version }}
       platforms: ${{ needs.setup.outputs.platforms }}
-      godot_base_branch: ${{ env.GODOT_BASE_BRANCH }}
-      engine_version: ${{ env.ENGINE_VERSION }}
-      common_args: ${{ env.COMMON_ARGS }}
-      release_args: ${{ env.RELEASE_ARGS }}
-      editor_args: ${{ env.EDITOR_ARGS }}
+      godot_base_branch: master
+      engine_version: 4.4.1.stable
+      common_args: >-
+        optimize=size
+        use_volk=no 
+        deprecated=no 
+        minizip=yes  
+        openxr=false 
+        vulkan=false 
+        graphite=false 
+        disable_3d_physics=true 
+        disable_navigation=true 
+        module_msdfgen_enabled=false 
+        module_text_server_adv_enabled=false 
+        module_text_server_fb_enabled=true 
+        modules_enabled_by_default=true 
+        module_gdscript_enabled=true 
+        module_freetype_enabled=true 
+        module_minimp3_enabled=true 
+        module_svg_enabled=true 
+        module_jpg_enabled=true 
+        module_ogg_enabled=true 
+        module_regex_enabled=true 
+        module_godot_physics_2d_enabled=true 
+      release_args: >-
+        debug_symbols=false
+        disable_3d=true
+      editor_args: debug_symbols=true
       event_name: ${{ github.event_name }}
       release_tag: ${{ github.event.release.tag_name }}
     secrets:
@@ -189,11 +304,34 @@ jobs:
     with:
       version: ${{ needs.setup.outputs.version }}
       platforms: ${{ needs.setup.outputs.platforms }}
-      godot_base_branch: ${{ env.GODOT_BASE_BRANCH }}
-      engine_version: ${{ env.ENGINE_VERSION }}
-      common_args: ${{ env.COMMON_ARGS }}
-      release_args: ${{ env.RELEASE_ARGS }}
-      editor_args: ${{ env.EDITOR_ARGS }}
+      godot_base_branch: master
+      engine_version: 4.4.1.stable
+      common_args: >-
+        optimize=size
+        use_volk=no 
+        deprecated=no 
+        minizip=yes  
+        openxr=false 
+        vulkan=false 
+        graphite=false 
+        disable_3d_physics=true 
+        disable_navigation=true 
+        module_msdfgen_enabled=false 
+        module_text_server_adv_enabled=false 
+        module_text_server_fb_enabled=true 
+        modules_enabled_by_default=true 
+        module_gdscript_enabled=true 
+        module_freetype_enabled=true 
+        module_minimp3_enabled=true 
+        module_svg_enabled=true 
+        module_jpg_enabled=true 
+        module_ogg_enabled=true 
+        module_regex_enabled=true 
+        module_godot_physics_2d_enabled=true 
+      release_args: >-
+        debug_symbols=false
+        disable_3d=true
+      editor_args: debug_symbols=true
       event_name: ${{ github.event_name }}
       release_tag: ${{ github.event.release.tag_name }}
     secrets:
