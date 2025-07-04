@@ -54,12 +54,10 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        arch: [x86_64, x86_32]
+        arch: [x86_64]
         include:
           - arch: x86_64
             artifact_suffix: x86_64
-          - arch: x86_32
-            artifact_suffix: x86_32
 
     steps:
       - name: Checkout
@@ -86,7 +84,7 @@ jobs:
       - name: Build Windows Editor (${{ matrix.arch }})
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=windows target=editor arch=${{ matrix.arch }} ${{ inputs.common_args }} ${{ inputs.editor_args }} use_llvm=yes linker=lld
+          sconsflags: platform=windows target=editor arch=${{ matrix.arch }} ${{ inputs.common_args }} ${{ inputs.editor_args }} use_llvm=yes 
           platform: windows
           target: editor
 
@@ -116,12 +114,10 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        arch: [x86_64, x86_32]
+        arch: [x86_64]
         include:
           - arch: x86_64
             artifact_suffix: x86_64
-          - arch: x86_32
-            artifact_suffix: x86_32
 
     steps:
       - name: Checkout
@@ -149,14 +145,14 @@ jobs:
       - name: Build Windows Template Debug (${{ matrix.arch }})
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=windows target=template_debug arch=${{ matrix.arch }} ${{ inputs.common_args }} ${{ inputs.release_args }} use_llvm=yes linker=lld
+          sconsflags: platform=windows target=template_debug arch=${{ matrix.arch }} ${{ inputs.common_args }} ${{ inputs.release_args }} use_llvm=yes 
           platform: windows
           target: template_debug
 
       - name: Build Windows Template Release (${{ matrix.arch }})
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=windows target=template_release arch=${{ matrix.arch }} ${{ inputs.common_args }} ${{ inputs.release_args }} use_llvm=yes linker=lld
+          sconsflags: platform=windows target=template_release arch=${{ matrix.arch }} ${{ inputs.common_args }} ${{ inputs.release_args }} use_llvm=yes 
           platform: windows
           target: template_release
 
