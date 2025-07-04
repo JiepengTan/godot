@@ -781,7 +781,7 @@ jobs:
     if: contains(needs.setup.outputs.platforms, 'web') || contains(needs.setup.outputs.platforms, 'all')
     runs-on: ubuntu-22.04
     env:
-      EM_VERSION: 3.1.39
+      EM_VERSION: 3.1.62
       EM_CACHE_FOLDER: "emsdk-cache"
     steps:
       - name: Checkout
@@ -850,7 +850,7 @@ jobs:
     if: contains(needs.setup.outputs.platforms, 'web') || contains(needs.setup.outputs.platforms, 'all')
     runs-on: ubuntu-22.04
     env:
-      EM_VERSION: 3.1.39
+      EM_VERSION: 3.1.62
       EM_CACHE_FOLDER: "emsdk-cache"
     steps:
       - name: Checkout
