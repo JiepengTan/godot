@@ -98,7 +98,7 @@ jobs:
     name: 🤖 Android Build
     needs: setup
     if: contains(needs.setup.outputs.platforms, 'android') || contains(needs.setup.outputs.platforms, 'all')
-    uses: ./.github/workflows/release_builds/android.yml
+    uses: ./.github/workflows/a_depoly_android.yml
     with:
       version: ${{ needs.setup.outputs.version }}
       platforms: ${{ needs.setup.outputs.platforms }}
@@ -115,7 +115,7 @@ jobs:
     name: 🍏 iOS Build
     needs: setup
     if: contains(needs.setup.outputs.platforms, 'ios') || contains(needs.setup.outputs.platforms, 'all')
-    uses: ./.github/workflows/release_builds/ios.yml
+    uses: ./.github/workflows/a_depoly_ios.yml
     with:
       version: ${{ needs.setup.outputs.version }}
       platforms: ${{ needs.setup.outputs.platforms }}
@@ -132,7 +132,7 @@ jobs:
     name: 🪟 Windows Build
     needs: setup
     if: contains(needs.setup.outputs.platforms, 'windows') || contains(needs.setup.outputs.platforms, 'all')
-    uses: ./.github/workflows/release_builds/windows.yml
+    uses: ./.github/workflows/a_depoly_windows.yml
     with:
       version: ${{ needs.setup.outputs.version }}
       platforms: ${{ needs.setup.outputs.platforms }}
@@ -150,7 +150,7 @@ jobs:
     name: 🐧 Linux Build
     needs: setup
     if: contains(needs.setup.outputs.platforms, 'linux') || contains(needs.setup.outputs.platforms, 'all')
-    uses: ./.github/workflows/release_builds/linux.yml
+    uses: ./.github/workflows/a_depoly_linux.yml
     with:
       version: ${{ needs.setup.outputs.version }}
       platforms: ${{ needs.setup.outputs.platforms }}
@@ -167,7 +167,7 @@ jobs:
     name: 🍎 macOS Build
     needs: setup
     if: contains(needs.setup.outputs.platforms, 'macos') || contains(needs.setup.outputs.platforms, 'all')
-    uses: ./.github/workflows/release_builds/macos.yml
+    uses: ./.github/workflows/a_depoly_macos.yml
     with:
       version: ${{ needs.setup.outputs.version }}
       platforms: ${{ needs.setup.outputs.platforms }}
@@ -185,7 +185,7 @@ jobs:
     name: 🌐 Web Build
     needs: setup
     if: contains(needs.setup.outputs.platforms, 'web') || contains(needs.setup.outputs.platforms, 'all')
-    uses: ./.github/workflows/release_builds/web.yml
+    uses: ./.github/workflows/a_depoly_web.yml
     with:
       version: ${{ needs.setup.outputs.version }}
       platforms: ${{ needs.setup.outputs.platforms }}
