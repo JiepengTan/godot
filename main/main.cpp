@@ -2645,9 +2645,17 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 	}
 
 	if (Engine::get_singleton()->get_write_movie_path() != String()) {
-		// Always use dummy driver for audio driver (which is last), also in no threaded mode.
-		audio_driver_idx = AudioDriverManager::get_driver_count() - 1;
-		AudioDriverDummy::get_dummy_singleton()->set_use_threads(false);
+		// Check if real-time recording mode is enabled
+		bool realtime_recording = true;
+		print_line("realtime_recording = ", realtime_recording);
+		if (realtime_recording) {
+			// Real-time recording mode: keep the original audio driver, the hybrid driver will be set later
+			print_line("MovieWriter: Realtime recording mode enabled");
+		} else {
+			// Traditional offline recording mode: use dummy driver
+			audio_driver_idx = AudioDriverManager::get_driver_count() - 1;
+			AudioDriverDummy::get_dummy_singleton()->set_use_threads(false);
+		}
 	}
 
 	{
@@ -3221,13 +3229,20 @@ Error Main::setup2(bool p_show_boot_logo) {
 			rendering_server->set_print_gpu_profile(true);
 		}
 
-		if (Engine::get_singleton()->get_write_movie_path() != String()) {
-			movie_writer = MovieWriter::find_writer_for_file(Engine::get_singleton()->get_write_movie_path());
-			if (movie_writer == nullptr) {
-				ERR_PRINT("Can't find movie writer for file type, aborting: " + Engine::get_singleton()->get_write_movie_path());
-				Engine::get_singleton()->set_write_movie_path(String());
+			if (Engine::get_singleton()->get_write_movie_path() != String()) {
+		movie_writer = MovieWriter::find_writer_for_file(Engine::get_singleton()->get_write_movie_path());
+		if (movie_writer == nullptr) {
+			ERR_PRINT("Can't find movie writer for file type, aborting: " + Engine::get_singleton()->get_write_movie_path());
+			Engine::get_singleton()->set_write_movie_path(String());
+		} else {
+			// Check if real-time recording mode is enabled
+			bool realtime_recording = true;
+			print_line("realtime_recording = ", realtime_recording);
+			if (realtime_recording) {
+				movie_writer->set_realtime_mode(true);
 			}
 		}
+	}
 
 		OS::get_singleton()->benchmark_end_measure("Servers", "Rendering");
 	}

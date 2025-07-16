@@ -265,6 +265,13 @@ const Engine = (function () {
                 });
                 return Promise.all(promises);
             },
+			
+			getAudioContext: function () {
+				if (this.rtenv == null) {
+					throw new Error('Engine must be inited before getting audio context');
+				}
+				return this.rtenv['getAudioContext']();
+			},
 
 			/**
 			 * Request that the current instance quit.

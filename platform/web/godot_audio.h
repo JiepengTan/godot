@@ -76,11 +76,42 @@ extern void godot_audio_worklet_start(float *p_in_buf, int p_in_size, float *p_o
 extern void godot_audio_worklet_start_no_threads(float *p_out_buf, int p_out_size, void (*p_out_cb)(int p_pos, int p_frames), float *p_in_buf, int p_in_size, void (*p_in_cb)(int p_pos, int p_frames));
 extern int godot_audio_worklet_state_add(GodotAudioState p_state, int p_idx, int p_value);
 extern int godot_audio_worklet_state_get(GodotAudioState p_state, int p_idx);
-extern int godot_audio_worklet_state_wait(int32_t *p_state, int p_idx, int32_t p_expected, int p_timeout);
+extern int godot_audio_worklet_state_wait(int32_t *p_state, int p_idx, int32_t p_expected);
 
 // Script
 extern int godot_audio_script_create(int *p_buffer_size, int p_channels);
 extern void godot_audio_script_start(float *p_in_buf, int p_in_size, float *p_out_buf, int p_out_size, void (*p_cb)());
+
+// Web Audio Recorder - MediaRecorder API integration for web audio recording
+// Web Audio Recorder functions
+
+// Existing audio recording functions
+extern int godot_audio_recorder_init();
+extern int godot_audio_recorder_start();
+extern void godot_audio_recorder_stop();
+extern int godot_audio_recorder_is_recording();
+extern int godot_audio_recorder_get_data_size();
+extern int godot_audio_recorder_has_new_data();
+extern int godot_audio_recorder_has_data();
+
+extern int godot_audio_recorder_get_mime_type();
+extern void godot_audio_recorder_download_data(const char *p_filename);
+extern void godot_audio_recorder_cleanup();
+// New video recording functions
+extern int godot_video_recorder_init(int fps);
+extern int godot_video_recorder_start();
+extern void godot_video_recorder_stop();
+extern int godot_video_recorder_is_recording();
+extern int godot_video_recorder_get_data_size();
+extern int godot_video_recorder_get_mime_type();
+extern void godot_video_recorder_download_data(const char *p_filename);
+extern void godot_video_recorder_cleanup();
+extern int godot_video_recorder_has_new_data();
+extern int godot_video_recorder_has_data();
+
+// Web File Download - file download function
+extern int godot_web_download_recorded_audio(const char *p_filename);
+extern int godot_web_download_file(const char *p_file_path, const char *p_download_name);
 
 #ifdef __cplusplus
 }
