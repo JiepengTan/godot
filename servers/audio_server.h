@@ -47,6 +47,7 @@ class AudioStream;
 class AudioStreamWAV;
 class AudioStreamPlayback;
 class AudioSamplePlayback;
+class AudioCaptureInterface; // 添加前向声明
 
 class AudioDriver {
 	static AudioDriver *singleton;
@@ -338,6 +339,10 @@ private:
 	SafeList<CallbackItem *> mix_callback_list;
 	SafeList<CallbackItem *> listener_changed_callback_list;
 
+	// 音频捕获功能
+	AudioCaptureInterface *audio_capture_interface = nullptr;
+	Mutex capture_mutex;
+
 	friend class AudioDriver;
 	void _driver_process(int p_frames, int32_t *p_buffer);
 
@@ -473,6 +478,10 @@ public:
 
 	void add_mix_callback(AudioCallback p_callback, void *p_userdata);
 	void remove_mix_callback(AudioCallback p_callback, void *p_userdata);
+
+	// 音频捕获功能 - 用于实时录制
+	void set_audio_capture_interface(AudioCaptureInterface *p_interface);
+	void remove_audio_capture_interface();
 
 	void set_bus_layout(const Ref<AudioBusLayout> &p_bus_layout);
 	Ref<AudioBusLayout> generate_bus_layout() const;

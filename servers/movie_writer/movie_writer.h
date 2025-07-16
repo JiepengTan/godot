@@ -35,6 +35,9 @@
 #include "core/templates/local_vector.h"
 #include "servers/audio_server.h"
 
+class HybridAudioDriver;
+class AudioDriver;
+
 class MovieWriter : public Object {
 	GDCLASS(MovieWriter, Object);
 
@@ -48,6 +51,11 @@ class MovieWriter : public Object {
 	String project_name;
 
 	LocalVector<int32_t> audio_mix_buffer;
+
+	// 实时录制支持
+	bool realtime_mode = false;
+	class HybridAudioDriver *hybrid_driver = nullptr;
+	class AudioDriver *original_driver = nullptr;
 
 	enum {
 		MAX_WRITERS = 8
@@ -76,6 +84,8 @@ protected:
 	static void _bind_methods();
 
 public:
+	MovieWriter() {} // 确保成员变量正确初始化
+	
 	virtual bool handles_file(const String &p_path) const;
 	virtual void get_supported_extensions(List<String> *r_extensions) const;
 
@@ -88,6 +98,14 @@ public:
 	static void set_extensions_hint();
 
 	void end();
+	
+	// 实时录制控制
+	void set_realtime_mode(bool p_enable);
+	bool is_realtime_mode() const { return realtime_mode; }
+	
+private:
+	void setup_hybrid_audio_driver();
+	void restore_original_audio_driver();
 };
 
 #endif // MOVIE_WRITER_H
