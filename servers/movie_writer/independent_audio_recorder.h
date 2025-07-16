@@ -9,7 +9,7 @@
 #ifndef INDEPENDENT_AUDIO_RECORDER_H
 #define INDEPENDENT_AUDIO_RECORDER_H
 
-#include "enhanced_avi_writer.h"
+#include "simple_audio_writer.h"
 #include "core/os/thread.h"
 #include "core/os/mutex.h"
 #include "core/os/os.h"
@@ -28,11 +28,18 @@ class IndependentAudioRecorder {
 public:
     // 音频录制配置
     struct AudioConfig {
-        uint32_t sample_rate = 48000;       // 采样率
-        uint32_t channels = 2;              // 声道数
-        uint32_t chunk_size = 480;          // 每次处理的样本数 (10ms at 48kHz)
-        uint32_t buffer_size_seconds = 2;   // 环形缓冲区大小（秒）
-        bool enable_audio_monitoring = false; // 启用音频监控
+        uint32_t sample_rate;       // 采样率
+        uint32_t channels;              // 声道数
+        uint32_t chunk_size;          // 每次处理的样本数 (10ms at 48kHz)
+        uint32_t buffer_size_seconds;   // 环形缓冲区大小（秒）
+        bool enable_audio_monitoring; // 启用音频监控
+        
+        AudioConfig() :
+            sample_rate(48000),
+            channels(2),
+            chunk_size(480),
+            buffer_size_seconds(2),
+            enable_audio_monitoring(false) {}
     };
     
     // 音频统计信息
@@ -60,7 +67,7 @@ private:
     
     // 数据源和输出
     HybridAudioDriver *audio_driver = nullptr;
-    EnhancedAviWriter *avi_writer = nullptr;
+    Ref<SimpleAudioWriter> audio_writer;
     
     // 音频环形缓冲区
     RingBuffer<int32_t> audio_ring_buffer;
@@ -100,7 +107,7 @@ public:
      * 初始化录制器
      */
     Error initialize(HybridAudioDriver *p_audio_driver, 
-                    EnhancedAviWriter *p_avi_writer,
+                    const String &p_audio_path,
                     const AudioConfig &p_config = AudioConfig());
     
     /**

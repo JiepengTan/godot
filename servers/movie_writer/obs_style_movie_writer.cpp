@@ -13,13 +13,13 @@
 #include "servers/rendering_server.h"
 #include "servers/display_server.h"
 
-ObsStyleMovieWriter::ObsStyleMovieWriter() {
-    current_state = STATE_UNINITIALIZED;
-    game_frame_sequence = 0;
-    recording_start_time = 0;
-    frames_added_count = 0;
-    last_add_frame_time = 0;
-    audio_driver_replaced = false;
+ObsStyleMovieWriter::ObsStyleMovieWriter() :
+    current_state(STATE_UNINITIALIZED),
+    game_frame_sequence(0),
+    recording_start_time(0),
+    audio_driver_replaced(false),
+    last_add_frame_time(0),
+    frames_added_count(0) {
     
     // 从项目设置加载配置
     obs_config = get_standard_config();
@@ -77,7 +77,7 @@ AudioServer::SpeakerMode ObsStyleMovieWriter::get_audio_speaker_mode() const {
 
 Error ObsStyleMovieWriter::write_begin(const Size2i &p_movie_size, uint32_t p_fps, const String &p_base_path) {
     if (current_state != STATE_UNINITIALIZED) {
-        ERR_PRINT("ObsStyleMovieWriter: 录制器状态不正确");
+        ERR_PRINT("ObsStyleMovieWriter: Recorder state is incorrect");
         return ERR_INVALID_PARAMETER;
     }
     
@@ -88,11 +88,11 @@ Error ObsStyleMovieWriter::write_begin(const Size2i &p_movie_size, uint32_t p_fp
     obs_config.video_height = p_movie_size.height;
     
     if (obs_config.enable_debug_output) {
-        print_line("=== OBS式录制开始 ===");
-        print_line(String("输出文件: ") + output_file_path);
-        print_line(String("视频分辨率: ") + String::num_int64(obs_config.video_width) + "x" + String::num_int64(obs_config.video_height));
-        print_line(String("目标FPS: ") + String::num_int64(obs_config.video_fps));
-        print_line(String("音频配置: ") + String::num_int64(obs_config.audio_sample_rate) + "Hz, " + String::num_int64(obs_config.audio_channels) + "ch");
+        print_line("=== OBS-style Recording Started ===");
+        print_line(String("Output file: ") + output_file_path);
+        print_line(String("Video resolution: ") + String::num_int64(obs_config.video_width) + "x" + String::num_int64(obs_config.video_height));
+        print_line(String("Target FPS: ") + String::num_int64(obs_config.video_fps));
+        print_line(String("Audio config: ") + String::num_int64(obs_config.audio_sample_rate) + "Hz, " + String::num_int64(obs_config.audio_channels) + "ch");
     }
     
     // 验证配置
@@ -118,14 +118,14 @@ Error ObsStyleMovieWriter::write_begin(const Size2i &p_movie_size, uint32_t p_fp
     // 启动录制线程
     Error video_start_error = video_recorder->start_recording();
     if (video_start_error != OK) {
-        ERR_PRINT("ObsStyleMovieWriter: 启动视频录制失败");
+        ERR_PRINT("ObsStyleMovieWriter: Failed to start video recording");
         cleanup_components();
         return video_start_error;
     }
     
     Error audio_start_error = audio_recorder->start_recording();
     if (audio_start_error != OK) {
-        ERR_PRINT("ObsStyleMovieWriter: 启动音频录制失败");
+        ERR_PRINT("ObsStyleMovieWriter: Failed to start audio recording");
         video_recorder->stop_recording();
         cleanup_components();
         return audio_start_error;
@@ -138,7 +138,7 @@ Error ObsStyleMovieWriter::write_begin(const Size2i &p_movie_size, uint32_t p_fp
     frames_added_count = 0;
     
     if (obs_config.enable_debug_output) {
-        print_line("OBS式录制初始化完成，开始录制...");
+        print_line("OBS-style recording initialization completed, starting recording...");
     }
     
     return OK;
@@ -172,7 +172,7 @@ void ObsStyleMovieWriter::write_end() {
     }
     
     if (obs_config.enable_debug_output) {
-        print_line("ObsStyleMovieWriter: 停止录制...");
+        print_line("ObsStyleMovieWriter: Stopping recording...");
     }
     
     update_recording_state(STATE_STOPPING);
@@ -204,21 +204,21 @@ void ObsStyleMovieWriter::write_end() {
     
     update_recording_state(STATE_UNINITIALIZED);
     
-    print_line("=== OBS式录制完成 ===");
+    print_line("=== OBS-style Recording Completed ===");
 }
 
 Error ObsStyleMovieWriter::setup_components() {
     // 创建双缓冲区
     frame_buffer = new ThreadSafeFrameBuffer();
     if (!frame_buffer) {
-        ERR_PRINT("ObsStyleMovieWriter: 无法创建帧缓冲区");
+        ERR_PRINT("ObsStyleMovieWriter: Failed to create frame buffer");
         return ERR_OUT_OF_MEMORY;
     }
     
     // 创建AVI写入器
     avi_writer = new EnhancedAviWriter();
     if (!avi_writer) {
-        ERR_PRINT("ObsStyleMovieWriter: 无法创建AVI写入器");
+        ERR_PRINT("ObsStyleMovieWriter: Failed to create AVI writer");
         return ERR_OUT_OF_MEMORY;
     }
     
@@ -234,14 +234,14 @@ Error ObsStyleMovieWriter::setup_components() {
     );
     
     if (avi_error != OK) {
-        ERR_PRINT("ObsStyleMovieWriter: AVI文件初始化失败");
+        ERR_PRINT("ObsStyleMovieWriter: AVI file initialization failed");
         return avi_error;
     }
     
     // 创建视频录制器
     video_recorder = new IndependentVideoRecorder();
     if (!video_recorder) {
-        ERR_PRINT("ObsStyleMovieWriter: 无法创建视频录制器");
+        ERR_PRINT("ObsStyleMovieWriter: Failed to create video recorder");
         return ERR_OUT_OF_MEMORY;
     }
     
@@ -254,16 +254,16 @@ Error ObsStyleMovieWriter::setup_components() {
     video_config.enable_timestamp_chunks = obs_config.enable_timestamp_chunks;
     video_config.enable_repeat_frame_marking = obs_config.enable_repeat_frame_marking;
     
-    Error video_init_error = video_recorder->initialize(frame_buffer, avi_writer, video_config);
+    Error video_init_error = video_recorder->initialize(frame_buffer, output_file_path + "_video.avi", video_config);
     if (video_init_error != OK) {
-        ERR_PRINT("ObsStyleMovieWriter: 视频录制器初始化失败");
+        ERR_PRINT("ObsStyleMovieWriter: Video recorder initialization failed");
         return video_init_error;
     }
     
     // 创建音频录制器
     audio_recorder = new IndependentAudioRecorder();
     if (!audio_recorder) {
-        ERR_PRINT("ObsStyleMovieWriter: 无法创建音频录制器");
+        ERR_PRINT("ObsStyleMovieWriter: Failed to create audio recorder");
         return ERR_OUT_OF_MEMORY;
     }
     
@@ -303,32 +303,18 @@ void ObsStyleMovieWriter::cleanup_components() {
         frame_buffer = nullptr;
     }
     
-    hybrid_audio_driver = nullptr; // 不删除，只是清除引用
+    hybrid_audio_driver = nullptr; // 由MovieWriter管理，只清除引用
 }
 
 Error ObsStyleMovieWriter::setup_audio_capture() {
-    // 获取当前音频驱动
-    original_audio_driver = AudioServer::get_singleton()->get_audio_driver();
-    
-    // 创建或获取HybridAudioDriver
-    hybrid_audio_driver = new HybridAudioDriver();
+    // 重用MovieWriter的HybridAudioDriver，避免冲突
+    hybrid_audio_driver = MovieWriter::get_hybrid_audio_driver();
     if (!hybrid_audio_driver) {
-        ERR_PRINT("ObsStyleMovieWriter: 无法创建HybridAudioDriver");
-        return ERR_OUT_OF_MEMORY;
+        ERR_PRINT("ObsStyleMovieWriter: MovieWriter's HybridAudioDriver not available");
+        return ERR_UNCONFIGURED;
     }
     
-    // 初始化HybridAudioDriver
-    Error init_error = hybrid_audio_driver->init(
-        obs_config.audio_sample_rate,
-        obs_config.audio_channels == 2 ? AudioDriver::SPEAKER_MODE_STEREO : AudioDriver::SPEAKER_SURROUND_31
-    );
-    
-    if (init_error != OK) {
-        ERR_PRINT("ObsStyleMovieWriter: HybridAudioDriver初始化失败");
-        delete hybrid_audio_driver;
-        hybrid_audio_driver = nullptr;
-        return init_error;
-    }
+    print_line("ObsStyleMovieWriter: Reusing MovieWriter's HybridAudioDriver");
     
     // 配置音频录制器
     IndependentAudioRecorder::AudioConfig audio_config;
@@ -338,9 +324,9 @@ Error ObsStyleMovieWriter::setup_audio_capture() {
     audio_config.buffer_size_seconds = obs_config.audio_buffer_seconds;
     audio_config.enable_audio_monitoring = obs_config.enable_audio_monitoring;
     
-    Error audio_init_error = audio_recorder->initialize(hybrid_audio_driver, avi_writer, audio_config);
+    Error audio_init_error = audio_recorder->initialize(hybrid_audio_driver, output_file_path + "_audio.avi", audio_config);
     if (audio_init_error != OK) {
-        ERR_PRINT("ObsStyleMovieWriter: 音频录制器初始化失败");
+        ERR_PRINT("ObsStyleMovieWriter: Audio recorder initialization failed");
         return audio_init_error;
     }
     
@@ -350,38 +336,21 @@ Error ObsStyleMovieWriter::setup_audio_capture() {
     // 启用录制模式
     hybrid_audio_driver->enable_recording(true);
     
-    // 启动HybridAudioDriver
-    hybrid_audio_driver->start();
-    
-    // 替换音频驱动（注意：这是一个敏感操作）
-    // 在实际实现中，可能需要更复杂的音频驱动替换逻辑
-    // AudioServer::get_singleton()->set_audio_driver(hybrid_audio_driver);
-    // audio_driver_replaced = true;
+    // HybridAudioDriver已经由MovieWriter启动和注册了，无需重复操作
+    print_line("ObsStyleMovieWriter: Using existing HybridAudioDriver from MovieWriter");
     
     return OK;
 }
 
 void ObsStyleMovieWriter::restore_audio_driver() {
-    if (hybrid_audio_driver) {
-        // 注销音频录制器
-        if (audio_recorder) {
-            hybrid_audio_driver->unregister_audio_recorder(audio_recorder);
-        }
-        
-        hybrid_audio_driver->enable_recording(false);
-        hybrid_audio_driver->finish();
+    if (hybrid_audio_driver && audio_recorder) {
+        // 注销音频录制器（但不删除或停止HybridAudioDriver，它由MovieWriter管理）
+        hybrid_audio_driver->unregister_audio_recorder(audio_recorder);
+        print_line("ObsStyleMovieWriter: Audio recorder unregistered from HybridAudioDriver");
     }
     
-    if (audio_driver_replaced && original_audio_driver) {
-        // AudioServer::get_singleton()->set_audio_driver(original_audio_driver);
-        audio_driver_replaced = false;
-    }
-    
-    if (hybrid_audio_driver) {
-        delete hybrid_audio_driver;
-        hybrid_audio_driver = nullptr;
-    }
-    
+    // 只清除引用，不删除对象（HybridAudioDriver由MovieWriter管理）
+    hybrid_audio_driver = nullptr;
     original_audio_driver = nullptr;
 }
 
@@ -390,34 +359,34 @@ void ObsStyleMovieWriter::update_recording_state(RecordingState new_state) {
         current_state = new_state;
         
         if (obs_config.enable_debug_output) {
-            print_line(String("ObsStyleMovieWriter: 状态变更为 ") + get_state_name());
+            print_line(String("ObsStyleMovieWriter: State changed to ") + get_state_name());
         }
     }
 }
 
 Error ObsStyleMovieWriter::validate_config() const {
     if (obs_config.video_width == 0 || obs_config.video_height == 0) {
-        ERR_PRINT("ObsStyleMovieWriter: 无效的视频分辨率");
+        ERR_PRINT("ObsStyleMovieWriter: Invalid video resolution");
         return ERR_INVALID_PARAMETER;
     }
     
     if (obs_config.video_fps == 0 || obs_config.video_fps > 120) {
-        ERR_PRINT("ObsStyleMovieWriter: 无效的视频帧率");
+        ERR_PRINT("ObsStyleMovieWriter: Invalid video frame rate");
         return ERR_INVALID_PARAMETER;
     }
     
     if (obs_config.audio_sample_rate < 8000 || obs_config.audio_sample_rate > 192000) {
-        ERR_PRINT("ObsStyleMovieWriter: 无效的音频采样率");
+        ERR_PRINT("ObsStyleMovieWriter: Invalid audio sample rate");
         return ERR_INVALID_PARAMETER;
     }
     
     if (obs_config.audio_channels == 0 || obs_config.audio_channels > 8) {
-        ERR_PRINT("ObsStyleMovieWriter: 无效的音频声道数");
+        ERR_PRINT("ObsStyleMovieWriter: Invalid audio channel count");
         return ERR_INVALID_PARAMETER;
     }
     
     if (obs_config.jpeg_quality < 0.1f || obs_config.jpeg_quality > 1.0f) {
-        ERR_PRINT("ObsStyleMovieWriter: 无效的JPEG质量");
+        ERR_PRINT("ObsStyleMovieWriter: Invalid JPEG quality");
         return ERR_INVALID_PARAMETER;
     }
     
@@ -426,12 +395,12 @@ Error ObsStyleMovieWriter::validate_config() const {
 
 String ObsStyleMovieWriter::get_state_name() const {
     switch (current_state) {
-        case STATE_UNINITIALIZED: return "未初始化";
-        case STATE_INITIALIZED: return "已初始化";
-        case STATE_RECORDING: return "录制中";
-        case STATE_STOPPING: return "停止中";
-        case STATE_ERROR: return "错误状态";
-        default: return "未知状态";
+        case STATE_UNINITIALIZED: return "Uninitialized";
+        case STATE_INITIALIZED: return "Initialized";
+        case STATE_RECORDING: return "Recording";
+        case STATE_STOPPING: return "Stopping";
+        case STATE_ERROR: return "Error state";
+        default: return "Unknown state";
     }
 }
 
@@ -499,39 +468,39 @@ ObsStyleMovieWriter::CombinedStats ObsStyleMovieWriter::get_combined_statistics(
 
 String ObsStyleMovieWriter::get_comprehensive_debug_info() const {
     String info;
-    info += "=== ObsStyleMovieWriter 综合调试信息 ===\n";
-    info += String("当前状态: ") + get_state_name() + "\n";
-    info += String("输出文件: ") + output_file_path + "\n";
-    info += String("游戏帧序号: ") + String::num_int64(game_frame_sequence) + "\n";
-    info += String("游戏帧添加数: ") + String::num_int64(frames_added_count) + "\n";
+    info += "=== ObsStyleMovieWriter Comprehensive Debug Info ===\n";
+    info += String("Current state: ") + get_state_name() + "\n";
+    info += String("Output file: ") + output_file_path + "\n";
+    info += String("Game frame sequence: ") + String::num_int64(game_frame_sequence) + "\n";
+    info += String("Game frames added: ") + String::num_int64(frames_added_count) + "\n";
     
     if (recording_start_time > 0) {
         uint64_t duration = OS::get_singleton()->get_ticks_usec() - recording_start_time;
-        info += String("录制时长: ") + String::num_real(duration / 1000000.0) + "秒\n";
+        info += String("Recording duration: ") + String::num_real(duration / 1000000.0) + " seconds\n";
     }
     
-    info += "\n--- 录制配置 ---\n";
-    info += String("视频FPS: ") + String::num_int64(obs_config.video_fps) + "\n";
-    info += String("视频分辨率: ") + String::num_int64(obs_config.video_width) + "x" + String::num_int64(obs_config.video_height) + "\n";
-    info += String("JPEG质量: ") + String::num_real(obs_config.jpeg_quality) + "\n";
-    info += String("音频采样率: ") + String::num_int64(obs_config.audio_sample_rate) + "Hz\n";
-    info += String("音频声道: ") + String::num_int64(obs_config.audio_channels) + "\n";
+    info += "\n--- Recording Configuration ---\n";
+    info += String("Video FPS: ") + String::num_int64(obs_config.video_fps) + "\n";
+    info += String("Video resolution: ") + String::num_int64(obs_config.video_width) + "x" + String::num_int64(obs_config.video_height) + "\n";
+    info += String("JPEG quality: ") + String::num_real(obs_config.jpeg_quality) + "\n";
+    info += String("Audio sample rate: ") + String::num_int64(obs_config.audio_sample_rate) + "Hz\n";
+    info += String("Audio channels: ") + String::num_int64(obs_config.audio_channels) + "\n";
     
     if (video_recorder) {
-        info += "\n--- 视频录制器信息 ---\n";
+        info += "\n--- Video Recorder Info ---\n";
         info += video_recorder->get_debug_info() + "\n";
     }
     
     if (audio_recorder) {
-        info += "\n--- 音频录制器信息 ---\n";
+        info += "\n--- Audio Recorder Info ---\n";
         info += audio_recorder->get_debug_info() + "\n";
     }
     
     if (frame_buffer) {
-        info += "\n--- 帧缓冲区信息 ---\n";
-        info += String("总更新次数: ") + String::num_int64(frame_buffer->get_total_updates()) + "\n";
-        info += String("缓冲区切换次数: ") + String::num_int64(frame_buffer->get_buffer_switches()) + "\n";
-        info += String("最后序列号: ") + String::num_int64(frame_buffer->get_last_sequence()) + "\n";
+        info += "\n--- Frame Buffer Info ---\n";
+        info += String("Total updates: ") + String::num_int64(frame_buffer->get_total_updates()) + "\n";
+        info += String("Buffer switches: ") + String::num_int64(frame_buffer->get_buffer_switches()) + "\n";
+        info += String("Last sequence: ") + String::num_int64(frame_buffer->get_last_sequence()) + "\n";
     }
     
     info += "\n=========================================\n";
@@ -542,21 +511,21 @@ String ObsStyleMovieWriter::get_comprehensive_debug_info() const {
 void ObsStyleMovieWriter::print_recording_summary() const {
     CombinedStats stats = get_combined_statistics();
     
-    print_line("=== OBS式录制摘要 ===");
-    print_line(String("录制时长: ") + String::num_real(stats.total_recording_duration_us / 1000000.0) + "秒");
-    print_line(String("游戏帧数: ") + String::num_int64(stats.game_frames_added));
-    print_line(String("录制视频帧数: ") + String::num_int64(stats.video_stats.total_recorded_frames));
-    print_line(String("新帧数: ") + String::num_int64(stats.video_stats.new_frames_count));
-    print_line(String("重复帧数: ") + String::num_int64(stats.video_stats.repeated_frames_count));
-    print_line(String("重复帧比例: ") + String::num_real(stats.overall_repeat_frame_ratio * 100.0f) + "%");
-    print_line(String("音频块数: ") + String::num_int64(stats.audio_stats.total_chunks_recorded));
-    print_line(String("音频样本数: ") + String::num_int64(stats.audio_stats.total_samples_recorded));
-    print_line(String("音频缓冲区溢出: ") + String::num_int64(stats.audio_stats.buffer_overruns));
-    print_line(String("音频缓冲区下溢: ") + String::num_int64(stats.audio_stats.buffer_underruns));
+    print_line("=== OBS-style Recording Summary ===");
+    print_line(String("Recording duration: ") + String::num_real(stats.total_recording_duration_us / 1000000.0) + " seconds");
+    print_line(String("Game frames: ") + String::num_int64(stats.game_frames_added));
+    print_line(String("Recorded video frames: ") + String::num_int64(stats.video_stats.total_recorded_frames));
+    print_line(String("New frames: ") + String::num_int64(stats.video_stats.new_frames_count));
+    print_line(String("Repeated frames: ") + String::num_int64(stats.video_stats.repeated_frames_count));
+    print_line(String("Repeated frame ratio: ") + String::num_real(stats.overall_repeat_frame_ratio * 100.0f) + "%");
+    print_line(String("Audio chunks: ") + String::num_int64(stats.audio_stats.total_chunks_recorded));
+    print_line(String("Audio samples: ") + String::num_int64(stats.audio_stats.total_samples_recorded));
+    print_line(String("Audio buffer overruns: ") + String::num_int64(stats.audio_stats.buffer_overruns));
+    print_line(String("Audio buffer underruns: ") + String::num_int64(stats.audio_stats.buffer_underruns));
     
     if (avi_writer) {
-        print_line(String("AVI文件视频帧数: ") + String::num_int64(avi_writer->get_video_frame_count()));
-        print_line(String("AVI文件音频块数: ") + String::num_int64(avi_writer->get_audio_chunk_count()));
+        print_line(String("AVI file video frames: ") + String::num_int64(avi_writer->get_video_frame_count()));
+        print_line(String("AVI file audio chunks: ") + String::num_int64(avi_writer->get_audio_chunk_count()));
     }
     
     print_line("==================");
@@ -564,27 +533,27 @@ void ObsStyleMovieWriter::print_recording_summary() const {
 
 void ObsStyleMovieWriter::set_recording_config(const ObsRecordingConfig &p_config) {
     if (current_state == STATE_RECORDING) {
-        ERR_PRINT("ObsStyleMovieWriter: 无法在录制时更改配置");
+        ERR_PRINT("ObsStyleMovieWriter: Cannot change configuration while recording");
         return;
     }
     
     obs_config = p_config;
     
     if (obs_config.enable_debug_output) {
-        print_line("ObsStyleMovieWriter: 配置已更新");
+        print_line("ObsStyleMovieWriter: Configuration updated");
     }
 }
 
 Error ObsStyleMovieWriter::pause_recording() {
-    ERR_PRINT("ObsStyleMovieWriter: 暂停功能暂未实现");
+    ERR_PRINT("ObsStyleMovieWriter: Pause functionality not yet implemented");
     return ERR_UNAVAILABLE;
 }
 
 Error ObsStyleMovieWriter::resume_recording() {
-    ERR_PRINT("ObsStyleMovieWriter: 恢复功能暂未实现");
+    ERR_PRINT("ObsStyleMovieWriter: Resume functionality not yet implemented");
     return ERR_UNAVAILABLE;
 }
 
 bool ObsStyleMovieWriter::is_paused() const {
-    return false; // 暂停功能暂未实现
+    return false; // Pause functionality not yet implemented
 } 

@@ -319,10 +319,10 @@ void EnhancedAviWriter::close() {
     
     file->close();
     
-    print_line(String("AVI录制完成: ") + file_path);
-    print_line(String("视频帧数: ") + String::num_int64(video_frame_count));
-    print_line(String("音频块数: ") + String::num_int64(audio_chunk_count));
-    print_line(String("索引条目: ") + String::num_int64(index_entries.size()));
+    print_line(String("AVI recording completed: ") + file_path);
+    print_line(String("Video frames: ") + String::num_int64(video_frame_count));
+    print_line(String("Audio chunks: ") + String::num_int64(audio_chunk_count));
+    print_line(String("Index entries: ") + String::num_int64(index_entries.size()));
 }
 
 void EnhancedAviWriter::finalize_headers() {

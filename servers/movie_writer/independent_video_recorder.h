@@ -10,7 +10,7 @@
 #define INDEPENDENT_VIDEO_RECORDER_H
 
 #include "thread_safe_frame_buffer.h"
-#include "enhanced_avi_writer.h"
+#include "simple_video_writer.h"
 #include "core/os/thread.h"
 #include "core/os/mutex.h"
 #include "core/os/os.h"
@@ -26,12 +26,20 @@ class IndependentVideoRecorder {
 public:
     // 录制配置
     struct RecordingConfig {
-        uint32_t target_fps = 30;           // 目标录制帧率
-        uint32_t video_width = 1920;        // 视频宽度
-        uint32_t video_height = 1080;       // 视频高度
-        float jpeg_quality = 0.85f;         // JPEG质量
-        bool enable_timestamp_chunks = true; // 启用时间戳记录
-        bool enable_repeat_frame_marking = true; // 启用重复帧标记
+        uint32_t target_fps;           // 目标录制帧率
+        uint32_t video_width;        // 视频宽度
+        uint32_t video_height;       // 视频高度
+        float jpeg_quality;         // JPEG质量
+        bool enable_timestamp_chunks; // 启用时间戳记录
+        bool enable_repeat_frame_marking; // 启用重复帧标记
+        
+        RecordingConfig() :
+            target_fps(30),
+            video_width(1920),
+            video_height(1080),
+            jpeg_quality(0.85f),
+            enable_timestamp_chunks(true),
+            enable_repeat_frame_marking(true) {}
     };
     
     // 录制统计
@@ -55,7 +63,7 @@ private:
     
     // 数据源和输出
     ThreadSafeFrameBuffer *frame_buffer = nullptr;
-    EnhancedAviWriter *avi_writer = nullptr;
+    Ref<SimpleVideoWriter> video_writer;
     
     // 录制配置
     RecordingConfig config;
@@ -90,7 +98,7 @@ public:
      * 初始化录制器
      */
     Error initialize(ThreadSafeFrameBuffer *p_frame_buffer, 
-                    EnhancedAviWriter *p_avi_writer,
+                    const String &p_video_path,
                     const RecordingConfig &p_config = RecordingConfig());
     
     /**

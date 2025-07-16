@@ -12,62 +12,33 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_x8v6j")
 
-[node name="VBoxContainer" type="VBoxContainer" parent="."]
-layout_mode = 1
+[node name="Ball" type="ColorRect" parent="."]
+layout_mode = 0
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -160.0
-offset_top = -100.0
-offset_right = 160.0
-offset_bottom = 100.0
+offset_left = -25.0
+offset_top = -25.0
+offset_right = 25.0
+offset_bottom = 25.0
 grow_horizontal = 2
 grow_vertical = 2
+color = Color(1, 0.2, 0.2, 1)
 
-[node name="TitleLabel" type="Label" parent="VBoxContainer"]
-layout_mode = 2
-text = "Godot 实时录制测试"
-horizontal_alignment = 1
-
-[node name="StatusLabel" type="Label" parent="VBoxContainer"]
-layout_mode = 2
-text = "准备就绪"
-horizontal_alignment = 1
-
-[node name="ProgressBar" type="ProgressBar" parent="VBoxContainer"]
-layout_mode = 2
-show_percentage = false
-
-[node name="RecordButton" type="Button" parent="VBoxContainer"]
-layout_mode = 2
-text = "开始录制"
-
-[node name="HSeparator" type="HSeparator" parent="VBoxContainer"]
-layout_mode = 2
-
-[node name="AudioLabel" type="Label" parent="VBoxContainer"]
-layout_mode = 2
-text = "音频控制"
-horizontal_alignment = 1
-
-[node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer"]
-layout_mode = 2
-
-[node name="PlayAudioButton" type="Button" parent="VBoxContainer/HBoxContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "播放音频"
-
-[node name="StopAudioButton" type="Button" parent="VBoxContainer/HBoxContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "停止音频"
+[node name="TitleLabel" type="Label" parent="."]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = -30.0
+offset_right = 200.0
+offset_bottom = -10.0
+text = "跳动的小球"
+horizontal_alignment = 0
 
 [node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="."]
 stream = ExtResource("2_0xm2m")
 autoplay = true
-
-[connection signal="pressed" from="VBoxContainer/HBoxContainer/PlayAudioButton" to="." method="_on_play_audio_pressed"]
-[connection signal="pressed" from="VBoxContainer/HBoxContainer/StopAudioButton" to="." method="_on_stop_audio_pressed"]

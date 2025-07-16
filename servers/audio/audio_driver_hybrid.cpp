@@ -278,7 +278,7 @@ void HybridAudioDriver::register_audio_recorder(IndependentAudioRecorder* record
     }
     
     registered_recorders.push_back(recorder);
-    print_line(vformat("HybridAudioDriver: 注册音频录制器，当前总数: %d", registered_recorders.size()));
+    print_line(vformat("HybridAudioDriver: register audio recorder, current total: %d", registered_recorders.size()));
 }
 
 void HybridAudioDriver::unregister_audio_recorder(IndependentAudioRecorder* recorder) {
@@ -291,7 +291,7 @@ void HybridAudioDriver::unregister_audio_recorder(IndependentAudioRecorder* reco
     for (int i = 0; i < registered_recorders.size(); i++) {
         if (registered_recorders[i] == recorder) {
             registered_recorders.remove_at(i);
-            print_line(vformat("HybridAudioDriver: 注销音频录制器，当前总数: %d", registered_recorders.size()));
+            print_line(vformat("HybridAudioDriver: unregister audio recorder, current total: %d", registered_recorders.size()));
             return;
         }
     }

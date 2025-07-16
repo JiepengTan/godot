@@ -26,36 +26,46 @@ IndependentVideoRecorder::~IndependentVideoRecorder() {
 }
 
 Error IndependentVideoRecorder::initialize(ThreadSafeFrameBuffer *p_frame_buffer, 
-                                          EnhancedAviWriter *p_avi_writer,
+                                          const String &p_video_path,
                                           const RecordingConfig &p_config) {
-    if (!p_frame_buffer || !p_avi_writer) {
-        ERR_PRINT("IndependentVideoRecorder: 无效的frame_buffer或avi_writer");
+    if (!p_frame_buffer || p_video_path.is_empty()) {
+        ERR_PRINT("IndependentVideoRecorder: Invalid frame_buffer or video_path");
         return ERR_INVALID_PARAMETER;
     }
     
     frame_buffer = p_frame_buffer;
-    avi_writer = p_avi_writer;
     config = p_config;
+    
+    // 创建简单视频写入器
+    video_writer.instantiate();
+    
+    Size2i movie_size(config.video_width, config.video_height);
+    Error open_result = video_writer->open(p_video_path, movie_size, config.target_fps, config.jpeg_quality);
+    if (open_result != OK) {
+        ERR_PRINT("IndependentVideoRecorder: Failed to open video writer");
+        return open_result;
+    }
     
     // 重置统计信息
     reset_statistics();
     
-    print_line("IndependentVideoRecorder 初始化完成");
-    print_line(String("目标FPS: ") + String::num_int64(config.target_fps));
-    print_line(String("视频分辨率: ") + String::num_int64(config.video_width) + "x" + String::num_int64(config.video_height));
-    print_line(String("JPEG质量: ") + String::num_real(config.jpeg_quality));
+    print_line(String("IndependentVideoRecorder initialized"));
+    print_line(String("Video path: ") + p_video_path);
+    print_line(String("Resolution: ") + String::num_int64(config.video_width) + "x" + String::num_int64(config.video_height));
+    print_line(String("Target FPS: ") + String::num_int64(config.target_fps));
+    print_line(String("JPEG quality: ") + String::num_real(config.jpeg_quality));
     
     return OK;
 }
 
 Error IndependentVideoRecorder::start_recording() {
     if (recording_active.load()) {
-        ERR_PRINT("IndependentVideoRecorder: 录制已经在进行中");
+        ERR_PRINT("IndependentVideoRecorder: Recording already in progress");
         return ERR_ALREADY_IN_USE;
     }
     
-    if (!frame_buffer || !avi_writer) {
-        ERR_PRINT("IndependentVideoRecorder: 尚未初始化");
+    if (!frame_buffer || video_writer.is_null()) {
+        ERR_PRINT("IndependentVideoRecorder: Not initialized");
         return ERR_UNCONFIGURED;
     }
     
@@ -67,7 +77,7 @@ Error IndependentVideoRecorder::start_recording() {
     recording_thread.start(recording_thread_func, this);
     thread_started.store(true);
     
-    print_line("IndependentVideoRecorder: 开始录制");
+    print_line("IndependentVideoRecorder: Start recording");
     
     return OK;
 }
@@ -77,7 +87,7 @@ void IndependentVideoRecorder::stop_recording() {
         return;
     }
     
-    print_line("IndependentVideoRecorder: 停止录制...");
+    print_line("IndependentVideoRecorder: Stop recording...");
     
     // 停止录制循环
     recording_active.store(false);
@@ -88,13 +98,18 @@ void IndependentVideoRecorder::stop_recording() {
         thread_started.store(false);
     }
     
+    // 关闭视频写入器
+    if (video_writer.is_valid()) {
+        video_writer->close();
+    }
+    
     // 输出最终统计信息
     RecordingStats final_stats = get_statistics();
-    print_line(String("录制完成 - 总帧数: ") + String::num_int64(final_stats.total_recorded_frames));
-    print_line(String("新帧数: ") + String::num_int64(final_stats.new_frames_count));
-    print_line(String("重复帧数: ") + String::num_int64(final_stats.repeated_frames_count));
-    print_line(String("重复帧比例: ") + String::num_real(get_repeat_frame_ratio() * 100.0f) + "%");
-    print_line(String("录制时长: ") + String::num_real(final_stats.recording_duration_us / 1000000.0) + "秒");
+    print_line(String("Recording completed - Total frames: ") + String::num_int64(final_stats.total_recorded_frames));
+    print_line(String("New frames: ") + String::num_int64(final_stats.new_frames_count));
+    print_line(String("Repeated frames: ") + String::num_int64(final_stats.repeated_frames_count));
+    print_line(String("Repeated frame ratio: ") + String::num_real(get_repeat_frame_ratio() * 100.0f) + "%");
+    print_line(String("Recording duration: ") + String::num_real(final_stats.recording_duration_us / 1000000.0) + " seconds");
 }
 
 void IndependentVideoRecorder::recording_thread_func(void *p_userdata) {
@@ -103,7 +118,7 @@ void IndependentVideoRecorder::recording_thread_func(void *p_userdata) {
 }
 
 void IndependentVideoRecorder::recording_loop() {
-    print_line("IndependentVideoRecorder: 录制线程开始运行");
+            print_line("IndependentVideoRecorder: Recording thread started");
     
     uint64_t next_record_time = recording_start_time;
     uint64_t frame_count = 0;
@@ -122,10 +137,9 @@ void IndependentVideoRecorder::recording_loop() {
                 update_statistics(frame_process_start);
                 
                 // 每100帧输出一次调试信息
-                if (frame_count % 100 == 0) {
-                    RecordingStats current_stats = get_statistics();
-                    print_line(String("录制进度: ") + String::num_int64(frame_count) + " 帧, " +
-                              String("重复帧比例: ") + String::num_real(get_repeat_frame_ratio() * 100.0f) + "%");
+                if (frame_count % 30 == 0) {
+                    print_line(String("Recording progress: ") + String::num_int64(frame_count) + " frames, " +
+                              String("Repeated frame ratio: ") + String::num_real(get_repeat_frame_ratio() * 100.0f) + "%");
                 }
             }
             
@@ -143,14 +157,13 @@ void IndependentVideoRecorder::recording_loop() {
         }
     }
     
-    print_line("IndependentVideoRecorder: 录制线程结束");
+    print_line("IndependentVideoRecorder: Recording thread ended");
 }
 
 bool IndependentVideoRecorder::process_frame(uint64_t current_recording_time) {
     // 获取当前帧数据
     ThreadSafeFrameBuffer::FrameData frame_data = frame_buffer->get_current_frame();
     
-    bool is_repeated_frame = false;
     ThreadSafeFrameBuffer::FrameData frame_to_write;
     
     if (frame_data.frame_sequence == last_game_frame_sequence || frame_data.image.is_null()) {
@@ -159,8 +172,6 @@ bool IndependentVideoRecorder::process_frame(uint64_t current_recording_time) {
             // 还没有有效帧，跳过
             return false;
         }
-        
-        is_repeated_frame = true;
         frame_to_write = last_valid_frame;
         
         // 更新重复帧的时间戳但保持游戏时间戳不变
@@ -170,7 +181,6 @@ bool IndependentVideoRecorder::process_frame(uint64_t current_recording_time) {
         stats.repeated_frames_count++;
     } else {
         // 有新帧，更新记录
-        is_repeated_frame = false;
         frame_to_write = frame_data;
         frame_to_write.is_new_frame = true;
         
@@ -183,20 +193,11 @@ bool IndependentVideoRecorder::process_frame(uint64_t current_recording_time) {
         stats.last_game_frame_sequence = frame_data.frame_sequence;
     }
     
-    // 确定帧标志
-    uint8_t flags = determine_frame_flags(frame_to_write);
-    
-    // 写入AVI文件
-    Error write_result = avi_writer->write_video_frame(
-        frame_to_write.image,
-        recording_start_time + current_recording_time, // 录制时间戳
-        frame_to_write.game_timestamp,                 // 游戏时间戳
-        frame_to_write.frame_sequence,                 // 游戏帧序号
-        flags                                          // 帧标志
-    );
+    // 写入视频文件
+    Error write_result = video_writer->write_frame(frame_to_write.image);
     
     if (write_result != OK) {
-        ERR_PRINT("IndependentVideoRecorder: 写入视频帧失败");
+        ERR_PRINT("IndependentVideoRecorder: write video frame failed");
         return false;
     }
     
@@ -228,19 +229,8 @@ void IndependentVideoRecorder::update_statistics(uint64_t frame_process_start_ti
 }
 
 uint8_t IndependentVideoRecorder::determine_frame_flags(const ThreadSafeFrameBuffer::FrameData &frame_data) {
-    uint8_t flags = 0;
-    
-    if (!config.enable_repeat_frame_marking) {
-        return flags;
-    }
-    
-    if (frame_data.is_new_frame) {
-        flags |= EnhancedAviWriter::FRAME_FLAG_NEW;
-    } else {
-        flags |= EnhancedAviWriter::FRAME_FLAG_REPEATED;
-    }
-    
-    return flags;
+    // 简化版本，不再使用复杂的帧标志
+    return 0;
 }
 
 IndependentVideoRecorder::RecordingStats IndependentVideoRecorder::get_statistics() const {
@@ -259,10 +249,15 @@ float IndependentVideoRecorder::get_repeat_frame_ratio() const {
 }
 
 void IndependentVideoRecorder::update_config(const RecordingConfig &p_config) {
-    config = p_config;
+    config.target_fps = p_config.target_fps;
+    config.video_width = p_config.video_width;
+    config.video_height = p_config.video_height;
+    config.jpeg_quality = p_config.jpeg_quality;
+    config.enable_timestamp_chunks = p_config.enable_timestamp_chunks;
+    config.enable_repeat_frame_marking = p_config.enable_repeat_frame_marking;
     
-    if (avi_writer) {
-        avi_writer->set_jpeg_quality(config.jpeg_quality);
+    if (video_writer.is_valid()) {
+        video_writer->set_quality(config.jpeg_quality);
     }
 }
 
@@ -281,17 +276,17 @@ String IndependentVideoRecorder::get_debug_info() const {
     
     String info;
     info += "=== IndependentVideoRecorder Debug Info ===\n";
-    info += String("录制状态: ") + (is_recording() ? "运行中" : "停止") + "\n";
-    info += String("线程状态: ") + (is_thread_running() ? "运行中" : "停止") + "\n";
-    info += String("总录制帧数: ") + String::num_int64(current_stats.total_recorded_frames) + "\n";
-    info += String("新帧数: ") + String::num_int64(current_stats.new_frames_count) + "\n";
-    info += String("重复帧数: ") + String::num_int64(current_stats.repeated_frames_count) + "\n";
-    info += String("重复帧比例: ") + String::num_real(get_repeat_frame_ratio() * 100.0f) + "%\n";
-    info += String("录制时长: ") + String::num_real(current_stats.recording_duration_us / 1000000.0) + "秒\n";
-    info += String("平均帧处理时间: ") + String::num_int64(current_stats.avg_frame_process_time_us) + "微秒\n";
-    info += String("最后游戏帧序号: ") + String::num_int64(current_stats.last_game_frame_sequence) + "\n";
-    info += String("配置FPS: ") + String::num_int64(config.target_fps) + "\n";
-    info += String("配置分辨率: ") + String::num_int64(config.video_width) + "x" + String::num_int64(config.video_height) + "\n";
+    info += String("Recording status: ") + (is_recording() ? "Running" : "Stopped") + "\n";
+    info += String("Thread status: ") + (is_thread_running() ? "Running" : "Stopped") + "\n";
+    info += String("Total recorded frames: ") + String::num_int64(current_stats.total_recorded_frames) + "\n";
+    info += String("New frames: ") + String::num_int64(current_stats.new_frames_count) + "\n";
+    info += String("Repeated frames: ") + String::num_int64(current_stats.repeated_frames_count) + "\n";
+    info += String("Repeated frame ratio: ") + String::num_real(get_repeat_frame_ratio() * 100.0f) + "%\n";
+    info += String("Recording duration: ") + String::num_real(current_stats.recording_duration_us / 1000000.0) + " seconds\n";
+    info += String("Avg frame process time: ") + String::num_int64(current_stats.avg_frame_process_time_us) + " microseconds\n";
+    info += String("Last game frame sequence: ") + String::num_int64(current_stats.last_game_frame_sequence) + "\n";
+    info += String("Config FPS: ") + String::num_int64(config.target_fps) + "\n";
+    info += String("Config resolution: ") + String::num_int64(config.video_width) + "x" + String::num_int64(config.video_height) + "\n";
     info += "==========================================";
     
     return info;

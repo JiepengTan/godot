@@ -1,60 +1,37 @@
 extends Control
 
-@onready var record_button: Button = $VBoxContainer/RecordButton
-@onready var status_label: Label = $VBoxContainer/StatusLabel
+@onready var ball: ColorRect = $Ball
+@onready var title_label: Label = $TitleLabel
 @onready var audio_player: AudioStreamPlayer = $AudioStreamPlayer
-@onready var progress_bar: ProgressBar = $VBoxContainer/ProgressBar
 
-var recording = false
-var record_time = 0.0
-var max_record_time = 10.0  # 最大录制10秒
-var audio_generator_playback: AudioStreamGeneratorPlayback
+var time_passed = 0.0
+var jump_height = 100.0  # 跳动高度
+var jump_speed = 3.0     # 跳动速度
+var original_y: float    # 小球的原始Y位置
 
 func _ready():
-	# 设置UI
-	record_button.text = "开始录制"
-	status_label.text = "准备就绪 - 实时录制模式"
-	progress_bar.value = 0
-	progress_bar.max_value = max_record_time
+	# 设置标题
+	title_label.text = "跳动的小球"
 	
-	# 连接信号
-	record_button.pressed.connect(_on_record_button_pressed)
+	# 记录小球的原始位置
+	original_y = ball.position.y
 	
+	# 确保背景音乐正在播放
+	if not audio_player.playing:
+		audio_player.play()
 	
+	print("小球跳动demo已启动，背景音乐播放中")
 
 func _process(delta):
-	if recording:
-		record_time += delta
-		progress_bar.value = record_time
-		status_label.text = "录制中... %.1f/%.1f 秒" % [record_time, max_record_time]
-		
-		# 自动停止录制
-		if record_time >= max_record_time:
-			_stop_recording()
+	time_passed += delta * 2
 	
-
-func _on_record_button_pressed():
-	if not recording:
-		_start_recording()
-	else:
-		_stop_recording()
-
-func _start_recording():
-	recording = true
-	record_time = 0.0
-	record_button.text = "停止录制"
-	status_label.text = "开始录制..."
+	# 使用sin函数创建跳动效果
+	var jump_offset = sin(time_passed * jump_speed) * jump_height
 	
-
-func _stop_recording():
-	recording = false
-	record_button.text = "开始录制"
-
-
-func _on_play_audio_pressed():
-	# 音频生成器一直在运行，这里不需要特别操作
-	print("测试音频播放")
-
-func _on_stop_audio_pressed():
-	# 暂时停止音频生成（通过停止推送新的缓冲区）
-	print("停止音频") 
+	
+	# 更新小球位置
+	ball.position.y = original_y - jump_offset
+	
+	# 可选：改变小球颜色以增加视觉效果
+	var color_intensity = 0.5 + 0.5 * sin(time_passed * jump_speed * 2)
+	ball.color = Color(1.0, color_intensity * 0.5, color_intensity * 0.5, 1.0) 

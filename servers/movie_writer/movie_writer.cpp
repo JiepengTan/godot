@@ -39,6 +39,7 @@
 
 MovieWriter *MovieWriter::writers[MovieWriter::MAX_WRITERS];
 uint32_t MovieWriter::writer_count = 0;
+HybridAudioDriver *MovieWriter::hybrid_driver = nullptr;
 
 void MovieWriter::add_writer(MovieWriter *p_writer) {
 	ERR_FAIL_COND(writer_count == MAX_WRITERS);
@@ -124,14 +125,14 @@ void MovieWriter::begin(const Size2i &p_movie_size, uint32_t p_fps, const String
 	
 	if (realtime_mode) {
 		// 确保HybridAudioDriver已经初始化（如果之前因为时序问题没有初始化）
-		if (!hybrid_driver) {
+		if (!MovieWriter::hybrid_driver) {
 			setup_hybrid_audio_driver();
 		}
 		
-		if (hybrid_driver) {
+		if (MovieWriter::hybrid_driver) {
 			// 实时录制模式：启用音频捕获
-			hybrid_driver->enable_recording(true);
-			audio_channels = hybrid_driver->get_channels();
+			MovieWriter::hybrid_driver->enable_recording(true);
+			audio_channels = MovieWriter::hybrid_driver->get_channels();
 			print_line("MovieWriter: Realtime recording mode - audio capture enabled");
 		} else {
 			ERR_PRINT("MovieWriter: Failed to initialize HybridAudioDriver, falling back to offline mode");
@@ -237,21 +238,13 @@ void MovieWriter::add_frame() {
 	cpu_time += RenderingServer::get_singleton()->get_frame_setup_time_cpu();
 	gpu_time += RenderingServer::get_singleton()->viewport_get_measured_render_time_gpu(main_vp_rid);
 
-	if (realtime_mode && hybrid_driver) {
+	if (realtime_mode && MovieWriter::hybrid_driver) {
 		// 实时录制模式：从HybridAudioDriver获取捕获的音频数据
 		int requested_frames = mix_rate / fps;
-		int available_frames = hybrid_driver->get_available_frames();
+		int available_frames = MovieWriter::hybrid_driver->get_available_frames();
 		
 		// 获取音频数据
-		int frames_received = hybrid_driver->get_captured_audio_data(audio_mix_buffer.ptr(), requested_frames);
-		
-		// 监控音频缓冲区状态（每60帧打印一次，避免输出过多）
-		static int frame_count = 0;
-		frame_count++;
-		if (frame_count % 60 == 0) {
-			print_line(vformat("MovieWriter: Audio buffer status - Available: %d frames, Requested: %d, Received: %d", 
-					   available_frames, requested_frames, frames_received));
-		}
+		MovieWriter::hybrid_driver->get_captured_audio_data(audio_mix_buffer.ptr(), requested_frames);
 		
 		// 检查音频质量
 		if (available_frames < requested_frames / 2) {
@@ -306,6 +299,7 @@ void MovieWriter::end() {
 }
 
 void MovieWriter::set_realtime_mode(bool p_enable) {
+	print_line("MovieWriter: set_realtime_mode: " + itos(p_enable));
 	realtime_mode = p_enable;
 	if (p_enable) {
 		setup_hybrid_audio_driver();
@@ -321,8 +315,8 @@ void MovieWriter::setup_hybrid_audio_driver() {
 		return;
 	}
 	
-	if (!hybrid_driver) {
-		hybrid_driver = memnew(HybridAudioDriver);
+	if (!MovieWriter::hybrid_driver) {
+		MovieWriter::hybrid_driver = memnew(HybridAudioDriver);
 		
 		// 使用当前AudioServer的参数初始化
 		int current_mix_rate = AudioServer::get_singleton()->get_mix_rate();
@@ -332,43 +326,47 @@ void MovieWriter::setup_hybrid_audio_driver() {
 				   current_mix_rate, current_speaker_mode));
 		
 		// 初始化混合驱动
-		Error err = hybrid_driver->init(current_mix_rate, AudioDriver::SpeakerMode(current_speaker_mode));
+		Error err = MovieWriter::hybrid_driver->init(current_mix_rate, AudioDriver::SpeakerMode(current_speaker_mode));
 		if (err != OK) {
 			ERR_PRINT("Failed to initialize HybridAudioDriver");
-			memdelete(hybrid_driver);
-			hybrid_driver = nullptr;
+			memdelete(MovieWriter::hybrid_driver);
+			MovieWriter::hybrid_driver = nullptr;
 			return;
 		}
 		
 		// 启动混合驱动
-		hybrid_driver->start();
+		MovieWriter::hybrid_driver->start();
 		
 		// 注册到AudioServer进行音频捕获
-		AudioServer::get_singleton()->set_audio_capture_interface(hybrid_driver);
+		AudioServer::get_singleton()->set_audio_capture_interface(MovieWriter::hybrid_driver);
 		
 		// 验证音频参数同步
-		if (hybrid_driver->get_mix_rate() != current_mix_rate) {
+		if (MovieWriter::hybrid_driver->get_mix_rate() != current_mix_rate) {
 			WARN_PRINT(vformat("HybridAudioDriver mix rate mismatch: expected %d, got %d", 
-					   current_mix_rate, hybrid_driver->get_mix_rate()));
+					   current_mix_rate, MovieWriter::hybrid_driver->get_mix_rate()));
 		}
 		
 		print_line(vformat("HybridAudioDriver initialized successfully - %d Hz, %d channels, Buffer: %d frames (%.1fms)", 
-				   hybrid_driver->get_mix_rate(), hybrid_driver->get_channels(), 
-				   int(hybrid_driver->get_mix_rate() * 0.2f), 200.0f)); // 200ms双缓冲区
+				   MovieWriter::hybrid_driver->get_mix_rate(), MovieWriter::hybrid_driver->get_channels(), 
+				   int(MovieWriter::hybrid_driver->get_mix_rate() * 0.2f), 200.0f)); // 200ms双缓冲区
 	}
 }
 
 void MovieWriter::restore_original_audio_driver() {
-	if (hybrid_driver) {
+	if (MovieWriter::hybrid_driver) {
 		// 从AudioServer移除捕获接口（确保AudioServer仍然存在）
 		if (AudioServer::get_singleton()) {
 			AudioServer::get_singleton()->remove_audio_capture_interface();
 		}
 		
-		hybrid_driver->enable_recording(false);
-		hybrid_driver->finish();
-		memdelete(hybrid_driver);
-		hybrid_driver = nullptr;
+		MovieWriter::hybrid_driver->enable_recording(false);
+		MovieWriter::hybrid_driver->finish();
+		memdelete(MovieWriter::hybrid_driver);
+		MovieWriter::hybrid_driver = nullptr;
 		print_line("HybridAudioDriver restored");
 	}
+}
+
+HybridAudioDriver *MovieWriter::get_hybrid_audio_driver() {
+	return MovieWriter::hybrid_driver;
 }

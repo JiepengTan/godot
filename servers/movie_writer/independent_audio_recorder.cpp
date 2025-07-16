@@ -27,23 +27,38 @@ IndependentAudioRecorder::~IndependentAudioRecorder() {
 }
 
 Error IndependentAudioRecorder::initialize(HybridAudioDriver *p_audio_driver, 
-                                          EnhancedAviWriter *p_avi_writer,
+                                          const String &p_audio_path,
                                           const AudioConfig &p_config) {
-    if (!p_audio_driver || !p_avi_writer) {
-        ERR_PRINT("IndependentAudioRecorder: 无效的audio_driver或avi_writer");
+    if (!p_audio_driver || p_audio_path.is_empty()) {
+        ERR_PRINT("IndependentAudioRecorder: Invalid audio_driver or audio_path");
         return ERR_INVALID_PARAMETER;
     }
     
     audio_driver = p_audio_driver;
-    avi_writer = p_avi_writer;
     config = p_config;
+    
+    // 创建简单音频写入器
+    audio_writer.instantiate();
+    
+    Error open_result = audio_writer->open(p_audio_path, config.sample_rate, config.channels);
+    if (open_result != OK) {
+        ERR_PRINT("IndependentAudioRecorder: Failed to open audio writer");
+        return open_result;
+    }
     
     // 计算缓冲区大小
     buffer_size = config.sample_rate * config.channels * config.buffer_size_seconds;
     
+    // 计算RingBuffer需要的幂次
+    int power = 0;
+    while ((1 << power) < (int)buffer_size) {
+        power++;
+    }
+    int actual_buffer_size = 1 << power;  // 实际缓冲区大小
+    
     // 初始化环形缓冲区
-    audio_ring_buffer.clear();
-    audio_ring_buffer.resize(buffer_size);
+    audio_ring_buffer = RingBuffer<int32_t>(power);
+    buffer_size = actual_buffer_size;  // 更新为实际大小
     
     // 初始化临时缓冲区
     temp_audio_buffer.resize(config.chunk_size * config.channels);
@@ -52,12 +67,13 @@ Error IndependentAudioRecorder::initialize(HybridAudioDriver *p_audio_driver,
     // 重置统计信息
     reset_statistics();
     
-    print_line("IndependentAudioRecorder 初始化完成");
-    print_line(String("采样率: ") + String::num_int64(config.sample_rate) + "Hz");
-    print_line(String("声道数: ") + String::num_int64(config.channels));
-    print_line(String("块大小: ") + String::num_int64(config.chunk_size) + " 样本");
-    print_line(String("缓冲区大小: ") + String::num_int64(buffer_size) + " 样本 (" + 
-              String::num_real(config.buffer_size_seconds) + " 秒)");
+    print_line("IndependentAudioRecorder initialization completed");
+    print_line(String("Audio path: ") + p_audio_path);
+    print_line(String("Sample rate: ") + String::num_int64(config.sample_rate) + "Hz");
+    print_line(String("Channels: ") + String::num_int64(config.channels));
+    print_line(String("Chunk size: ") + String::num_int64(config.chunk_size) + " samples");
+    print_line(String("Buffer size: ") + String::num_int64(buffer_size) + " samples (" + 
+              String::num_real((float)config.buffer_size_seconds) + " seconds)");
     
     return OK;
 }
@@ -68,7 +84,7 @@ Error IndependentAudioRecorder::start_recording() {
         return ERR_ALREADY_IN_USE;
     }
     
-    if (!audio_driver || !avi_writer) {
+    if (!audio_driver || audio_writer.is_null()) {
         ERR_PRINT("IndependentAudioRecorder: 尚未初始化");
         return ERR_UNCONFIGURED;
     }
@@ -86,7 +102,7 @@ Error IndependentAudioRecorder::start_recording() {
     recording_thread.start(recording_thread_func, this);
     thread_started.store(true);
     
-    print_line("IndependentAudioRecorder: 开始录制");
+    print_line("IndependentAudioRecorder: Start recording");
     
     return OK;
 }
@@ -96,7 +112,7 @@ void IndependentAudioRecorder::stop_recording() {
         return;
     }
     
-    print_line("IndependentAudioRecorder: 停止录制...");
+    print_line("IndependentAudioRecorder: Stop recording...");
     
     // 停止录制循环
     recording_active.store(false);
@@ -107,13 +123,18 @@ void IndependentAudioRecorder::stop_recording() {
         thread_started.store(false);
     }
     
+    // 关闭音频写入器
+    if (audio_writer.is_valid()) {
+        audio_writer->close();
+    }
+    
     // 输出最终统计信息
     AudioStats final_stats = get_statistics();
-    print_line(String("音频录制完成 - 总块数: ") + String::num_int64(final_stats.total_chunks_recorded));
-    print_line(String("总样本数: ") + String::num_int64(final_stats.total_samples_recorded));
-    print_line(String("录制时长: ") + String::num_real(final_stats.recording_duration_us / 1000000.0) + "秒");
-    print_line(String("缓冲区溢出: ") + String::num_int64(final_stats.buffer_overruns));
-    print_line(String("缓冲区下溢: ") + String::num_int64(final_stats.buffer_underruns));
+    print_line(String("Audio recording completed - Total chunks: ") + String::num_int64(final_stats.total_chunks_recorded));
+    print_line(String("Total samples: ") + String::num_int64(final_stats.total_samples_recorded));
+    print_line(String("Recording duration: ") + String::num_real(final_stats.recording_duration_us / 1000000.0) + " seconds");
+    print_line(String("Buffer overruns: ") + String::num_int64(final_stats.buffer_overruns));
+    print_line(String("Buffer underruns: ") + String::num_int64(final_stats.buffer_underruns));
 }
 
 void IndependentAudioRecorder::recording_thread_func(void *p_userdata) {
@@ -122,7 +143,7 @@ void IndependentAudioRecorder::recording_thread_func(void *p_userdata) {
 }
 
 void IndependentAudioRecorder::recording_loop() {
-    print_line("IndependentAudioRecorder: 音频录制线程开始运行");
+            print_line("IndependentAudioRecorder: Audio recording thread started");
     
     uint64_t next_chunk_time = recording_start_time;
     uint64_t chunk_count = 0;
@@ -143,8 +164,8 @@ void IndependentAudioRecorder::recording_loop() {
                 // 每1000块输出一次调试信息
                 if (chunk_count % 1000 == 0) {
                     AudioStats current_stats = get_statistics();
-                    print_line(String("音频录制进度: ") + String::num_int64(chunk_count) + " 块, " +
-                              String("缓冲区使用率: ") + String::num_int64(current_stats.current_buffer_level) + "%");
+                    print_line(String("Audio recording progress: ") + String::num_int64(chunk_count) + " chunks, " +
+                              String("Buffer usage: ") + String::num_int64(current_stats.current_buffer_level) + "%");
                 }
             }
             
@@ -162,7 +183,7 @@ void IndependentAudioRecorder::recording_loop() {
         }
     }
     
-    print_line("IndependentAudioRecorder: 音频录制线程结束");
+    print_line("IndependentAudioRecorder: Audio recording thread ended");
 }
 
 bool IndependentAudioRecorder::process_audio_chunk(uint64_t current_recording_time) {
@@ -171,19 +192,16 @@ bool IndependentAudioRecorder::process_audio_chunk(uint64_t current_recording_ti
         handle_buffer_underrun();
         return false;
     }
-    
-    // 写入AVI文件
-    Error write_result = avi_writer->write_audio_chunk(
+    // 写入音频文件
+    Error write_result = audio_writer->write_audio_chunk(
         chunk_buffer.ptr(),
-        config.chunk_size,
-        recording_start_time + current_recording_time
+        config.chunk_size
     );
     
     if (write_result != OK) {
         ERR_PRINT("IndependentAudioRecorder: 写入音频块失败");
         return false;
     }
-    
     // 更新统计信息
     {
         MutexLock lock(stats_mutex);
@@ -195,20 +213,23 @@ bool IndependentAudioRecorder::process_audio_chunk(uint64_t current_recording_ti
 }
 
 bool IndependentAudioRecorder::read_audio_chunk(Vector<int32_t> &output_buffer, uint32_t requested_samples) {
-    if (get_available_samples() < requested_samples) {
+    uint32_t available = get_available_samples();
+    
+    if (available < requested_samples) {
         return false; // 数据不足
     }
     
     MutexLock lock(buffer_mutex);
     
-    uint32_t read_pos = buffer_read_pos.load();
+    // 直接使用RingBuffer的read方法
+    int samples_read = audio_ring_buffer.read(output_buffer.ptrw(), requested_samples);
     
-    for (uint32_t i = 0; i < requested_samples; i++) {
-        output_buffer.write[i] = audio_ring_buffer[read_pos];
-        read_pos = (read_pos + 1) % buffer_size;
+    if (samples_read < (int)requested_samples) {
+        // 填充剩余的样本为0
+        for (int i = samples_read; i < (int)requested_samples; i++) {
+            output_buffer.write[i] = 0;
+        }
     }
-    
-    buffer_read_pos.store(read_pos);
     
     return true;
 }
@@ -220,23 +241,19 @@ void IndependentAudioRecorder::on_audio_output(const int32_t *p_buffer, int p_fr
     
     MutexLock lock(buffer_mutex);
     
-    uint32_t write_pos = buffer_write_pos.load();
     uint32_t samples_to_write = p_frame_count * config.channels;
     
     // 检查缓冲区空间
-    uint32_t available_space = buffer_size - get_available_samples();
-    if (samples_to_write > available_space) {
+    int available_space = audio_ring_buffer.space_left();
+    if ((int)samples_to_write > available_space) {
         handle_buffer_overrun();
         return;
     }
     
     // 写入数据
-    for (uint32_t i = 0; i < samples_to_write; i++) {
-        audio_ring_buffer[write_pos] = p_buffer[i];
-        write_pos = (write_pos + 1) % buffer_size;
-    }
+    audio_ring_buffer.write(p_buffer, samples_to_write);
     
-    buffer_write_pos.store(write_pos);
+
 }
 
 void IndependentAudioRecorder::update_statistics(uint64_t chunk_process_start_time, uint32_t samples_processed) {
@@ -285,14 +302,7 @@ void IndependentAudioRecorder::handle_buffer_overrun() {
 }
 
 uint32_t IndependentAudioRecorder::get_available_samples() const {
-    uint32_t write_pos = buffer_write_pos.load();
-    uint32_t read_pos = buffer_read_pos.load();
-    
-    if (write_pos >= read_pos) {
-        return write_pos - read_pos;
-    } else {
-        return buffer_size - read_pos + write_pos;
-    }
+    return audio_ring_buffer.data_left();
 }
 
 bool IndependentAudioRecorder::has_audio_data() const {
@@ -317,11 +327,25 @@ void IndependentAudioRecorder::update_config(const AudioConfig &p_config) {
         return;
     }
     
-    config = p_config;
+    config.sample_rate = p_config.sample_rate;
+    config.channels = p_config.channels;
+    config.chunk_size = p_config.chunk_size;
+    config.buffer_size_seconds = p_config.buffer_size_seconds;
+    config.enable_audio_monitoring = p_config.enable_audio_monitoring;
     
     // 重新计算缓冲区大小
     buffer_size = config.sample_rate * config.channels * config.buffer_size_seconds;
-    audio_ring_buffer.resize(buffer_size);
+    
+    // 计算RingBuffer需要的幂次
+    int power = 0;
+    while ((1 << power) < (int)buffer_size) {
+        power++;
+    }
+    int actual_buffer_size = 1 << power;  // 实际缓冲区大小
+    
+    // 重新初始化环形缓冲区
+    audio_ring_buffer = RingBuffer<int32_t>(power);
+    buffer_size = actual_buffer_size;  // 更新为实际大小
     
     temp_audio_buffer.resize(config.chunk_size * config.channels);
     chunk_buffer.resize(config.chunk_size * config.channels);
@@ -341,19 +365,19 @@ String IndependentAudioRecorder::get_debug_info() const {
     
     String info;
     info += "=== IndependentAudioRecorder Debug Info ===\n";
-    info += String("录制状态: ") + (is_recording() ? "运行中" : "停止") + "\n";
-    info += String("线程状态: ") + (is_thread_running() ? "运行中" : "停止") + "\n";
-    info += String("总音频块数: ") + String::num_int64(current_stats.total_chunks_recorded) + "\n";
-    info += String("总样本数: ") + String::num_int64(current_stats.total_samples_recorded) + "\n";
-    info += String("录制时长: ") + String::num_real(current_stats.recording_duration_us / 1000000.0) + "秒\n";
-    info += String("缓冲区使用率: ") + String::num_int64(current_stats.current_buffer_level) + "%\n";
-    info += String("可用样本数: ") + String::num_int64(get_available_samples()) + "\n";
-    info += String("缓冲区溢出: ") + String::num_int64(current_stats.buffer_overruns) + "\n";
-    info += String("缓冲区下溢: ") + String::num_int64(current_stats.buffer_underruns) + "\n";
-    info += String("平均块处理时间: ") + String::num_int64(current_stats.avg_chunk_process_time_us) + "微秒\n";
-    info += String("配置采样率: ") + String::num_int64(config.sample_rate) + "Hz\n";
-    info += String("配置声道数: ") + String::num_int64(config.channels) + "\n";
-    info += String("配置块大小: ") + String::num_int64(config.chunk_size) + " 样本\n";
+    info += String("Recording status: ") + (is_recording() ? "Running" : "Stopped") + "\n";
+    info += String("Thread status: ") + (is_thread_running() ? "Running" : "Stopped") + "\n";
+    info += String("Total audio chunks: ") + String::num_int64(current_stats.total_chunks_recorded) + "\n";
+    info += String("Total samples: ") + String::num_int64(current_stats.total_samples_recorded) + "\n";
+    info += String("Recording duration: ") + String::num_real(current_stats.recording_duration_us / 1000000.0) + " seconds\n";
+    info += String("Buffer usage: ") + String::num_int64(current_stats.current_buffer_level) + "%\n";
+    info += String("Available samples: ") + String::num_int64(get_available_samples()) + "\n";
+    info += String("Buffer overruns: ") + String::num_int64(current_stats.buffer_overruns) + "\n";
+    info += String("Buffer underruns: ") + String::num_int64(current_stats.buffer_underruns) + "\n";
+    info += String("Avg chunk process time: ") + String::num_int64(current_stats.avg_chunk_process_time_us) + " microseconds\n";
+    info += String("Config sample rate: ") + String::num_int64(config.sample_rate) + "Hz\n";
+    info += String("Config channels: ") + String::num_int64(config.channels) + "\n";
+    info += String("Config chunk size: ") + String::num_int64(config.chunk_size) + " samples\n";
     info += "==========================================";
     
     return info;

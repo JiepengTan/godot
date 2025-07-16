@@ -54,7 +54,7 @@ class MovieWriter : public Object {
 
 	// 实时录制支持
 	bool realtime_mode = false;
-	class HybridAudioDriver *hybrid_driver = nullptr;
+	static class HybridAudioDriver *hybrid_driver;
 	class AudioDriver *original_driver = nullptr;
 
 	enum {
@@ -102,6 +102,9 @@ public:
 	// 实时录制控制
 	void set_realtime_mode(bool p_enable);
 	bool is_realtime_mode() const { return realtime_mode; }
+	
+	// 获取HybridAudioDriver实例（供其他录制器使用）
+	static class HybridAudioDriver *get_hybrid_audio_driver();
 	
 private:
 	void setup_hybrid_audio_driver();
