@@ -178,6 +178,16 @@ void MovieWriter::_bind_methods() {
 	// 实时录制配置
 	GLOBAL_DEF_BASIC("movie_writer/realtime_mode", false);
 	GLOBAL_DEF_BASIC("movie_writer/enable_audio_playback", true);
+	
+	// OBS式录制配置
+	GLOBAL_DEF("movie_writer/obs_mode", false);
+	GLOBAL_DEF(PropertyInfo(Variant::INT, "movie_writer/obs_video_fps", PROPERTY_HINT_RANGE, "10,120,1,suffix:FPS"), 30);
+	GLOBAL_DEF(PropertyInfo(Variant::FLOAT, "movie_writer/obs_video_quality", PROPERTY_HINT_RANGE, "0.1,1.0,0.01"), 0.85);
+	GLOBAL_DEF(PropertyInfo(Variant::INT, "movie_writer/obs_audio_sample_rate", PROPERTY_HINT_RANGE, "8000,192000,1,suffix:Hz"), 48000);
+	GLOBAL_DEF(PropertyInfo(Variant::INT, "movie_writer/obs_audio_channels", PROPERTY_HINT_RANGE, "1,8,1"), 2);
+	GLOBAL_DEF("movie_writer/obs_enable_timestamp_chunks", true);
+	GLOBAL_DEF("movie_writer/obs_enable_repeat_frame_marking", true);
+	GLOBAL_DEF("movie_writer/obs_enable_debug_output", true);
 }
 
 void MovieWriter::set_extensions_hint() {

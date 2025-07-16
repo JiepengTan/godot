@@ -38,6 +38,9 @@
 #include "core/templates/ring_buffer.h"
 #include "core/math/audio_frame.h"
 
+// 前向声明
+class IndependentAudioRecorder;
+
 // 音频数据捕获接口
 class AudioCaptureInterface {
 public:
@@ -69,6 +72,10 @@ private:
     // 同步状态监控
     uint64_t last_capture_time = 0;
     uint64_t capture_count = 0;
+    
+    // 注册的音频录制器列表
+    Vector<IndependentAudioRecorder*> registered_recorders;
+    Mutex recorders_mutex;
 
 public:
     HybridAudioDriver();
@@ -99,6 +106,13 @@ public:
     // 缓冲区状态
     int get_available_frames() const;
     bool has_audio_data() const;
+    
+    // 音频录制器注册接口
+    void register_audio_recorder(IndependentAudioRecorder* recorder);
+    void unregister_audio_recorder(IndependentAudioRecorder* recorder);
+    
+    // 获取注册的录制器数量
+    int get_registered_recorder_count() const;
 };
 
 #endif // AUDIO_DRIVER_HYBRID_H 

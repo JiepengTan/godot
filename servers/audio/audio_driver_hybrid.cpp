@@ -29,6 +29,7 @@
 /**************************************************************************/
 
 #include "audio_driver_hybrid.h"
+#include "servers/movie_writer/independent_audio_recorder.h"
 #include "core/os/os.h"
 
 HybridAudioDriver::HybridAudioDriver() {
@@ -178,6 +179,16 @@ void HybridAudioDriver::capture_audio_data(const int32_t *p_buffer, int p_frames
     if (current_data >= threshold && !swap_pending.is_set()) {
         swap_pending.set();
     }
+    
+    // 分发音频数据给所有注册的录制器
+    {
+        MutexLock lock(recorders_mutex);
+        for (IndependentAudioRecorder* recorder : registered_recorders) {
+            if (recorder) {
+                recorder->on_audio_output(p_buffer, p_frames);
+            }
+        }
+    }
 }
 
 int HybridAudioDriver::get_captured_audio_data(int32_t *p_output_buffer, int p_requested_frames) {
@@ -250,5 +261,44 @@ int HybridAudioDriver::get_available_frames() const {
 
 bool HybridAudioDriver::has_audio_data() const {
     return buffer_initialized.is_set() && read_buffer.data_left() > 0;
+}
+
+void HybridAudioDriver::register_audio_recorder(IndependentAudioRecorder* recorder) {
+    if (!recorder) {
+        return;
+    }
+    
+    MutexLock lock(recorders_mutex);
+    
+    // 检查是否已经注册
+    for (const IndependentAudioRecorder* existing : registered_recorders) {
+        if (existing == recorder) {
+            return; // 已经注册了
+        }
+    }
+    
+    registered_recorders.push_back(recorder);
+    print_line(vformat("HybridAudioDriver: 注册音频录制器，当前总数: %d", registered_recorders.size()));
+}
+
+void HybridAudioDriver::unregister_audio_recorder(IndependentAudioRecorder* recorder) {
+    if (!recorder) {
+        return;
+    }
+    
+    MutexLock lock(recorders_mutex);
+    
+    for (int i = 0; i < registered_recorders.size(); i++) {
+        if (registered_recorders[i] == recorder) {
+            registered_recorders.remove_at(i);
+            print_line(vformat("HybridAudioDriver: 注销音频录制器，当前总数: %d", registered_recorders.size()));
+            return;
+        }
+    }
+}
+
+int HybridAudioDriver::get_registered_recorder_count() const {
+    MutexLock lock(recorders_mutex);
+    return registered_recorders.size();
 } 
 
