@@ -46,6 +46,9 @@ ObsStyleMovieWriter::ObsStyleMovieWriter() :
     if (ProjectSettings::get_singleton()->has_setting("movie_writer/obs_enable_debug_output")) {
         obs_config.enable_debug_output = GLOBAL_GET("movie_writer/obs_enable_debug_output");
     }
+    if (ProjectSettings::get_singleton()->has_setting("movie_writer/obs_enable_combined_recording")) {
+        obs_config.enable_combined_recording = GLOBAL_GET("movie_writer/obs_enable_combined_recording");
+    }
 }
 
 ObsStyleMovieWriter::~ObsStyleMovieWriter() {
@@ -116,19 +119,31 @@ Error ObsStyleMovieWriter::write_begin(const Size2i &p_movie_size, uint32_t p_fp
     }
     
     // 启动录制线程
-    Error video_start_error = video_recorder->start_recording();
-    if (video_start_error != OK) {
-        ERR_PRINT("ObsStyleMovieWriter: Failed to start video recording");
-        cleanup_components();
-        return video_start_error;
-    }
-    
-    Error audio_start_error = audio_recorder->start_recording();
-    if (audio_start_error != OK) {
-        ERR_PRINT("ObsStyleMovieWriter: Failed to start audio recording");
-        video_recorder->stop_recording();
-        cleanup_components();
-        return audio_start_error;
+    if (obs_config.enable_combined_recording) {
+        // 启动合并录制线程
+        combined_recording_active = true;
+        combined_recording_thread = memnew(Thread);
+        combined_recording_thread->start(combined_recording_thread_function, this);
+        
+        if (obs_config.enable_debug_output) {
+            print_line("合并录制线程已启动");
+        }
+    } else {
+        // 启动分离录制线程
+        Error video_start_error = video_recorder->start_recording();
+        if (video_start_error != OK) {
+            ERR_PRINT("ObsStyleMovieWriter: Failed to start video recording");
+            cleanup_components();
+            return video_start_error;
+        }
+        
+        Error audio_start_error = audio_recorder->start_recording();
+        if (audio_start_error != OK) {
+            ERR_PRINT("ObsStyleMovieWriter: Failed to start audio recording");
+            video_recorder->stop_recording();
+            cleanup_components();
+            return audio_start_error;
+        }
     }
     
     // 更新状态
@@ -160,8 +175,35 @@ Error ObsStyleMovieWriter::write_frame(const Ref<Image> &p_image, const int32_t 
     
     last_add_frame_time = current_time;
     
-    // 注意：我们不直接处理音频数据，因为音频是通过HybridAudioDriver捕获的
-    // p_audio_data参数在OBS式录制中不使用
+    // 处理音频数据
+    if (obs_config.enable_combined_recording && p_audio_data) {
+        // 合并录制模式：将音频数据添加到缓冲区
+        uint32_t audio_mix_rate = get_audio_mix_rate();
+        uint32_t audio_channels = obs_config.audio_channels;
+        uint32_t samples_per_frame = audio_mix_rate / 60; // 假设游戏以60fps运行
+        
+        {
+            MutexLock lock(audio_buffer_mutex);
+            
+            // 将音频样本添加到缓冲区
+            for (uint32_t i = 0; i < samples_per_frame * audio_channels; i++) {
+                pending_audio_samples.push_back(p_audio_data[i]);
+            }
+            
+            // 限制缓冲区大小，避免内存无限增长
+            uint32_t max_buffer_samples = audio_mix_rate * audio_channels * 5; // 5秒的缓冲
+            if (pending_audio_samples.size() > max_buffer_samples) {
+                uint32_t excess = pending_audio_samples.size() - max_buffer_samples;
+                // 移除开头的多余样本
+                for (uint32_t i = 0; i < excess; i++) {
+                    pending_audio_samples.remove_at(0);
+                }
+            }
+        }
+    } else {
+        // 分离录制模式：音频通过HybridAudioDriver捕获
+        // p_audio_data参数在分离录制模式中不使用
+    }
     
     return OK;
 }
@@ -177,18 +219,28 @@ void ObsStyleMovieWriter::write_end() {
     
     update_recording_state(STATE_STOPPING);
     
-    // 停止录制线程
-    if (video_recorder) {
-        video_recorder->stop_recording();
-    }
-    
-    if (audio_recorder) {
-        audio_recorder->stop_recording();
-    }
-    
-    // 关闭AVI文件
-    if (avi_writer) {
-        avi_writer->close();
+    if (obs_config.enable_combined_recording) {
+        // 停止合并录制
+        cleanup_combined_recording();
+        
+        // 关闭AVI文件
+        if (avi_writer) {
+            avi_writer->close();
+        }
+    } else {
+        // 停止分离录制线程
+        if (video_recorder) {
+            video_recorder->stop_recording();
+        }
+        
+        if (audio_recorder) {
+            audio_recorder->stop_recording();
+        }
+        
+        // 关闭AVI文件（如果使用）
+        if (avi_writer) {
+            avi_writer->close();
+        }
     }
     
     // 恢复音频驱动
@@ -208,34 +260,16 @@ void ObsStyleMovieWriter::write_end() {
 }
 
 Error ObsStyleMovieWriter::setup_components() {
+    if (obs_config.enable_combined_recording) {
+        return setup_combined_recording();
+    }
+    
+    // 原有的分离录制模式
     // 创建双缓冲区
     frame_buffer = new ThreadSafeFrameBuffer();
     if (!frame_buffer) {
         ERR_PRINT("ObsStyleMovieWriter: Failed to create frame buffer");
         return ERR_OUT_OF_MEMORY;
-    }
-    
-    // 创建AVI写入器
-    avi_writer = new EnhancedAviWriter();
-    if (!avi_writer) {
-        ERR_PRINT("ObsStyleMovieWriter: Failed to create AVI writer");
-        return ERR_OUT_OF_MEMORY;
-    }
-    
-    // 初始化AVI写入器
-    Error avi_error = avi_writer->open(
-        output_file_path,
-        obs_config.video_width,
-        obs_config.video_height,
-        obs_config.video_fps,
-        obs_config.audio_sample_rate,
-        obs_config.audio_channels,
-        obs_config.jpeg_quality
-    );
-    
-    if (avi_error != OK) {
-        ERR_PRINT("ObsStyleMovieWriter: AVI file initialization failed");
-        return avi_error;
     }
     
     // 创建视频录制器
@@ -283,6 +317,12 @@ Error ObsStyleMovieWriter::setup_components() {
 }
 
 void ObsStyleMovieWriter::cleanup_components() {
+    // 清理合并录制相关组件
+    if (obs_config.enable_combined_recording) {
+        cleanup_combined_recording();
+    }
+    
+    // 清理分离录制组件
     if (video_recorder) {
         delete video_recorder;
         video_recorder = nullptr;
@@ -307,6 +347,15 @@ void ObsStyleMovieWriter::cleanup_components() {
 }
 
 Error ObsStyleMovieWriter::setup_audio_capture() {
+    if (obs_config.enable_combined_recording) {
+        // 合并录制模式：音频数据通过write_frame直接传递，无需设置HybridAudioDriver
+        if (obs_config.enable_debug_output) {
+            print_line("合并录制模式：跳过HybridAudioDriver设置，使用直接音频传递");
+        }
+        return OK;
+    }
+    
+    // 分离录制模式：需要设置HybridAudioDriver
     // 重用MovieWriter的HybridAudioDriver，避免冲突
     hybrid_audio_driver = MovieWriter::get_hybrid_audio_driver();
     if (!hybrid_audio_driver) {
@@ -556,4 +605,226 @@ Error ObsStyleMovieWriter::resume_recording() {
 
 bool ObsStyleMovieWriter::is_paused() const {
     return false; // Pause functionality not yet implemented
+}
+
+// ========== 合并录制模式实现 ==========
+
+Error ObsStyleMovieWriter::setup_combined_recording() {
+    if (obs_config.enable_debug_output) {
+        print_line("ObsStyleMovieWriter: 设置合并录制模式 (视频+音频合并到同一文件)");
+    }
+    
+    // 创建双缓冲区（仅用于视频帧）
+    frame_buffer = new ThreadSafeFrameBuffer();
+    if (!frame_buffer) {
+        ERR_PRINT("ObsStyleMovieWriter: Failed to create frame buffer");
+        return ERR_OUT_OF_MEMORY;
+    }
+    
+    // 创建增强型AVI写入器
+    avi_writer = new EnhancedAviWriter();
+    if (!avi_writer) {
+        ERR_PRINT("ObsStyleMovieWriter: Failed to create EnhancedAviWriter");
+        return ERR_OUT_OF_MEMORY;
+    }
+    
+    // 初始化AVI写入器（合并模式的输出文件）
+    String combined_file_path = output_file_path + "_combined.avi";
+    Error avi_error = avi_writer->open(
+        combined_file_path,
+        obs_config.video_width,
+        obs_config.video_height,
+        obs_config.video_fps,
+        obs_config.audio_sample_rate,
+        obs_config.audio_channels,
+        obs_config.jpeg_quality
+    );
+    
+    if (avi_error != OK) {
+        ERR_PRINT("ObsStyleMovieWriter: 合并AVI文件初始化失败");
+        return avi_error;
+    }
+    
+    // 初始化音频缓冲区
+    pending_audio_samples.clear();
+    last_video_frame_time = 0;
+    last_audio_chunk_time = 0;
+    combined_recording_active = false;
+    
+    if (obs_config.enable_debug_output) {
+        print_line(String("合并录制文件: ") + combined_file_path);
+        print_line("双缓冲区和AVI写入器初始化成功");
+    }
+    
+    update_recording_state(STATE_INITIALIZED);
+    return OK;
+}
+
+void ObsStyleMovieWriter::cleanup_combined_recording() {
+    // 停止合并录制线程
+    if (combined_recording_thread && combined_recording_active) {
+        combined_recording_active = false;
+        combined_recording_thread->wait_to_finish();
+        memdelete(combined_recording_thread);
+        combined_recording_thread = nullptr;
+    }
+    
+    // 清理音频缓冲区
+    {
+        MutexLock lock(audio_buffer_mutex);
+        pending_audio_samples.clear();
+    }
+    
+    if (obs_config.enable_debug_output) {
+        print_line("合并录制线程已停止，缓冲区已清理");
+    }
+}
+
+void ObsStyleMovieWriter::combined_recording_thread_function(void *p_userdata) {
+    ObsStyleMovieWriter *writer = static_cast<ObsStyleMovieWriter *>(p_userdata);
+    writer->combined_recording_loop();
+}
+
+void ObsStyleMovieWriter::combined_recording_loop() {
+    if (obs_config.enable_debug_output) {
+        print_line("合并录制线程开始运行");
+    }
+    
+    uint64_t frame_interval_us = 1000000 / obs_config.video_fps; // 微秒
+    uint64_t next_frame_time = OS::get_singleton()->get_ticks_usec();
+    
+    uint32_t recorded_frames = 0;
+    uint64_t loop_start_time = OS::get_singleton()->get_ticks_usec();
+    
+    while (combined_recording_active) {
+        uint64_t current_time = OS::get_singleton()->get_ticks_usec();
+        
+        // 检查是否到了录制下一帧的时间
+        if (current_time >= next_frame_time) {
+            Error write_error = write_combined_frame_and_audio();
+            if (write_error != OK) {
+                ERR_PRINT("合并录制帧写入失败");
+                break;
+            }
+            
+            recorded_frames++;
+            next_frame_time += frame_interval_us;
+            
+            // 调试输出
+            if (recorded_frames % 300 == 0 && obs_config.enable_debug_output) { // 每10秒输出一次
+                uint64_t elapsed_us = current_time - loop_start_time;
+                float elapsed_sec = elapsed_us / 1000000.0f;
+                float actual_fps = recorded_frames / elapsed_sec;
+                print_line(String("合并录制进度: ") + String::num_int64(recorded_frames) + 
+                          " 帧, 实际FPS: " + String::num(actual_fps, 1));
+            }
+        }
+        
+        // 精确的睡眠时间控制
+        uint64_t sleep_time_us = next_frame_time - current_time;
+        if (sleep_time_us > 0 && sleep_time_us < frame_interval_us) {
+            OS::get_singleton()->delay_usec(MIN(sleep_time_us, 5000)); // 最多睡眠5ms
+        } else {
+            // 避免CPU占用过高
+            OS::get_singleton()->delay_usec(1000); // 1ms
+        }
+    }
+    
+    if (obs_config.enable_debug_output) {
+        uint64_t total_elapsed_us = OS::get_singleton()->get_ticks_usec() - loop_start_time;
+        float total_elapsed_sec = total_elapsed_us / 1000000.0f;
+        float average_fps = recorded_frames / total_elapsed_sec;
+        print_line(String("合并录制线程结束: 总帧数 ") + String::num_int64(recorded_frames) + 
+                  ", 平均FPS: " + String::num(average_fps, 2));
+    }
+}
+
+Error ObsStyleMovieWriter::write_combined_frame_and_audio() {
+    if (!avi_writer || !frame_buffer) {
+        return ERR_UNCONFIGURED;
+    }
+    
+    uint64_t current_time = OS::get_singleton()->get_ticks_usec();
+    
+    // 1. 获取当前视频帧
+    ThreadSafeFrameBuffer::FrameData frame_data = frame_buffer->get_current_frame();
+    
+    if (frame_data.image.is_null()) {
+        // 没有视频帧，跳过此次录制
+        return OK;
+    }
+    
+    // 2. 准备视频帧标志
+    uint8_t frame_flags = EnhancedAviWriter::FRAME_FLAG_NEW;
+    if (!frame_data.is_new_frame && last_video_frame_time > 0) {
+        frame_flags = EnhancedAviWriter::FRAME_FLAG_REPEATED;
+    }
+    
+    // 3. 写入视频帧
+    Error video_error = avi_writer->write_video_frame(frame_data.image, current_time, frame_data.game_timestamp, frame_data.frame_sequence, frame_flags);
+    if (video_error != OK) {
+        ERR_PRINT("写入视频帧失败");
+        return video_error;
+    }
+    
+    last_video_frame_time = current_time;
+    
+    // 4. 处理音频数据
+    Vector<int32_t> audio_to_write;
+    {
+        MutexLock lock(audio_buffer_mutex);
+        
+        // 计算需要写入的音频样本数（同步到视频帧率）
+        uint32_t samples_per_frame = obs_config.audio_sample_rate / obs_config.video_fps;
+        uint32_t samples_needed = samples_per_frame * obs_config.audio_channels;
+        
+        if (pending_audio_samples.size() >= samples_needed) {
+            // 有足够的音频数据
+            audio_to_write.resize(samples_needed);
+            for (uint32_t i = 0; i < samples_needed; i++) {
+                audio_to_write.write[i] = pending_audio_samples[i];
+            }
+            
+            // 从缓冲区移除已使用的样本
+            for (uint32_t i = 0; i < samples_needed; i++) {
+                pending_audio_samples.remove_at(0);
+            }
+        } else if (!pending_audio_samples.is_empty()) {
+            // 音频数据不足，用现有数据填充并用静音补齐
+            audio_to_write.resize(samples_needed);
+            
+            // 复制现有数据
+            uint32_t available_samples = pending_audio_samples.size();
+            for (uint32_t i = 0; i < available_samples; i++) {
+                audio_to_write.write[i] = pending_audio_samples[i];
+            }
+            
+            // 用静音填充剩余部分
+            for (uint32_t i = available_samples; i < samples_needed; i++) {
+                audio_to_write.write[i] = 0;
+            }
+            
+            pending_audio_samples.clear();
+        } else {
+            // 没有音频数据，写入静音
+            audio_to_write.resize(samples_needed);
+            for (uint32_t i = 0; i < samples_needed; i++) {
+                audio_to_write.write[i] = 0;
+            }
+        }
+    }
+    
+    // 5. 写入音频数据
+    if (!audio_to_write.is_empty()) {
+        uint32_t audio_frames = audio_to_write.size() / obs_config.audio_channels;
+        Error audio_error = avi_writer->write_audio_chunk(audio_to_write.ptr(), audio_frames, current_time);
+        if (audio_error != OK) {
+            ERR_PRINT("写入音频块失败");
+            return audio_error;
+        }
+        
+        last_audio_chunk_time = current_time;
+    }
+    
+    return OK;
 } 

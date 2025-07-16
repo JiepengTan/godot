@@ -13,8 +13,14 @@
 EnhancedAviWriter::EnhancedAviWriter() {
     video_frame_count = 0;
     audio_chunk_count = 0;
+    total_audio_samples = 0;
+    hdrl_size_pos = 0;
+    video_length_pos = 0;
+    audio_length_pos = 0;
     movi_list_pos = 0;
-    idx1_pos = 0;
+    movi_size_pos = 0;
+    first_frame_time = 0;
+    first_frame_written = false;
 }
 
 EnhancedAviWriter::~EnhancedAviWriter() {
@@ -41,6 +47,10 @@ void EnhancedAviWriter::write_uint8(uint8_t value) {
 
 void EnhancedAviWriter::write_bytes(const uint8_t *data, size_t size) {
     file->store_buffer(data, size);
+}
+
+uint32_t EnhancedAviWriter::get_current_chunk_offset() const {
+    return (uint32_t)(file->get_position() - movi_list_pos);
 }
 
 Error EnhancedAviWriter::open(const String &p_path, uint32_t p_width, uint32_t p_height, 
@@ -75,6 +85,7 @@ void EnhancedAviWriter::write_avi_header() {
     
     // LIST hdrl
     write_fourcc("LIST");
+    hdrl_size_pos = file->get_position(); // 记录hdrl大小位置
     write_uint32(0); // hdrl大小，稍后更新
     write_fourcc("hdrl");
     
@@ -101,9 +112,10 @@ void EnhancedAviWriter::write_avi_header() {
     
     // LIST movi
     write_fourcc("LIST");
-    movi_list_pos = file->get_position(); // 记录位置用于稍后更新大小
+    movi_size_pos = file->get_position(); // 记录movi大小位置
     write_uint32(0); // movi大小，稍后更新
     write_fourcc("movi");
+    movi_list_pos = file->get_position(); // movi数据开始位置
 }
 
 void EnhancedAviWriter::write_stream_headers() {
@@ -140,6 +152,9 @@ void EnhancedAviWriter::write_video_stream_header() {
     video_header.left = video_header.top = 0;
     video_header.right = video_width;
     video_header.bottom = video_height;
+    
+    // 记录video stream length的位置（在写入前记录）
+    video_length_pos = file->get_position() + 32; // length字段的偏移量
     
     write_bytes((const uint8_t *)&video_header, sizeof(StreamHeader));
     
@@ -184,7 +199,10 @@ void EnhancedAviWriter::write_audio_stream_header() {
     audio_header.length = 0; // 稍后更新
     audio_header.suggested_buffer_size = 0;
     audio_header.quality = 0;
-    audio_header.sample_size = audio_channels * 4; // 32位PCM
+    audio_header.sample_size = audio_channels * 2; // 16位PCM
+    
+    // 记录audio stream length的位置
+    audio_length_pos = file->get_position() + 32; // length字段的偏移量
     
     write_bytes((const uint8_t *)&audio_header, sizeof(StreamHeader));
     
@@ -196,9 +214,9 @@ void EnhancedAviWriter::write_audio_stream_header() {
     write_uint16(1);      // wFormatTag (PCM)
     write_uint16(audio_channels);   // nChannels
     write_uint32(audio_sample_rate); // nSamplesPerSec
-    write_uint32(audio_sample_rate * audio_channels * 4); // nAvgBytesPerSec
-    write_uint16(audio_channels * 4); // nBlockAlign
-    write_uint16(32);     // wBitsPerSample
+    write_uint32(audio_sample_rate * audio_channels * 2); // nAvgBytesPerSec (16位)
+    write_uint16(audio_channels * 2); // nBlockAlign (16位)
+    write_uint16(16);     // wBitsPerSample (改为16位)
     write_uint16(0);      // cbSize
 }
 
@@ -208,22 +226,11 @@ Error EnhancedAviWriter::write_video_frame(const Ref<Image> &p_image, uint64_t r
         return ERR_INVALID_PARAMETER;
     }
     
-    // 首先写入时间戳chunk
-    TimestampChunk ts_chunk;
-    ts_chunk.recording_timestamp = recording_time;
-    ts_chunk.game_timestamp = game_time;
-    ts_chunk.frame_sequence = sequence;
-    ts_chunk.flags = flags;
-    
-    write_bytes((const uint8_t *)&ts_chunk, sizeof(TimestampChunk));
-    
-    // 添加时间戳索引条目
-    IndexEntry ts_entry;
-    memcpy(ts_entry.fourcc, "00ts", 4);
-    ts_entry.flags = 0;
-    ts_entry.chunk_offset = file->get_position() - movi_list_pos - 8 - sizeof(TimestampChunk);
-    ts_entry.chunk_size = sizeof(TimestampChunk);
-    index_entries.push_back(ts_entry);
+    // 记录第一帧的时间作为参考
+    if (!first_frame_written) {
+        first_frame_time = recording_time;
+        first_frame_written = true;
+    }
     
     // 转换图像为JPEG
     Ref<Image> img = p_image->duplicate();
@@ -232,6 +239,9 @@ Error EnhancedAviWriter::write_video_frame(const Ref<Image> &p_image, uint64_t r
     }
     
     PackedByteArray jpeg_data = img->save_jpg_to_buffer(jpeg_quality);
+    
+    // 记录当前chunk开始位置（用于索引）
+    uint32_t chunk_offset = get_current_chunk_offset();
     
     // 写入视频数据chunk
     write_fourcc("00db"); // 00=stream 0, db=data block
@@ -247,14 +257,15 @@ Error EnhancedAviWriter::write_video_frame(const Ref<Image> &p_image, uint64_t r
     IndexEntry video_entry;
     memcpy(video_entry.fourcc, "00db", 4);
     video_entry.flags = 0x10; // AVIIF_KEYFRAME
-    video_entry.chunk_offset = file->get_position() - movi_list_pos - 8 - jpeg_data.size();
-    if (jpeg_data.size() % 2 == 1) {
-        video_entry.chunk_offset -= 1;
-    }
+    video_entry.chunk_offset = chunk_offset;
     video_entry.chunk_size = jpeg_data.size();
     index_entries.push_back(video_entry);
     
     video_frame_count++;
+    
+    if (video_frame_count % 100 == 0) {
+        print_line(String("Video frames written: ") + String::num_int64(video_frame_count));
+    }
     
     return OK;
 }
@@ -265,12 +276,27 @@ Error EnhancedAviWriter::write_audio_chunk(const int32_t *p_audio_data, int p_fr
         return ERR_INVALID_PARAMETER;
     }
     
-    uint32_t data_size = p_frame_count * audio_channels * 4; // 32位PCM
+    // 转换32位音频数据为16位PCM
+    Vector<int16_t> audio_16bit;
+    audio_16bit.resize(p_frame_count * audio_channels);
+    
+    for (int i = 0; i < p_frame_count * audio_channels; i++) {
+        // 将32位数据转换为16位，进行适当的缩放
+        int32_t sample_32 = p_audio_data[i];
+        // 假设32位数据是-1.0到1.0的范围，转换为16位整数
+        int16_t sample_16 = (int16_t)CLAMP(sample_32 >> 16, -32768, 32767);
+        audio_16bit.write[i] = sample_16;
+    }
+    
+    uint32_t data_size = p_frame_count * audio_channels * 2; // 16位PCM
+    
+    // 记录当前chunk开始位置
+    uint32_t chunk_offset = get_current_chunk_offset();
     
     // 写入音频数据chunk
     write_fourcc("01wb"); // 01=stream 1, wb=wave buffer
     write_uint32(data_size);
-    write_bytes((const uint8_t *)p_audio_data, data_size);
+    write_bytes((const uint8_t *)audio_16bit.ptr(), data_size);
     
     // 字节对齐
     if (data_size % 2 == 1) {
@@ -281,14 +307,16 @@ Error EnhancedAviWriter::write_audio_chunk(const int32_t *p_audio_data, int p_fr
     IndexEntry audio_entry;
     memcpy(audio_entry.fourcc, "01wb", 4);
     audio_entry.flags = 0;
-    audio_entry.chunk_offset = file->get_position() - movi_list_pos - 8 - data_size;
-    if (data_size % 2 == 1) {
-        audio_entry.chunk_offset -= 1;
-    }
+    audio_entry.chunk_offset = chunk_offset;
     audio_entry.chunk_size = data_size;
     index_entries.push_back(audio_entry);
     
     audio_chunk_count++;
+    total_audio_samples += p_frame_count;
+    
+    if (audio_chunk_count % 100 == 0) {
+        print_line(String("Audio chunks written: ") + String::num_int64(audio_chunk_count));
+    }
     
     return OK;
 }
@@ -297,9 +325,6 @@ void EnhancedAviWriter::close() {
     if (!file.is_valid() || !file->is_open()) {
         return;
     }
-    
-    // 记录当前位置（movi结束位置）
-    uint64_t movi_end_pos = file->get_position();
     
     // 写入索引
     write_fourcc("idx1");
@@ -312,34 +337,70 @@ void EnhancedAviWriter::close() {
         write_uint32(entry.chunk_size);
     }
     
-    uint64_t file_end_pos = file->get_position();
-    
     // 更新文件头中的大小信息
     finalize_headers();
     
     file->close();
     
-    print_line(String("AVI recording completed: ") + file_path);
-    print_line(String("Video frames: ") + String::num_int64(video_frame_count));
-    print_line(String("Audio chunks: ") + String::num_int64(audio_chunk_count));
-    print_line(String("Index entries: ") + String::num_int64(index_entries.size()));
+    print_line(String("=== AVI合并录制完成 ==="));
+    print_line(String("输出文件: ") + file_path);
+    print_line(String("视频帧数: ") + String::num_int64(video_frame_count));
+    print_line(String("音频块数: ") + String::num_int64(audio_chunk_count)); 
+    print_line(String("总音频样本: ") + String::num_int64(total_audio_samples));
+    print_line(String("索引条目: ") + String::num_int64(index_entries.size()));
+    
+    if (first_frame_written && video_frame_count > 0) {
+        float duration_sec = (float)video_frame_count / (float)video_fps;
+        print_line(String("视频时长: ") + String::num(duration_sec, 2) + " 秒");
+        
+        if (total_audio_samples > 0) {
+            float audio_duration_sec = (float)total_audio_samples / (float)audio_sample_rate;
+            print_line(String("音频时长: ") + String::num(audio_duration_sec, 2) + " 秒");
+            
+            float sync_diff = Math::abs(duration_sec - audio_duration_sec);
+            if (sync_diff < 0.1f) {
+                print_line("✓ 音视频同步正常");
+            } else {
+                print_line(String("⚠ 音视频时长差异: ") + String::num(sync_diff, 3) + " 秒");
+            }
+        }
+    }
 }
 
 void EnhancedAviWriter::finalize_headers() {
-    // 更新RIFF文件大小
+    uint64_t current_pos = file->get_position();
+    
+    // 1. 更新RIFF文件大小
     file->seek(4);
-    uint64_t file_size = file->get_length() - 8;
+    uint64_t file_size = current_pos - 8;
     write_uint32((uint32_t)file_size);
     
-    // 更新avih中的总帧数
-    file->seek(48); // avih.total_frames的位置
+    // 2. 更新hdrl大小
+    file->seek(hdrl_size_pos);
+    uint64_t hdrl_size = movi_size_pos - hdrl_size_pos - 4;
+    write_uint32((uint32_t)hdrl_size);
+    
+    // 3. 更新avih中的总帧数
+    file->seek(48); // avih.total_frames的位置（固定偏移）
     write_uint32(video_frame_count);
     
-    // 更新movi大小
-    file->seek(movi_list_pos);
-    uint64_t movi_size = file->get_length() - movi_list_pos - 4;
+    // 4. 更新video stream的length
+    if (video_length_pos > 0) {
+        file->seek(video_length_pos);
+        write_uint32(video_frame_count);
+    }
+    
+    // 5. 更新audio stream的length（以样本数为单位）
+    if (audio_length_pos > 0) {
+        file->seek(audio_length_pos);
+        write_uint32((uint32_t)total_audio_samples);
+    }
+    
+    // 6. 更新movi大小
+    file->seek(movi_size_pos);
+    uint64_t movi_size = current_pos - movi_size_pos - 4;
     write_uint32((uint32_t)movi_size);
     
     // 恢复文件指针到末尾
-    file->seek_end();
+    file->seek(current_pos);
 } 

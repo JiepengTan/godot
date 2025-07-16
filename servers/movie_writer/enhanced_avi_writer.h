@@ -88,10 +88,14 @@ private:
     float jpeg_quality = 0.85f;
     
     // 文件偏移量跟踪
+    uint64_t hdrl_size_pos = 0;      // hdrl大小位置
+    uint64_t video_length_pos = 0;   // 视频stream length位置  
+    uint64_t audio_length_pos = 0;   // 音频stream length位置
     uint64_t movi_list_pos = 0;
-    uint64_t idx1_pos = 0;
+    uint64_t movi_size_pos = 0;      // movi大小位置
     uint32_t video_frame_count = 0;
     uint32_t audio_chunk_count = 0;
+    uint64_t total_audio_samples = 0; // 总音频样本数
     
     // 索引条目
     struct IndexEntry {
@@ -102,6 +106,10 @@ private:
     };
     
     Vector<IndexEntry> index_entries;
+    
+    // 音视频同步
+    uint64_t first_frame_time = 0;
+    bool first_frame_written = false;
     
     // 内部方法
     void write_fourcc(const char *fourcc);
@@ -115,6 +123,9 @@ private:
     void write_video_stream_header();
     void write_audio_stream_header();
     void finalize_headers();
+    
+    // 计算正确的chunk偏移量
+    uint32_t get_current_chunk_offset() const;
     
 public:
     EnhancedAviWriter();

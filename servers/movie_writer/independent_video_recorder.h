@@ -22,7 +22,7 @@
  * 以固定30fps运行，与游戏主线程完全独立
  * 从双缓冲区读取画面数据，生成标准时间轴的录制视频
  */
-class IndependentVideoRecorder {
+class IndependentVideoRecorder { 
 public:
     // 录制配置
     struct RecordingConfig {

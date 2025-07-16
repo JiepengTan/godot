@@ -16,6 +16,9 @@
 #include "independent_audio_recorder.h"
 #include "servers/audio/audio_driver_hybrid.h"
 #include "core/os/os.h"
+#include "core/os/thread.h"
+#include "core/os/mutex.h"
+#include <atomic>
 
 /**
  * OBS式独立线程录制器
@@ -48,6 +51,7 @@ public:
         bool enable_repeat_frame_marking = true;  // 启用重复帧标记
         bool enable_audio_monitoring = false;     // 启用音频监控
         bool enable_debug_output = true;          // 启用调试输出
+        bool enable_combined_recording = true;    // 启用合并录制（video+audio到同一文件）
         
         // 性能参数
         uint32_t max_frame_buffer_size = 4;       // 最大帧缓冲区大小
@@ -87,12 +91,27 @@ private:
     uint64_t last_add_frame_time = 0;
     uint32_t frames_added_count = 0;
     
+    // 合并录制支持
+    Thread *combined_recording_thread = nullptr;
+    std::atomic<bool> combined_recording_active{false};
+    Mutex audio_buffer_mutex;
+    Vector<int32_t> pending_audio_samples;
+    uint64_t last_video_frame_time = 0;
+    uint64_t last_audio_chunk_time = 0;
+    
     // 内部方法
     Error setup_components();
     void cleanup_components();
     Error setup_audio_capture();
     void restore_audio_driver();
     void update_recording_state(RecordingState new_state);
+    
+    // 合并录制方法
+    Error setup_combined_recording();
+    void cleanup_combined_recording();
+    static void combined_recording_thread_function(void *p_userdata);
+    void combined_recording_loop();
+    Error write_combined_frame_and_audio();
     
     // 配置验证
     Error validate_config() const;
