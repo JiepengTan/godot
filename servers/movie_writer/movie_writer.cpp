@@ -230,8 +230,28 @@ void MovieWriter::add_frame() {
 	if (realtime_mode && hybrid_driver) {
 		// 实时录制模式：从HybridAudioDriver获取捕获的音频数据
 		int requested_frames = mix_rate / fps;
-		hybrid_driver->get_captured_audio_data(audio_mix_buffer.ptr(), requested_frames);
-		print_line("MovieWriter: Using captured audio data from HybridAudioDriver");
+		int available_frames = hybrid_driver->get_available_frames();
+		
+		// 获取音频数据
+		int frames_received = hybrid_driver->get_captured_audio_data(audio_mix_buffer.ptr(), requested_frames);
+		
+		// 监控音频缓冲区状态（每60帧打印一次，避免输出过多）
+		static int frame_count = 0;
+		frame_count++;
+		if (frame_count % 60 == 0) {
+			print_line(vformat("MovieWriter: Audio buffer status - Available: %d frames, Requested: %d, Received: %d", 
+					   available_frames, requested_frames, frames_received));
+		}
+		
+		// 检查音频质量
+		if (available_frames < requested_frames / 2) {
+			static int low_buffer_warnings = 0;
+			if (low_buffer_warnings < 5) { // 限制警告次数
+				WARN_PRINT(vformat("MovieWriter: Low audio buffer (%d frames available, %d requested)", 
+						   available_frames, requested_frames));
+				low_buffer_warnings++;
+			}
+		}
 	} else {
 		// 传统离线录制模式：从 dummy 驱动获取音频数据
 		AudioDriverDummy::get_dummy_singleton()->mix_audio(mix_rate / fps, audio_mix_buffer.ptr());
@@ -298,6 +318,9 @@ void MovieWriter::setup_hybrid_audio_driver() {
 		int current_mix_rate = AudioServer::get_singleton()->get_mix_rate();
 		AudioServer::SpeakerMode current_speaker_mode = AudioServer::get_singleton()->get_speaker_mode();
 		
+		print_line(vformat("MovieWriter: Initializing HybridAudioDriver - Mix rate: %d Hz, Speaker mode: %d", 
+				   current_mix_rate, current_speaker_mode));
+		
 		// 初始化混合驱动
 		Error err = hybrid_driver->init(current_mix_rate, AudioDriver::SpeakerMode(current_speaker_mode));
 		if (err != OK) {
@@ -313,7 +336,15 @@ void MovieWriter::setup_hybrid_audio_driver() {
 		// 注册到AudioServer进行音频捕获
 		AudioServer::get_singleton()->set_audio_capture_interface(hybrid_driver);
 		
-		print_line("HybridAudioDriver initialized successfully (non-invasive mode)");
+		// 验证音频参数同步
+		if (hybrid_driver->get_mix_rate() != current_mix_rate) {
+			WARN_PRINT(vformat("HybridAudioDriver mix rate mismatch: expected %d, got %d", 
+					   current_mix_rate, hybrid_driver->get_mix_rate()));
+		}
+		
+		print_line(vformat("HybridAudioDriver initialized successfully - %d Hz, %d channels, Buffer: %d frames (%.1fms)", 
+				   hybrid_driver->get_mix_rate(), hybrid_driver->get_channels(), 
+				   int(hybrid_driver->get_mix_rate() * 0.2f), 200.0f)); // 200ms双缓冲区
 	}
 }
 
