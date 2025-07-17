@@ -451,7 +451,7 @@ jobs:
       - name: Build Linux Editor (${{ matrix.arch }})
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=linuxbsd target=editor ${{ env.COMMON_ARGS }} arch=${{ matrix.arch }}
+          sconsflags: platform=linuxbsd target=editor ${{ env.COMMON_ARGS }} arch=${{ matrix.arch }} use_llvm=yes linker=lld
           platform: linuxbsd
           target: editor
 
