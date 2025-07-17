@@ -110,7 +110,6 @@ def configure(env: "Environment"):
         if "clang++" not in os.path.basename(env["CXX"]):
             env["CC"] = "clang"
             env["CXX"] = "clang++"
-        env.extra_suffix = ".llvm" + env.extra_suffix
 
     if env["linker"] != "default":
         print("Using linker program: " + env["linker"])

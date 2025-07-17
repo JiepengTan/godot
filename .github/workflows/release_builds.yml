@@ -516,14 +516,14 @@ jobs:
       - name: Build Linux Template Debug (${{ matrix.arch }})
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=linuxbsd target=template_debug ${{ env.COMMON_ARGS }} ${{ env.RELEASE_ARGS }} arch=${{ matrix.arch }}
+          sconsflags: platform=linuxbsd target=template_debug ${{ env.COMMON_ARGS }} ${{ env.RELEASE_ARGS }} arch=${{ matrix.arch }} use_llvm=yes linker=lld
           platform: linuxbsd
           target: template_debug
 
       - name: Build Linux Template Release (${{ matrix.arch }})
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=linuxbsd target=template_release ${{ env.COMMON_ARGS }} ${{ env.RELEASE_ARGS }} arch=${{ matrix.arch }}
+          sconsflags: platform=linuxbsd target=template_release ${{ env.COMMON_ARGS }} ${{ env.RELEASE_ARGS }} arch=${{ matrix.arch }} use_llvm=yes linker=lld
           platform: linuxbsd
           target: template_release
 

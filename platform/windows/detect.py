@@ -541,7 +541,6 @@ def configure_mingw(env):
             env["AR"] = mingw_bin_prefix + "ar"
         if try_cmd("ranlib --version", env["mingw_prefix"], env["arch"]):
             env["RANLIB"] = mingw_bin_prefix + "ranlib"
-        env.extra_suffix = ".llvm" + env.extra_suffix
     else:
         env["CC"] = mingw_bin_prefix + "gcc"
         env["CXX"] = mingw_bin_prefix + "g++"
