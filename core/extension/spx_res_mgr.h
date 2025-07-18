@@ -62,6 +62,9 @@ private:
 	Ref<Texture2D> _load_texture_direct(const String &p_path);
 	Ref<AudioStream> _load_audio_direct(const String &p_path);
 	String _to_engine_path(const String &p_path);
+	// SVG scaling support
+	static void _load_image_with_scale(String path, Ref<Image> p_image, float p_scale = 1.0f);
+	Ref<Texture2D> _load_texture_with_scale(const String &p_path, float p_scale);
 
 public:
 	void on_awake() override;
@@ -73,6 +76,8 @@ public:
 	String get_anim_key_name(const String& sprite_type_name,const String& anim_name);
 	bool is_dynamic_anim_mode() const;
 	Vector2 get_animation_frame_offset(String anim_key, int frame_index);
+	// SVG scaling support
+	Ref<Texture2D> load_texture_with_scale(String path, float scale, GdBool direct = false);
 
 public:
 	void create_animation(GdString sprite_type_name,GdString anim_name, GdString context, GdInt fps, GdBool is_altas);

@@ -60,6 +60,15 @@ private:
 	bool enable_dynamic_frame_offset = true;  // enable dynamic frame offset
 	Vector2 base_offset = Vector2(0, 0);      // base offset
 	void _on_frame_changed();                 // frame changed callback
+	
+	// SVG scaling support
+	String current_svg_path;
+	float current_svg_scale = 1.0f;
+	float svg_scale_threshold = 1.5f;  // scaling threshold
+	bool is_svg_texture = false;
+	
+	void _check_and_update_svg_scale();
+	bool _is_svg_file(const String& path);
 
 protected:
 	void _notification(int p_what);
@@ -193,6 +202,10 @@ public:
 
 	void set_render_scale(GdVec2 scale);
 	GdVec2 get_render_scale();
+	
+	// SVG scaling support
+	void set_svg_scale_threshold(float threshold);
+	float get_svg_scale_threshold() const;
 };
 
 template <typename T>

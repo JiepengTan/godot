@@ -991,3 +991,22 @@ void SpxSpriteMgr::_check_pixel_collision_events() {
 		}
 	}
 }
+
+// SVG scaling support
+void SpxSpriteMgr::set_global_svg_scale_threshold(float threshold) {
+	global_svg_scale_threshold = threshold;
+}
+
+float SpxSpriteMgr::get_global_svg_scale_threshold() const {
+	return global_svg_scale_threshold;
+}
+
+void SpxSpriteMgr::set_svg_scale_threshold(GdObj obj, float threshold) {
+	check_and_get_sprite_v()
+	sprite->set_svg_scale_threshold(threshold);
+}
+
+float SpxSpriteMgr::get_svg_scale_threshold(GdObj obj) const {
+	check_and_get_sprite_r(global_svg_scale_threshold)
+	return sprite->get_svg_scale_threshold();
+}

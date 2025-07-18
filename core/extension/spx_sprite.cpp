@@ -104,6 +104,13 @@ void SpxSprite::on_destroy_call() {
 }
 
 SpxSprite::SpxSprite() {
+	// Initialize SVG scaling with global default threshold
+	if (SpxEngine::has_initialed()) {
+		auto sprite_mgr = SpxEngine::get_singleton()->get_sprite();
+		if (sprite_mgr) {
+			svg_scale_threshold = sprite_mgr->get_global_svg_scale_threshold();
+		}
+	}
 }
 
 SpxSprite::~SpxSprite() {
@@ -408,6 +415,12 @@ void SpxSprite::set_texture_altas_direct(GdString path, GdRect2 rect2, GdBool di
 
 void SpxSprite::set_texture_direct(GdString path, GdBool direct) {
 	auto path_str = SpxStr(path);
+	
+	// Initialize SVG tracking
+	current_svg_path = path_str;
+	is_svg_texture = _is_svg_file(path_str);
+	current_svg_scale = 1.0f;
+	
 	Ref<Texture2D> texture = resMgr->load_texture(path_str, direct);
 	if (texture.is_valid()) {
 		anim2d->set_sprite_frames(default_sprite_frames);
@@ -418,6 +431,11 @@ void SpxSprite::set_texture_direct(GdString path, GdBool direct) {
 			frames->set_frame(SpxSpriteMgr::default_texture_anim, 0, texture);
 		}
 		anim2d->set_animation(SpxSpriteMgr::default_texture_anim);
+		
+		// If it's an SVG, check if we need initial scaling
+		if (is_svg_texture) {
+			_check_and_update_svg_scale();
+		}
 	} else {
 		print_error("can not find a texture: " + path_str);
 	}
@@ -662,11 +680,70 @@ GdBool SpxSprite::check_collision_with_point(GdVec2 point, GdBool is_trigger) {
 	bool is_colliding = this_shape->get_shape()->collide(sprite_transform, point_shape, point_transform);
 	return is_colliding;
 }
+bool SpxSprite::_is_svg_file(const String& path) {
+	return path.to_lower().ends_with(".svg");
+}
+
+void SpxSprite::_check_and_update_svg_scale() {
+	if (!is_svg_texture || current_svg_path.is_empty()) {
+		return;
+	}
+	
+	// Get current render scale
+	Vector2 render_scale = anim2d->get_scale();
+	float max_scale = MAX(render_scale.x, render_scale.y);
+	
+	// Only handle enlargement
+	if (max_scale <= current_svg_scale) {
+		return;
+	}
+	
+	// Check if threshold exceeded
+	if (max_scale >= current_svg_scale * svg_scale_threshold) {
+		// Calculate new scale level
+		float new_scale = Math::ceil(max_scale);
+		
+		// Reload SVG with new scale
+		auto res_mgr = SpxEngine::get_singleton()->get_res();
+		auto new_texture = res_mgr->load_texture_with_scale(current_svg_path, new_scale, true);
+		
+		// Update texture
+		if (new_texture.is_valid()) {
+			auto frames = anim2d->get_sprite_frames();
+			if (frames.is_valid()) {
+				String current_anim = anim2d->get_animation();
+				int current_frame = anim2d->get_frame();
+				
+				// Update current frame texture
+				frames->set_frame(current_anim, current_frame, new_texture);
+				
+				// Update scale record
+				current_svg_scale = new_scale;
+				
+				// Adjust render scale to maintain same visual size
+				anim2d->set_scale(render_scale / new_scale);
+			}
+		}
+	}
+}
+
 void SpxSprite::set_render_scale(GdVec2 new_scale) {
 	anim2d->set_scale(new_scale);
+	
+	// Check if need to update SVG scaling
+	_check_and_update_svg_scale();
 }
+
 GdVec2 SpxSprite::get_render_scale() {
 	return anim2d->get_scale();
+}
+
+void SpxSprite::set_svg_scale_threshold(float threshold) {
+	svg_scale_threshold = threshold;
+}
+
+float SpxSprite::get_svg_scale_threshold() const {
+	return svg_scale_threshold;
 }
 
 void SpxSprite::_on_frame_changed() {

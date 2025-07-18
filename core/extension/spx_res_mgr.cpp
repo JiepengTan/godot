@@ -1,4 +1,4 @@
-﻿/**************************************************************************/
+/**************************************************************************/
 /*  spx_platform_mgr.cpp                                                     */
 /**************************************************************************/
 /*                         This file is part of:                          */
@@ -151,6 +151,26 @@ static void _load_image(String path, Ref<Image> p_image){
 	}
 }
 
+// SVG scaling support
+void SpxResMgr::_load_image_with_scale(String path, Ref<Image> p_image, float p_scale) {
+	Error err = ImageLoader::load_image(path, p_image, nullptr, p_scale);
+	if (err != OK) {
+		// Fallback to default loading
+		err = ImageLoader::load_image(path, p_image);
+		if (err != OK) {
+			// Failed to load image, so give a pink image
+			PackedByteArray data;
+			for (int i = 0; i < 4 * 4; i++) {
+				data.append(255); // R
+				data.append(0); // G
+				data.append(255); // B
+				data.append(128); // A
+			}
+			p_image->set_data(4, 4, false, Image::FORMAT_RGBA8, data);
+		}
+	}
+}
+
 Ref<Texture2D> SpxResMgr::_load_texture_direct(const String &p_path) {
 	String path = _to_engine_path(p_path);
 	// data in tmp dir would not keep in cache
@@ -185,6 +205,35 @@ Ref<Texture2D> SpxResMgr::_reload_texture(String path) {
 void SpxResMgr::reload_texture(GdString path) {
 	auto path_str = SpxStr(path);
 	_reload_texture(path_str);
+}
+
+Ref<Texture2D> SpxResMgr::_load_texture_with_scale(const String &p_path, float p_scale) {
+	String path = _to_engine_path(p_path);
+	// Generate cache key with scale
+	String cache_key = path + "@" + String::num(p_scale, 2);
+	
+	if (cached_texture.has(cache_key)) {
+		return cached_texture[cache_key];
+	}
+
+	Ref<Image> image;
+	image.instantiate();
+
+	_load_image_with_scale(path, image, p_scale);
+
+	Ref<ImageTexture> texture = ImageTexture::create_from_image(image);
+	cached_texture.insert(cache_key, texture);
+	return texture;
+}
+
+Ref<Texture2D> SpxResMgr::load_texture_with_scale(String path, float scale, GdBool direct) {
+	if (!is_load_direct && !direct) {
+		// For non-direct mode, we still need to use direct loading for SVG scaling
+		// because ResourceLoader doesn't support scale parameter
+		return _load_texture_with_scale(path, scale);
+	} else {
+		return _load_texture_with_scale(path, scale);
+	}
 }
 
 Ref<Texture2D> SpxResMgr::load_texture(String path, GdBool direct) {
