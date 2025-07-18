@@ -56,6 +56,7 @@ private:
 	bool is_dynamic_anim = false;
 	// store animation frame offset information: anim_name -> frame_offset_list
 	HashMap<String, Vector<Vector2>> animation_frame_offsets;
+
 private:
 	static Ref<AudioStreamWAV> _load_wav(const String &path);
 	static Ref<AudioStream> _load_mp3(const String &path);
@@ -74,6 +75,7 @@ public:
 	bool is_dynamic_anim_mode() const;
 	Vector2 get_animation_frame_offset(String anim_key, int frame_index);
 
+	
 public:
 	void create_animation(GdString sprite_type_name,GdString anim_name, GdString context, GdInt fps, GdBool is_altas);
 	void set_load_mode(GdBool is_direct_mode);
@@ -85,6 +87,7 @@ public:
 	void reload_texture(GdString path);
 	void free_str(GdString str);
 	void set_default_font(GdString font_path);
+
 };
 
 #endif // SPX_RES_MGR_H

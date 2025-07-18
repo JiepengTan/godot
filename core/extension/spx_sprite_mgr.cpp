@@ -43,6 +43,7 @@
 #include "spx_res_mgr.h"
 #include "spx_physic_mgr.h"
 #include "spx_sprite.h"
+#include "svg_mgr.h"
 #include "core/typedefs.h"
 
 #define physicMgr SpxEngine::get_singleton()->get_physic()
