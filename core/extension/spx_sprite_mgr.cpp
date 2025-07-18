@@ -43,6 +43,7 @@
 #include "spx_res_mgr.h"
 #include "spx_physic_mgr.h"
 #include "spx_sprite.h"
+#include "svg_global_manager.h"
 #include "core/typedefs.h"
 
 #define physicMgr SpxEngine::get_singleton()->get_physic()
@@ -120,6 +121,13 @@ void SpxSpriteMgr::on_update(float delta) {
 }
 
 SpxSprite *SpxSpriteMgr::get_sprite(GdObj obj) {
+	if (id_objects.has(obj)) {
+		return id_objects[obj];
+	}
+	return nullptr;
+}
+
+SpxSprite *SpxSpriteMgr::get_sprite(GdObj obj) const {
 	if (id_objects.has(obj)) {
 		return id_objects[obj];
 	}
@@ -315,6 +323,9 @@ void SpxSpriteMgr::set_rotation(GdObj obj, GdFloat rot) {
 void SpxSpriteMgr::set_scale(GdObj obj, GdVec2 scale) {
 	check_and_get_sprite_v()
 	sprite->set_scale(scale);
+	
+	// 通知 SVG 全局管理器缩放变化（使用精灵内部的模式感知通知）
+	sprite->notify_svg_manager_scale_changed();
 }
 
 GdVec2 SpxSpriteMgr::get_position(GdObj obj) {
@@ -991,3 +1002,5 @@ void SpxSpriteMgr::_check_pixel_collision_events() {
 		}
 	}
 }
+
+// 旧的 SVG 方法已移除，现在使用 SvgGlobalManager

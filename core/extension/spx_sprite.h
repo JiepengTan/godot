@@ -60,6 +60,30 @@ private:
 	bool enable_dynamic_frame_offset = true;  // enable dynamic frame offset
 	Vector2 base_offset = Vector2(0, 0);      // base offset
 	void _on_frame_changed();                 // frame changed callback
+	
+	// SVG global manager integration
+	enum SpriteDisplayMode {
+		MODE_SINGLE_TEXTURE,  // 单张图片模式 (set_texture)
+		MODE_ANIMATION        // 动画模式 (play_anim)
+	};
+	
+	SpriteDisplayMode current_display_mode = MODE_SINGLE_TEXTURE;
+	String current_single_texture_svg_path;  // 当前单张图片的SVG路径
+	String current_animation_name;           // 当前动画名称
+	
+	Vector2 _get_actual_render_scale();
+	void _register_svg_references();
+	void _unregister_svg_references();
+	void _register_single_texture_svg();
+	void _unregister_single_texture_svg();
+	void _register_animation_svg_references(const String& anim_name);
+	void _unregister_animation_svg_references(const String& anim_name);
+	String _extract_svg_path_from_texture(Ref<Texture2D> texture);
+
+public:
+	// SVG global manager integration (simplified interface)
+	Vector2 get_actual_render_scale();
+	void notify_svg_manager_scale_changed();
 
 protected:
 	void _notification(int p_what);
@@ -107,7 +131,8 @@ public:
 
 	void set_spx_type_name(String type_name);
 	String get_spx_type_name();
-
+	void on_svg_changed();
+	void _set_texture_direct(String path, GdBool direct);
 public:
 	void set_gid(GdObj id);
 	GdObj get_gid();

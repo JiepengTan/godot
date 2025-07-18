@@ -42,6 +42,8 @@
 #include "spx_engine.h"
 #include "spx_res_mgr.h"
 #include "spx_sprite_mgr.h"
+#include "spx_camera_mgr.h"
+#include "svg_global_manager.h"
 #define SPX_CALLBACK SpxEngine::get_singleton()->get_callbacks()
 #define spriteMgr SpxEngine::get_singleton()->get_sprite()
 
@@ -104,9 +106,13 @@ void SpxSprite::on_destroy_call() {
 }
 
 SpxSprite::SpxSprite() {
+	// 在新的全局管理架构中，SVG 缩放由 SvgGlobalManager 统一处理
+	// 无需在精灵级别进行配置
 }
 
 SpxSprite::~SpxSprite() {
+	// 注销所有 SVG 引用
+	_unregister_svg_references();
 }
 
 void SpxSprite::_notification(int p_what) {
@@ -117,6 +123,11 @@ void SpxSprite::_notification(int p_what) {
 		}
 		case NOTIFICATION_DRAW: {
 			_draw();
+			break;
+		}
+		case NOTIFICATION_TRANSFORM_CHANGED: {
+			// 通知 SVG 全局管理器变换变化
+			notify_svg_manager_scale_changed();
 			break;
 		}
 		default:
@@ -405,9 +416,29 @@ void SpxSprite::set_texture_altas_direct(GdString path, GdRect2 rect2, GdBool di
 		print_error("can not find a texture: " + path_str);
 	}
 }
+void SpxSprite::on_svg_changed() {
+	if(current_single_texture_svg_path != ""){
+		_set_texture_direct(current_single_texture_svg_path,false);
+	}
+}
 
 void SpxSprite::set_texture_direct(GdString path, GdBool direct) {
 	auto path_str = SpxStr(path);
+	print_line("[SpxSprite] set_texture_direct: " + path_str + " (switching to single texture mode)");
+	
+	// 注销旧的 SVG 引用
+	_unregister_svg_references();
+	_set_texture_direct(path_str, direct);
+}
+
+void SpxSprite::_set_texture_direct(String path_str, GdBool direct) {
+	
+	
+	// 切换到单张图片模式
+	current_display_mode = MODE_SINGLE_TEXTURE;
+	current_animation_name = "";
+	current_single_texture_svg_path = "";
+	
 	Ref<Texture2D> texture = resMgr->load_texture(path_str, direct);
 	if (texture.is_valid()) {
 		anim2d->set_sprite_frames(default_sprite_frames);
@@ -418,6 +449,18 @@ void SpxSprite::set_texture_direct(GdString path, GdBool direct) {
 			frames->set_frame(SpxSpriteMgr::default_texture_anim, 0, texture);
 		}
 		anim2d->set_animation(SpxSpriteMgr::default_texture_anim);
+		
+		// 如果是 SVG，记录路径并注册
+		if (path_str.to_lower().ends_with(".svg")) {
+			current_single_texture_svg_path = path_str;
+			print_line("[SpxSprite] Detected SVG texture: " + path_str);
+		}
+		
+		// 注册新的 SVG 引用
+		_register_svg_references();
+		
+		// 通知全局管理器缩放变化
+		notify_svg_manager_scale_changed();
 	} else {
 		print_error("can not find a texture: " + path_str);
 	}
@@ -443,7 +486,24 @@ void SpxSprite::play_anim(GdString p_name, GdFloat p_speed, GdBool isLoop, GdBoo
 		anim2d->set_sprite_frames(frames);
 		frames->set_animation_loop(anim_name, isLoop);
 	}
+	
+	print_line("[SpxSprite] play_anim: " + anim_name + " (switching to animation mode)");
+	
+	// 注销旧的 SVG 引用
+	_unregister_svg_references();
+	
+	// 切换到动画模式
+	current_display_mode = MODE_ANIMATION;
+	current_single_texture_svg_path = "";
+	current_animation_name = anim_name;
+	
 	anim2d->play(anim_name, p_speed, p_from_end);
+	
+	// 注册新动画的 SVG 引用
+	_register_svg_references();
+	
+	// 通知全局管理器缩放变化
+	notify_svg_manager_scale_changed();
 }
 
 void SpxSprite::play_backwards_anim(GdString p_name) {
@@ -662,12 +722,43 @@ GdBool SpxSprite::check_collision_with_point(GdVec2 point, GdBool is_trigger) {
 	bool is_colliding = this_shape->get_shape()->collide(sprite_transform, point_shape, point_transform);
 	return is_colliding;
 }
+// _is_svg_file 方法已移除，现在由 SvgGlobalManager 处理
+
+// 旧方法已移除，现在在 _notify_svg_manager_scale_changed 中处理
+
 void SpxSprite::set_render_scale(GdVec2 new_scale) {
 	anim2d->set_scale(new_scale);
+	
+	// 通知 SVG 全局管理器缩放变化
+	notify_svg_manager_scale_changed();
 }
+
 GdVec2 SpxSprite::get_render_scale() {
 	return anim2d->get_scale();
 }
+
+// 旧的 SVG 缩放方法已移除，现在使用全局管理器
+
+Vector2 SpxSprite::_get_actual_render_scale() {
+	if (!anim2d) {
+		return Vector2(1.0f, 1.0f);
+	}
+	
+	// Get the global transform scale
+	Transform2D global_transform = anim2d->get_global_transform();
+	Vector2 global_scale = global_transform.get_scale();
+	
+	// Consider camera zoom if available
+	auto camera_mgr = SpxEngine::get_singleton()->get_camera();
+	if (camera_mgr) {
+		Vector2 camera_zoom = camera_mgr->get_camera_zoom();
+		global_scale *= camera_zoom;
+	}
+	
+	return global_scale;
+}
+
+// 旧的辅助方法已移除，现在使用全局管理器
 
 void SpxSprite::_on_frame_changed() {
 	if (!enable_dynamic_frame_offset || anim2d == nullptr) {
@@ -700,4 +791,183 @@ void SpxSprite::set_dynamic_frame_offset_enabled(GdBool enabled) {
 
 GdBool SpxSprite::is_dynamic_frame_offset_enabled() const {
 	return enable_dynamic_frame_offset;
+}
+
+// ===== 新的 SVG 全局管理器集成方法 =====
+
+Vector2 SpxSprite::get_actual_render_scale() {
+	return _get_actual_render_scale();
+}
+
+void SpxSprite::notify_svg_manager_scale_changed() {
+	auto svg_manager = SpxEngine::get_singleton()->get_svg_global_manager();
+	if (!svg_manager) {
+		return;
+	}
+	
+	// Early return if there's nothing to process for SVG
+	if (current_display_mode == MODE_SINGLE_TEXTURE) {
+		if (current_single_texture_svg_path.is_empty()) {
+			return; // No SVG to process, avoid unnecessary logging
+		}
+	} else if (current_display_mode == MODE_ANIMATION) {
+		if (current_animation_name.is_empty()) {
+			return; // No animation to process, avoid unnecessary logging
+		}
+	} else {
+		return; // Unknown mode, nothing to process
+	}
+	
+	String mode_str = (current_display_mode == MODE_SINGLE_TEXTURE ? "SINGLE_TEXTURE" : "ANIMATION");
+	print_line("[SpxSprite] _notify_svg_manager_scale_changed, mode: " + mode_str);
+	
+	if (current_display_mode == MODE_SINGLE_TEXTURE) {
+		svg_manager->on_sprite_single_texture_scale_changed(this, current_single_texture_svg_path);
+	} else if (current_display_mode == MODE_ANIMATION) {
+		svg_manager->on_sprite_animation_scale_changed(this, current_animation_name);
+	}
+}
+
+void SpxSprite::_register_svg_references() {
+	String mode_str = (current_display_mode == MODE_SINGLE_TEXTURE ? "SINGLE_TEXTURE" : "ANIMATION");
+	print_line("[SpxSprite] _register_svg_references called, mode: " + mode_str);
+	
+	if (current_display_mode == MODE_SINGLE_TEXTURE) {
+		_register_single_texture_svg();
+	} else if (current_display_mode == MODE_ANIMATION) {
+		_register_animation_svg_references(current_animation_name);
+	}
+}
+
+void SpxSprite::_register_single_texture_svg() {
+	auto svg_manager = SpxEngine::get_singleton()->get_svg_global_manager();
+	if (!svg_manager) {
+		return;
+	}
+	
+	if (!current_single_texture_svg_path.is_empty()) {
+		print_line("[SpxSprite] Registering single texture SVG: " + current_single_texture_svg_path);
+		svg_manager->register_reference(current_single_texture_svg_path, this);
+	} else {
+		print_line("[SpxSprite] No single texture SVG to register");
+	}
+}
+
+void SpxSprite::_register_animation_svg_references(const String& anim_name) {
+	auto svg_manager = SpxEngine::get_singleton()->get_svg_global_manager();
+	if (!svg_manager || !anim2d) {
+		return;
+	}
+	
+	auto frames = anim2d->get_sprite_frames();
+	if (!frames.is_valid()) {
+		return;
+	}
+	
+	if (anim_name.is_empty()) {
+		print_line("[SpxSprite] No animation name provided for SVG registration");
+		return;
+	}
+	
+	print_line("[SpxSprite] Registering animation SVG references for: " + anim_name);
+	
+	// 只注册指定动画的帧
+	if (frames->has_animation(anim_name)) {
+		int frame_count = frames->get_frame_count(anim_name);
+		print_line("[SpxSprite] Animation '" + anim_name + "' has " + String::num(frame_count) + " frames");
+		
+		for (int i = 0; i < frame_count; i++) {
+			auto texture = frames->get_frame_texture(anim_name, i);
+			if (texture.is_valid()) {
+				String svg_path = _extract_svg_path_from_texture(texture);
+				if (!svg_path.is_empty()) {
+					print_line("[SpxSprite] Registering animation frame " + String::num(i) + " SVG: " + svg_path);
+					svg_manager->register_reference(svg_path, this);
+				}
+			}
+		}
+	} else {
+		print_line("[SpxSprite] Animation '" + anim_name + "' not found in sprite frames");
+	}
+}
+
+void SpxSprite::_unregister_svg_references() {
+	String mode_str = (current_display_mode == MODE_SINGLE_TEXTURE ? "SINGLE_TEXTURE" : "ANIMATION");
+	print_line("[SpxSprite] _unregister_svg_references called, mode: " + mode_str);
+	
+	if (current_display_mode == MODE_SINGLE_TEXTURE) {
+		_unregister_single_texture_svg();
+	} else if (current_display_mode == MODE_ANIMATION) {
+		_unregister_animation_svg_references(current_animation_name);
+	}
+}
+
+void SpxSprite::_unregister_single_texture_svg() {
+	auto svg_manager = SpxEngine::get_singleton()->get_svg_global_manager();
+	if (!svg_manager) {
+		return;
+	}
+	
+	if (!current_single_texture_svg_path.is_empty()) {
+		print_line("[SpxSprite] Unregistering single texture SVG: " + current_single_texture_svg_path);
+		svg_manager->unregister_reference(current_single_texture_svg_path, this);
+	} else {
+		print_line("[SpxSprite] No single texture SVG to unregister");
+	}
+}
+
+void SpxSprite::_unregister_animation_svg_references(const String& anim_name) {
+	auto svg_manager = SpxEngine::get_singleton()->get_svg_global_manager();
+	if (!svg_manager || !anim2d) {
+		return;
+	}
+	
+	auto frames = anim2d->get_sprite_frames();
+	if (!frames.is_valid()) {
+		return;
+	}
+	
+	if (anim_name.is_empty()) {
+		print_line("[SpxSprite] No animation name provided for SVG unregistration");
+		return;
+	}
+	
+	print_line("[SpxSprite] Unregistering animation SVG references for: " + anim_name);
+	
+	// 只注销指定动画的帧
+	if (frames->has_animation(anim_name)) {
+		int frame_count = frames->get_frame_count(anim_name);
+		
+		for (int i = 0; i < frame_count; i++) {
+			auto texture = frames->get_frame_texture(anim_name, i);
+			if (texture.is_valid()) {
+				String svg_path = _extract_svg_path_from_texture(texture);
+				if (!svg_path.is_empty()) {
+					print_line("[SpxSprite] Unregistering animation frame " + String::num(i) + " SVG: " + svg_path);
+					svg_manager->unregister_reference(svg_path, this);
+				}
+			}
+		}
+	} else {
+		print_line("[SpxSprite] Animation '" + anim_name + "' not found in sprite frames for unregistration");
+	}
+}
+
+String SpxSprite::_extract_svg_path_from_texture(Ref<Texture2D> texture) {
+	if (!texture.is_valid()) {
+		return String();
+	}
+	
+	String texture_path = texture->get_path();
+	if (texture_path.is_empty()) {
+		// 如果路径为空，尝试使用资源名称作为回退
+		texture_path = texture->get_name();
+	}
+	
+	// 检查是否是 SVG 文件
+	if (texture_path.to_lower().ends_with(".svg")) {
+		return texture_path;
+	}
+	
+	return String();
 }

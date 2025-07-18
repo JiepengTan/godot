@@ -33,6 +33,7 @@
 #include "core/os/memory.h"
 #include "gdextension_spx_ext.h"
 #include "scene/main/window.h"
+#include "svg_global_manager.h"
 #include "spx_input_mgr.h"
 #include "spx_audio_mgr.h"
 #include "spx_physic_mgr.h"
@@ -122,6 +123,9 @@ void SpxEngine::register_callbacks(GDExtensionSpxCallbackInfoPtr callback_ptr) {
 	singleton->mgrs.append((SpxBaseMgr *)singleton->res);
 	singleton->ext = memnew(SpxExtMgr);
 	singleton->mgrs.append((SpxBaseMgr *)singleton->ext);
+	
+	// SVG全局管理器不需要加入mgrs列表，因为它不继承SpxBaseMgr
+	singleton->svg_global_manager = memnew(SvgGlobalManager);
 
 	singleton->callbacks = *(SpxCallbackInfo *)callback_ptr;
 	singleton->global_id = 1;
@@ -223,6 +227,7 @@ void SpxEngine::on_destroy() {
 	memdelete(platform);
 	memdelete(res);
 	memdelete(ext);
+	memdelete(svg_global_manager);
 	mgrs.clear();
 	singleton = nullptr;
 }
