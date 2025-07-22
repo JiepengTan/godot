@@ -61,14 +61,12 @@ private:
 	Vector2 base_offset = Vector2(0, 0);      // base offset
 	void _on_frame_changed();                 // frame changed callback
 	
-	// SVG scaling support
-	String current_svg_path;
-	float current_svg_scale = 1.0f;
-	float svg_scale_threshold = 1.5f;  // scaling threshold
-	bool is_svg_texture = false;
-	
-	void _check_and_update_svg_scale();
-	bool _is_svg_file(const String& path);
+	// SVG global manager integration
+	Vector2 _get_actual_render_scale();
+	void _notify_svg_manager_scale_changed();
+	void _register_svg_references();
+	void _unregister_svg_references();
+	String _extract_svg_path_from_texture(Ref<Texture2D> texture);
 
 protected:
 	void _notification(int p_what);
@@ -203,9 +201,8 @@ public:
 	void set_render_scale(GdVec2 scale);
 	GdVec2 get_render_scale();
 	
-	// SVG scaling support
-	void set_svg_scale_threshold(float threshold);
-	float get_svg_scale_threshold() const;
+	// SVG global manager integration (simplified interface)
+	Vector2 get_actual_render_scale();
 };
 
 template <typename T>

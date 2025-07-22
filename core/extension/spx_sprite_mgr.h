@@ -100,9 +100,6 @@ private:
 
 	Node* dont_destroy_root;
 	Node* sprite_root;
-	
-	// SVG scaling support
-	float global_svg_scale_threshold = 1.5f;
 
 	Ref<Image> _get_current_frame_image(AnimatedSprite2D *sprite);
 	Rect2 _get_sprite_aabb(AnimatedSprite2D *anim2d);
@@ -118,6 +115,7 @@ public:
 	void on_update(float delta) override;
 
 	SpxSprite *get_sprite(GdObj obj);
+	SpxSprite *get_sprite(GdObj obj) const;
 	void on_sprite_destroy(SpxSprite *sprite);
 	void on_trigger_enter(GdInt self_id, GdInt other_id);
 	void on_trigger_exit(GdInt self_id, GdInt other_id);
@@ -254,11 +252,7 @@ public:
 	GdBool check_collision_by_alpha(GdObj obj, GdFloat alpha_threshold);
 	GdBool check_collision_with_sprite_by_alpha(GdObj obj, GdObj obj_b, GdFloat alpha_threshold);
 	
-	// SVG scaling support
-	void set_global_svg_scale_threshold(float threshold);
-	float get_global_svg_scale_threshold() const;
-	void set_svg_scale_threshold(GdObj obj, float threshold);
-	float get_svg_scale_threshold(GdObj obj) const;
+	// 旧的 SVG 方法已移除，现在使用 SvgGlobalManager
 
 };
 

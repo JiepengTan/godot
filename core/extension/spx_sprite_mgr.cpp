@@ -43,6 +43,7 @@
 #include "spx_res_mgr.h"
 #include "spx_physic_mgr.h"
 #include "spx_sprite.h"
+#include "svg_global_manager.h"
 #include "core/typedefs.h"
 
 #define physicMgr SpxEngine::get_singleton()->get_physic()
@@ -120,6 +121,13 @@ void SpxSpriteMgr::on_update(float delta) {
 }
 
 SpxSprite *SpxSpriteMgr::get_sprite(GdObj obj) {
+	if (id_objects.has(obj)) {
+		return id_objects[obj];
+	}
+	return nullptr;
+}
+
+SpxSprite *SpxSpriteMgr::get_sprite(GdObj obj) const {
 	if (id_objects.has(obj)) {
 		return id_objects[obj];
 	}
@@ -315,6 +323,12 @@ void SpxSpriteMgr::set_rotation(GdObj obj, GdFloat rot) {
 void SpxSpriteMgr::set_scale(GdObj obj, GdVec2 scale) {
 	check_and_get_sprite_v()
 	sprite->set_scale(scale);
+	
+	// 通知 SVG 全局管理器缩放变化
+	auto svg_manager = SpxEngine::get_singleton()->get_svg_global_manager();
+	if (svg_manager) {
+		svg_manager->on_sprite_scale_changed(sprite);
+	}
 }
 
 GdVec2 SpxSpriteMgr::get_position(GdObj obj) {
@@ -992,21 +1006,4 @@ void SpxSpriteMgr::_check_pixel_collision_events() {
 	}
 }
 
-// SVG scaling support
-void SpxSpriteMgr::set_global_svg_scale_threshold(float threshold) {
-	global_svg_scale_threshold = threshold;
-}
-
-float SpxSpriteMgr::get_global_svg_scale_threshold() const {
-	return global_svg_scale_threshold;
-}
-
-void SpxSpriteMgr::set_svg_scale_threshold(GdObj obj, float threshold) {
-	check_and_get_sprite_v()
-	sprite->set_svg_scale_threshold(threshold);
-}
-
-float SpxSpriteMgr::get_svg_scale_threshold(GdObj obj) const {
-	check_and_get_sprite_r(global_svg_scale_threshold)
-	return sprite->get_svg_scale_threshold();
-}
+// 旧的 SVG 方法已移除，现在使用 SvgGlobalManager

@@ -48,6 +48,7 @@ class SpxCameraMgr;
 class SpxPlatformMgr;
 class SpxResMgr;
 class SpxExtMgr;
+class SvgGlobalManager;
 
 typedef void (*GDExtensionSpxGlobalRuntimePanicCallback)(GdString msg);
 
@@ -73,6 +74,7 @@ private:
 	SpxPlatformMgr *platform;
 	SpxResMgr *res;
 	SpxExtMgr *ext;
+	SvgGlobalManager *svg_global_manager;
 
 public:
 	SpxInputMgr *get_input() { return input; }
@@ -85,6 +87,7 @@ public:
 	SpxPlatformMgr *get_platform() { return platform; }
 	SpxResMgr *get_res() { return res; }
 	SpxExtMgr *get_ext() { return ext; }
+	SvgGlobalManager *get_svg_global_manager() { return svg_global_manager; }
 
 private:
 	SceneTree *tree;

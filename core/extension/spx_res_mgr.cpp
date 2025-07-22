@@ -32,6 +32,8 @@
 #include "core/io/file_access.h"
 #include "core/io/image.h"
 #include "core/io/image_loader.h"
+#include "svg_global_manager.h"
+#include "spx_engine.h"
 #include "modules/minimp3/audio_stream_mp3.h"
 #include "modules/modules_enabled.gen.h"
 #include "scene/2d/audio_stream_player_2d.h"
@@ -227,16 +229,23 @@ Ref<Texture2D> SpxResMgr::_load_texture_with_scale(const String &p_path, float p
 }
 
 Ref<Texture2D> SpxResMgr::load_texture_with_scale(String path, float scale, GdBool direct) {
-	if (!is_load_direct && !direct) {
-		// For non-direct mode, we still need to use direct loading for SVG scaling
-		// because ResourceLoader doesn't support scale parameter
-		return _load_texture_with_scale(path, scale);
-	} else {
-		return _load_texture_with_scale(path, scale);
-	}
+	// 在新的全局管理架构中，缩放由 SvgGlobalManager 自动处理
+	// 这个方法保留是为了兼容性，直接调用 load_texture
+	return load_texture(path, direct);
 }
 
 Ref<Texture2D> SpxResMgr::load_texture(String path, GdBool direct) {
+	String engine_path = _to_engine_path(path);
+	
+	// 如果是 SVG 文件，使用全局管理器
+	if (engine_path.to_lower().ends_with(".svg")) {
+		auto svg_manager = SpxEngine::get_singleton()->get_svg_global_manager();
+		if (svg_manager) {
+			return svg_manager->get_or_create_svg_texture(engine_path);
+		}
+	}
+	
+	// 非 SVG 文件使用原有逻辑
 	if (!is_load_direct && !direct) {
 		Ref<Resource> res = ResourceLoader::load(path);
 		if (res.is_null()) {
