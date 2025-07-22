@@ -193,7 +193,7 @@ void SpxResMgr::reload_texture(GdString path) {
 Ref<Texture2D> SpxResMgr::load_texture(String path, GdBool direct) {
 	String engine_path = _to_engine_path(path);
 	
-	// 如果是 SVG 文件，使用全局管理器
+	// If SVG file, use global manager
 	if (engine_path.to_lower().ends_with(".svg")) {
 		auto svg_manager = SpxEngine::get_singleton()->get_svg_global_manager();
 		if (svg_manager) {
@@ -201,7 +201,7 @@ Ref<Texture2D> SpxResMgr::load_texture(String path, GdBool direct) {
 		}
 	}
 	
-	// 非 SVG 文件使用原有逻辑
+	// For non-SVG files, use original logic
 	if (!is_load_direct && !direct) {
 		Ref<Resource> res = ResourceLoader::load(path);
 		if (res.is_null()) {

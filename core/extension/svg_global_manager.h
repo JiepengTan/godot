@@ -47,11 +47,10 @@ public:
 private:
 	struct SvgInfo {
 		String path;
-		Ref<ImageTexture> texture;      // 全局共享的纹理对象
-		float current_scale_level;      // 当前分辨率级别 (1, 2, 4, 8, 16...)
-		HashSet<SpxSprite*> references; // 所有引用这个SVG的精灵
+		Ref<ImageTexture> texture;
+		float current_scale_level;
+		HashSet<SpxSprite*> references;
 		
-		// 计算所有引用中的最大缩放需求
 		float get_max_required_scale() const;
 		
 		SvgInfo() {
@@ -59,9 +58,9 @@ private:
 		}
 	};
 	
-	HashMap<String, SvgInfo> svg_registry;  // path -> SvgInfo
-	float scale_threshold = 1.5f;           // 升级阈值
-	int max_scale_level = 16;               // 最大缩放级别
+	HashMap<String, SvgInfo> svg_registry;
+	float scale_threshold = 1.5f;
+	int max_scale_level = 16;
 	
 	static SvgGlobalManager *singleton;
 

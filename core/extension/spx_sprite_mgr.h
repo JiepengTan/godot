@@ -251,8 +251,6 @@ public:
 	GdBool check_collision_by_color(GdObj obj, GdColor color,GdFloat color_threshold, GdFloat alpha_threshold);
 	GdBool check_collision_by_alpha(GdObj obj, GdFloat alpha_threshold);
 	GdBool check_collision_with_sprite_by_alpha(GdObj obj, GdObj obj_b, GdFloat alpha_threshold);
-	
-	// 旧的 SVG 方法已移除，现在使用 SvgGlobalManager
 
 };
 

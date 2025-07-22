@@ -124,7 +124,6 @@ void SpxEngine::register_callbacks(GDExtensionSpxCallbackInfoPtr callback_ptr) {
 	singleton->ext = memnew(SpxExtMgr);
 	singleton->mgrs.append((SpxBaseMgr *)singleton->ext);
 	
-	// SVG全局管理器不需要加入mgrs列表，因为它不继承SpxBaseMgr
 	singleton->svg_global_manager = memnew(SvgGlobalManager);
 
 	singleton->callbacks = *(SpxCallbackInfo *)callback_ptr;

@@ -63,13 +63,13 @@ private:
 	
 	// SVG global manager integration
 	enum SpriteDisplayMode {
-		MODE_SINGLE_TEXTURE,  // 单张图片模式 (set_texture)
-		MODE_ANIMATION        // 动画模式 (play_anim)
+		MODE_SINGLE_TEXTURE,
+		MODE_ANIMATION
 	};
 	
 	SpriteDisplayMode current_display_mode = MODE_SINGLE_TEXTURE;
-	String current_single_texture_svg_path;  // 当前单张图片的SVG路径
-	String current_animation_name;           // 当前动画名称
+	String current_single_texture_svg_path;
+	String current_animation_name;
 	
 	Vector2 _get_actual_render_scale();
 	void _register_svg_references();
@@ -81,7 +81,7 @@ private:
 	String _extract_svg_path_from_texture(Ref<Texture2D> texture);
 
 public:
-	// SVG global manager integration (simplified interface)
+	// SVG global manager integration
 	Vector2 get_actual_render_scale();
 	void notify_svg_manager_scale_changed();
 

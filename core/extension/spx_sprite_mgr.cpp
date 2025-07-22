@@ -324,7 +324,6 @@ void SpxSpriteMgr::set_scale(GdObj obj, GdVec2 scale) {
 	check_and_get_sprite_v()
 	sprite->set_scale(scale);
 	
-	// 通知 SVG 全局管理器缩放变化（使用精灵内部的模式感知通知）
 	sprite->notify_svg_manager_scale_changed();
 }
 
@@ -1002,5 +1001,3 @@ void SpxSpriteMgr::_check_pixel_collision_events() {
 		}
 	}
 }
-
-// 旧的 SVG 方法已移除，现在使用 SvgGlobalManager
