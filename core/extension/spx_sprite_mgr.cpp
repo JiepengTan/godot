@@ -43,7 +43,7 @@
 #include "spx_res_mgr.h"
 #include "spx_physic_mgr.h"
 #include "spx_sprite.h"
-#include "svg_global_manager.h"
+#include "svg_mgr.h"
 #include "core/typedefs.h"
 
 #define physicMgr SpxEngine::get_singleton()->get_physic()
@@ -324,7 +324,7 @@ void SpxSpriteMgr::set_scale(GdObj obj, GdVec2 scale) {
 	check_and_get_sprite_v()
 	sprite->set_scale(scale);
 	
-	sprite->notify_svg_manager_scale_changed();
+	sprite->notify_svg_mgr_scale_changed();
 }
 
 GdVec2 SpxSpriteMgr::get_position(GdObj obj) {

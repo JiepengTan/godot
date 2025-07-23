@@ -33,7 +33,7 @@
 
 #include "gdextension_spx_ext.h"
 #include "scene/2d/node_2d.h"
-#include "svg_global_manager.h"
+#include "svg_mgr.h"
 
 #define SPXCLASS(m_class, m_inherits) \
 public:                               \
@@ -49,7 +49,7 @@ public:                               \
 #define resMgr SpxEngine::get_singleton()->get_res()
 #define uiMgr SpxEngine::get_singleton()->get_ui()
 
-#define svgMgr SvgGlobalManager::get_singleton()
+#define svgMgr SvgManager::get_singleton()
 
 #define NULL_OBJECT_ID 0
 

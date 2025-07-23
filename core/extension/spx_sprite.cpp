@@ -43,7 +43,7 @@
 #include "spx_res_mgr.h"
 #include "spx_sprite_mgr.h"
 #include "spx_camera_mgr.h"
-#include "svg_global_manager.h"
+#include "svg_mgr.h"
 #define SPX_CALLBACK SpxEngine::get_singleton()->get_callbacks()
 #define spriteMgr SpxEngine::get_singleton()->get_sprite()
 
@@ -123,7 +123,7 @@ void SpxSprite::_notification(int p_what) {
 			break;
 		}
 		case NOTIFICATION_TRANSFORM_CHANGED: {
-			notify_svg_manager_scale_changed();
+			notify_svg_mgr_scale_changed();
 			break;
 		}
 		default:
@@ -249,6 +249,7 @@ void SpxSprite::on_sprite_frame_changed() {
 	if (!Spx::initialed) {
 		return;
 	}
+	print_line("on_sprite_frame_changed");
 	
 	_on_frame_changed();
 	
@@ -412,14 +413,93 @@ void SpxSprite::set_texture_altas_direct(GdString path, GdRect2 rect2, GdBool di
 	}
 }
 void SpxSprite::on_svg_changed() {
-	if(current_single_texture_svg_path != ""){
-		_set_texture_direct(current_single_texture_svg_path,false);
+	print_line("on_svg_changed called, mode:", current_display_mode == MODE_SINGLE_TEXTURE ? "SINGLE_TEXTURE" : "ANIMATION");
+	
+	if (current_display_mode == MODE_SINGLE_TEXTURE) {
+		// Handle single texture mode - use internal method to avoid mode switching
+		if(current_single_texture_svg_path != ""){
+			print_line("Updating single texture SVG:", current_single_texture_svg_path);
+			// Use internal method that doesn't change mode or trigger re-registration
+			_update_single_texture_svg_internal(current_single_texture_svg_path);
+			// Just update scale and redraw
+			update_anim_scale();
+			if (anim2d) {
+				anim2d->queue_redraw();
+			}
+		}
+	} else if (current_display_mode == MODE_ANIMATION) {
+		// Handle animation mode - force refresh animation frames after SVG texture update
+		print_line("Updating animation mode, current anim:", current_animation_name);
+		String current_frame_svg = _get_current_animation_frame_svg_path();
+		print_line("Current frame SVG path:", current_frame_svg);
+		
+		if (anim2d && !current_animation_name.is_empty()) {
+			// Save current animation state
+			bool was_playing = anim2d->is_playing();
+			float current_speed_scale = anim2d->get_speed_scale();
+			int current_frame = anim2d->get_frame();
+			float current_frame_progress = anim2d->get_frame_progress();
+			
+			print_line("Saving animation state - playing:", was_playing, "frame:", current_frame, "progress:", current_frame_progress);
+			
+			// Method: Force complete refresh by rebuilding SpriteFrames connection
+			// This ensures AnimatedSprite2D gets the updated SVG textures
+			auto sprite_frames = anim2d->get_sprite_frames();
+			if (sprite_frames.is_valid()) {
+				print_line("Rebuilding SpriteFrames connection to force texture refresh");
+				
+				// Temporarily pause the animation
+				if (was_playing) {
+					anim2d->pause();
+				}
+				
+				// Force SpriteFrames to rebuild its internal state
+				// by temporarily removing and re-adding it
+				anim2d->set_sprite_frames(Ref<SpriteFrames>());  // Clear
+				anim2d->set_sprite_frames(sprite_frames);         // Restore
+				
+				// Restore animation state
+				anim2d->set_animation(current_animation_name);
+				anim2d->set_frame_and_progress(current_frame, current_frame_progress);
+				
+				if (was_playing) {
+					anim2d->set_speed_scale(current_speed_scale);
+					anim2d->play(current_animation_name, current_speed_scale);
+					// Ensure we're at the correct frame after restart
+					anim2d->set_frame_and_progress(current_frame, current_frame_progress);
+				}
+				
+				print_line("SpriteFrames rebuild completed");
+			}
+		}
+		
 		update_anim_scale();
+		
+		// Force redraw to refresh the display
+		if (anim2d) {
+			anim2d->queue_redraw();
+		}
 	}
 }
 
 void SpxSprite::set_texture_direct(GdString path, GdBool direct) {
 	auto path_str = SpxStr(path);
+	
+	// Check if we're currently in animation mode and playing
+	// If so, warn about potential mode change but allow override
+	if (current_display_mode == MODE_ANIMATION && !current_animation_name.is_empty()) {
+		bool is_playing = anim2d && anim2d->is_playing();
+		if (is_playing) {
+			print_line("WARNING: set_texture_direct called while animation is playing!");
+			print_line("Current animation:", current_animation_name, "is playing. This will stop the animation.",path_str);
+			print_line("If this is intended, consider calling stop_anim() first or use a different method.");
+			
+			// For safety, stop the animation before switching to texture mode
+			// This ensures clean state transition
+			print_line("Stopping current animation to prevent state corruption.");
+			anim2d->stop();
+		}
+	}
 	
 	// Unregister old SVG references
 	_unregister_svg_references();
@@ -452,9 +532,29 @@ void SpxSprite::_set_texture_direct(String path_str, GdBool direct) {
 		_register_svg_references();
 		
 		// Notify global manager of scale changes
-		notify_svg_manager_scale_changed();
+		notify_svg_mgr_scale_changed();
 	} else {
 		print_error("can not find a texture: " + path_str);
+	}
+}
+
+void SpxSprite::_update_single_texture_svg_internal(const String& svg_path) {
+	// This method only updates SVG texture without changing display mode
+	// Used internally by SVG manager to avoid mode switching issues
+	if (current_display_mode != MODE_SINGLE_TEXTURE || current_single_texture_svg_path != svg_path) {
+		// Only proceed if we're actually in single texture mode with this SVG
+		print_line("_update_single_texture_svg_internal: Mode or path mismatch, skipping update");
+		return;
+	}
+	
+	// Just reload the texture without changing mode or references
+	Ref<Texture2D> texture = resMgr->load_texture(svg_path, false);
+	if (texture.is_valid() && anim2d) {
+		auto frames = anim2d->get_sprite_frames();
+		if (frames.is_valid() && frames->get_frame_count(SpxSpriteMgr::default_texture_anim) > 0) {
+			frames->set_frame(SpxSpriteMgr::default_texture_anim, 0, texture);
+			print_line("SVG texture updated internally without mode change");
+		}
 	}
 }
 void SpxSprite::set_texture_altas(GdString path, GdRect2 rect2) {
@@ -472,11 +572,46 @@ GdString SpxSprite::get_texture() {
 
 void SpxSprite::play_anim(GdString p_name, GdFloat p_speed, GdBool isLoop, GdBool p_from_end) {
 	String anim_name = SpxStr(p_name);
+	print_line("play_anim:", anim_name);
+	
+	// Enhanced: Check if we need to use a scaled version of the animation
+	String final_anim_key;
 	if (resMgr->is_dynamic_anim_mode()) {
-		anim_name = resMgr->get_anim_key_name(get_spx_type_name(), anim_name);
-		auto frames = resMgr->get_anim_frames(anim_name);
-		anim2d->set_sprite_frames(frames);
-		frames->set_animation_loop(anim_name, isLoop);
+		String sprite_type = get_spx_type_name();
+		String base_anim_key = resMgr->get_anim_key_name(sprite_type, anim_name);
+		
+		// Check if this is an SVG animation that supports scaling
+		if (resMgr->is_svg_animation(sprite_type, anim_name)) {
+			// Calculate required scale based on current render scale
+			Vector2 current_scale = _get_actual_render_scale();
+			float max_scale = MAX(current_scale.x, current_scale.y);
+			float optimal_scale = resMgr->calculate_optimal_scale_level(max_scale);
+			
+			print_line("SVG Animation - Scale:", max_scale, "-> Optimal:", optimal_scale);
+			
+			// Create scaled animation if needed
+			if (optimal_scale > 1.0f) {
+				resMgr->create_scaled_animation_if_needed(sprite_type, anim_name, optimal_scale);
+			}
+			
+			// Find the best available scale animation
+			final_anim_key = resMgr->find_best_scale_animation(sprite_type, anim_name, max_scale);
+			print_line("Using animation:", final_anim_key);
+		} else {
+			// Use base animation for non-SVG animations
+			final_anim_key = base_anim_key;
+		}
+		
+		auto frames = resMgr->get_anim_frames(final_anim_key);
+		if (frames.is_valid()) {
+			anim2d->set_sprite_frames(frames);
+			frames->set_animation_loop(final_anim_key, isLoop);
+		} else {
+			print_error("Animation frames not found for: " + final_anim_key);
+			return;
+		}
+	} else {
+		final_anim_key = anim_name;
 	}
 	
 	// Unregister old SVG references
@@ -485,15 +620,15 @@ void SpxSprite::play_anim(GdString p_name, GdFloat p_speed, GdBool isLoop, GdBoo
 	// Switch to animation mode
 	current_display_mode = MODE_ANIMATION;
 	current_single_texture_svg_path = "";
-	current_animation_name = anim_name;
+	current_animation_name = final_anim_key;  // Store the final animation key (possibly scaled)
 	
-	anim2d->play(anim_name, p_speed, p_from_end);
+	anim2d->play(final_anim_key, p_speed, p_from_end);
 	
 	// Register new animation SVG references
 	_register_svg_references();
 	
 	// Notify global manager of scale changes
-	notify_svg_manager_scale_changed();
+	notify_svg_mgr_scale_changed();
 }
 
 void SpxSprite::play_backwards_anim(GdString p_name) {
@@ -713,18 +848,45 @@ GdBool SpxSprite::check_collision_with_point(GdVec2 point, GdBool is_trigger) {
 	return is_colliding;
 }
 void SpxSprite::set_render_scale(GdVec2 new_scale) {
+	Vector2 old_scale = _render_scale;
 	_render_scale = new_scale;
+	
+	// Check if we need to switch animation scale for SVG animations
+	// Only check if scale change is significant to avoid unnecessary switching
+	float scale_change = ABS(MAX(new_scale.x, new_scale.y) - MAX(old_scale.x, old_scale.y));
+	if (scale_change > 0.1f) {  // Only check for significant scale changes
+		_check_and_switch_animation_scale();
+	}
+	
 	update_anim_scale();
-	notify_svg_manager_scale_changed();
+	notify_svg_mgr_scale_changed();
 }
 
 void SpxSprite::update_anim_scale(){
 	GdVec2 finalScale = _render_scale;
-	if (current_single_texture_svg_path != ""){
-		float raw_scale = svgMgr->get_image_raw_scale(current_single_texture_svg_path);
-		finalScale.x = finalScale.x / raw_scale;
-		finalScale.y = finalScale.y / raw_scale;
+	print_line("update_anim_scale called, _render_scale:", _render_scale);
+	
+	if (current_display_mode == MODE_SINGLE_TEXTURE) {
+		// Handle single texture mode
+		if (current_single_texture_svg_path != ""){
+			float raw_scale = svgMgr->get_image_raw_scale(current_single_texture_svg_path);
+			print_line("Single texture mode - SVG raw scale:", raw_scale);
+			finalScale.x = finalScale.x / raw_scale;
+			finalScale.y = finalScale.y / raw_scale;
+		}
+	} else if (current_display_mode == MODE_ANIMATION) {
+		// Handle animation mode - get current frame's SVG info
+		String current_frame_svg_path = _get_current_animation_frame_svg_path();
+		print_line("Animation mode - current frame SVG:", current_frame_svg_path);
+		if (!current_frame_svg_path.is_empty()) {
+			float raw_scale = svgMgr->get_image_raw_scale(current_frame_svg_path);
+			print_line("Animation mode - SVG raw scale:", raw_scale);
+			finalScale.x = finalScale.x / raw_scale;
+			finalScale.y = finalScale.y / raw_scale;
+		}
 	}
+	
+	print_line("Final scale applied:", finalScale);
 	anim2d->set_scale(finalScale);
 }
 
@@ -752,20 +914,28 @@ Vector2 SpxSprite::_get_actual_render_scale() {
 }
 
 void SpxSprite::_on_frame_changed() {
-	if (!enable_dynamic_frame_offset || anim2d == nullptr) {
+	if (anim2d == nullptr) {
 		return;
 	}
+	print_line("on_frame_changed");
+	// Handle dynamic frame offset
+	if (enable_dynamic_frame_offset) {
+		String current_anim = String(anim2d->get_animation());
+		int current_frame = anim2d->get_frame();
+		
+		Vector2 frame_offset = resMgr->get_animation_frame_offset(
+			current_anim, 
+			current_frame
+		);
+		
+		Vector2 final_offset = base_offset + frame_offset;
+		anim2d->set_offset(final_offset);
+	}
 	
-	String current_anim = String(anim2d->get_animation());
-	int current_frame = anim2d->get_frame();
-	
-	Vector2 frame_offset = resMgr->get_animation_frame_offset(
-		current_anim, 
-		current_frame
-	);
-	
-	Vector2 final_offset = base_offset + frame_offset;
-	anim2d->set_offset(final_offset);
+	// Handle SVG scaling for animation frames
+	if (current_display_mode == MODE_ANIMATION) {
+		update_anim_scale();
+	}
 }
 
 void SpxSprite::set_dynamic_frame_offset_enabled(GdBool enabled) {
@@ -788,7 +958,7 @@ Vector2 SpxSprite::get_actual_render_scale() {
 	return _get_actual_render_scale();
 }
 
-void SpxSprite::notify_svg_manager_scale_changed() {
+void SpxSprite::notify_svg_mgr_scale_changed() {
 	if (!svgMgr) {
 		return;
 	}
@@ -814,10 +984,27 @@ void SpxSprite::notify_svg_manager_scale_changed() {
 }
 
 void SpxSprite::_register_svg_references() {
+	// Defensive check: preserve the current mode during registration
+	auto original_mode = current_display_mode;
+	String original_animation = current_animation_name;
+	String original_svg_path = current_single_texture_svg_path;
+	
 	if (current_display_mode == MODE_SINGLE_TEXTURE) {
 		_register_single_texture_svg();
 	} else if (current_display_mode == MODE_ANIMATION) {
 		_register_animation_svg_references(current_animation_name);
+	}
+	
+	// Verify mode wasn't accidentally changed
+	if (current_display_mode != original_mode) {
+		print_line("ERROR: Display mode was changed during _register_svg_references!");
+		print_line("Original mode:", original_mode == MODE_SINGLE_TEXTURE ? "SINGLE_TEXTURE" : "ANIMATION");
+		print_line("Current mode:", current_display_mode == MODE_SINGLE_TEXTURE ? "SINGLE_TEXTURE" : "ANIMATION");
+		// Restore original state
+		current_display_mode = original_mode;
+		current_animation_name = original_animation;
+		current_single_texture_svg_path = original_svg_path;
+		print_line("State restored to original mode");
 	}
 }
 
@@ -924,4 +1111,139 @@ String SpxSprite::_extract_svg_path_from_texture(Ref<Texture2D> texture) {
 	}
 	
 	return String();
+}
+
+String SpxSprite::_get_current_animation_frame_svg_path() {
+	if (!anim2d || current_display_mode != MODE_ANIMATION || current_animation_name.is_empty()) {
+		return String();
+	}
+	
+	auto frames = anim2d->get_sprite_frames();
+	if (!frames.is_valid() || !frames->has_animation(current_animation_name)) {
+		return String();
+	}
+	
+	int current_frame = anim2d->get_frame();
+	if (current_frame < 0 || current_frame >= frames->get_frame_count(current_animation_name)) {
+		return String();
+	}
+	
+	auto texture = frames->get_frame_texture(current_animation_name, current_frame);
+	return _extract_svg_path_from_texture(texture);
+}
+
+void SpxSprite::_check_and_switch_animation_scale() {
+	// Only check for animation mode with SVG animations
+	if (current_display_mode != MODE_ANIMATION || current_animation_name.is_empty() || !anim2d) {
+		return;
+	}
+	
+	if (!resMgr || !resMgr->is_dynamic_anim_mode()) {
+		return;
+	}
+	
+	// Extract base animation info
+	String sprite_type = get_spx_type_name();
+	if (sprite_type.is_empty()) {
+		return;
+	}
+	
+	String base_anim_name = _extract_base_animation_name(current_animation_name);
+	if (base_anim_name.is_empty()) {
+		return;
+	}
+	
+	// Check if current animation is SVG-based
+	if (!resMgr->is_svg_animation(sprite_type, base_anim_name)) {
+		return;
+	}
+	
+	// Calculate required scale level
+	Vector2 current_scale = _get_actual_render_scale();
+	float max_scale = MAX(current_scale.x, current_scale.y);
+	
+	// Find the best animation for current scale
+	String best_anim_key = resMgr->find_best_scale_animation(sprite_type, base_anim_name, max_scale);
+	
+	// Check if we need to switch
+	if (best_anim_key == current_animation_name) {
+		// Already using the best animation
+		return;
+	}
+	
+	print_line("Scale change detected - switching from:", current_animation_name, "to:", best_anim_key);
+	
+	// Create scaled animation if needed
+	float optimal_scale = resMgr->calculate_optimal_scale_level(max_scale);
+	if (optimal_scale > 1.0f) {
+		resMgr->create_scaled_animation_if_needed(sprite_type, base_anim_name, optimal_scale);
+		// Re-find best animation after creation
+		best_anim_key = resMgr->find_best_scale_animation(sprite_type, base_anim_name, max_scale);
+	}
+	
+	// Check if animation exists before switching
+	if (!resMgr->animation_exists(best_anim_key)) {
+		print_line("Best animation doesn't exist:", best_anim_key);
+		return;
+	}
+	
+	// Save current animation state
+	bool was_playing = anim2d->is_playing();
+	float speed_scale = anim2d->get_speed_scale();
+	int current_frame = anim2d->get_frame();
+	float frame_progress = anim2d->get_frame_progress();
+	
+	// Unregister old animation SVG references
+	_unregister_svg_references();
+	
+	// Switch to new animation
+	current_animation_name = best_anim_key;
+	auto new_frames = resMgr->get_anim_frames(best_anim_key);
+	if (new_frames.is_valid()) {
+		anim2d->set_sprite_frames(new_frames);
+		anim2d->set_animation(best_anim_key);
+		
+		// Restore animation state
+		int new_frame_count = new_frames->get_frame_count(best_anim_key);
+		if (new_frame_count > 0) {
+			// Clamp frame to valid range
+			int safe_frame = MIN(current_frame, new_frame_count - 1);
+			anim2d->set_frame_and_progress(safe_frame, frame_progress);
+			
+			if (was_playing) {
+				anim2d->set_speed_scale(speed_scale);
+				anim2d->play(best_anim_key, speed_scale);
+				// Restore frame after play
+				anim2d->set_frame_and_progress(safe_frame, frame_progress);
+			}
+		}
+		
+		print_line("Successfully switched to animation:", best_anim_key);
+	} else {
+		print_error("Failed to get frames for animation: " + best_anim_key);
+		return;
+	}
+	
+	// Register new animation SVG references
+	_register_svg_references();
+}
+
+String SpxSprite::_extract_base_animation_name(const String& full_anim_name) {
+	// Extract base name from full animation key
+	// Format: "SpriteType::anim_name" or "SpriteType::anim_name@2x"
+	
+	// First remove sprite type prefix
+	String anim_part = full_anim_name;
+	int separator_pos = full_anim_name.find("::");
+	if (separator_pos != -1) {
+		anim_part = full_anim_name.substr(separator_pos + 2);
+	}
+	
+	// Remove scale suffix if present
+	int scale_pos = anim_part.find("@");
+	if (scale_pos != -1) {
+		anim_part = anim_part.substr(0, scale_pos);
+	}
+	
+	return anim_part;
 }

@@ -56,6 +56,27 @@ private:
 	bool is_dynamic_anim = false;
 	// store animation frame offset information: anim_name -> frame_offset_list
 	HashMap<String, Vector<Vector2>> animation_frame_offsets;
+	
+	// Enhanced animation management with scaling support
+	struct AnimationInfo {
+		String base_name;          // original animation name without scale suffix
+		String sprite_type;        // sprite type name
+		float scale_level;         // current scale level (1.0, 2.0, 4.0, etc.)
+		bool is_svg_animation;     // whether this animation contains SVG frames
+		Vector<String> svg_paths;  // SVG file paths used in this animation
+		String full_key;           // full animation key (sprite_type::anim_name@scale_level)
+		
+		AnimationInfo() {
+			scale_level = 1.0f;
+			is_svg_animation = false;
+		}
+	};
+	
+	// Animation registry: full_key -> AnimationInfo
+	HashMap<String, AnimationInfo> animation_registry;
+	
+	// Base animation to scale levels mapping: base_key -> available_scale_levels
+	HashMap<String, Vector<float>> animation_scale_levels;
 private:
 	static Ref<AudioStreamWAV> _load_wav(const String &path);
 	static Ref<AudioStream> _load_mp3(const String &path);
@@ -85,6 +106,20 @@ public:
 	void reload_texture(GdString path);
 	void free_str(GdString str);
 	void set_default_font(GdString font_path);
+
+	// Enhanced animation management with scaling support
+	void register_animation_info(const String& full_key, const AnimationInfo& info);
+	AnimationInfo* get_animation_info(const String& full_key);
+	String get_base_animation_key(const String& sprite_type, const String& anim_name);
+	String get_scaled_animation_key(const String& sprite_type, const String& anim_name, float scale_level);
+	Vector<float> get_available_scale_levels(const String& sprite_type, const String& anim_name);
+	String find_best_scale_animation(const String& sprite_type, const String& anim_name, float required_scale);
+	bool is_svg_animation(const String& sprite_type, const String& anim_name);
+	void create_scaled_animation_if_needed(const String& sprite_type, const String& anim_name, float scale_level);
+	
+	// Utility methods
+	float calculate_optimal_scale_level(float required_scale);
+	bool animation_exists(const String& full_key);
 };
 
 #endif // SPX_RES_MGR_H

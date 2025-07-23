@@ -79,11 +79,12 @@ private:
 	void _register_animation_svg_references(const String& anim_name);
 	void _unregister_animation_svg_references(const String& anim_name);
 	String _extract_svg_path_from_texture(Ref<Texture2D> texture);
+	String _get_current_animation_frame_svg_path();
 	void update_anim_scale();
 public:
 	// SVG global manager integration
 	Vector2 get_actual_render_scale();
-	void notify_svg_manager_scale_changed();
+	void notify_svg_mgr_scale_changed();
 
 protected:
 	void _notification(int p_what);
@@ -133,6 +134,13 @@ public:
 	String get_spx_type_name();
 	void on_svg_changed();
 	void _set_texture_direct(String path, GdBool direct);
+	
+	// Internal method for SVG texture updates without mode change
+	void _update_single_texture_svg_internal(const String& svg_path);
+	
+	// Enhanced animation scaling support
+	void _check_and_switch_animation_scale();
+	String _extract_base_animation_name(const String& full_anim_name);
 public:
 	void set_gid(GdObj id);
 	GdObj get_gid();

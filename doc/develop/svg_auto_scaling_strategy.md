@@ -35,7 +35,7 @@
 #### 实现要点
 1. **全局 SVG 引用跟踪器**：
    ```cpp
-   class SvgGlobalManager {
+   class SvgManager {
    private:
        struct SvgInfo {
            String path;
@@ -111,7 +111,7 @@
            auto texture = frames->get_frame_texture(anim_name, i);
            String svg_path = extract_svg_path(texture);
            if (!svg_path.is_empty()) {
-               svg_global_manager->register_reference(svg_path, sprite);
+               svg_mgr->register_reference(svg_path, sprite);
            }
        }
    }
@@ -132,7 +132,7 @@
 ### 全局 SVG 管理系统
 
 ```cpp
-class SvgGlobalManager {
+class SvgManager {
 private:
     struct SvgInfo {
         String path;
@@ -188,7 +188,7 @@ private:
 
 ### 全局配置（简化设计）
 ```cpp
-// 在 SvgGlobalManager 中
+// 在 SvgManager 中
 float global_svg_scale_threshold = 1.5f;   // 升级阈值
 int global_max_svg_scale_level = 16;       // 最大缩放级别 (2^4)
 bool enable_svg_auto_scaling = true;       // 总开关
@@ -206,15 +206,15 @@ bool participate_in_svg_scaling = true;    // 是否参与 SVG 缩放计算
 ### 运行时调整
 ```cpp
 // 提供运行时调整接口
-svg_global_manager->set_scale_threshold(2.0f);
-svg_global_manager->set_max_scale_level(8);
-svg_global_manager->enable_auto_scaling(false);  // 暂时禁用
+svg_mgr->set_scale_threshold(2.0f);
+svg_mgr->set_max_scale_level(8);
+svg_mgr->enable_auto_scaling(false);  // 暂时禁用
 ```
 
 ## 实施计划
 
 ### 阶段一实施步骤：全局管理系统
-1. **创建 SvgGlobalManager 类**
+1. **创建 SvgManager 类**
    - 实现 SvgInfo 结构体和引用跟踪
    - 添加 register/unregister_reference 方法
    - 集成到 SpxResMgr 中

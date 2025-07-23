@@ -1,59 +1,29 @@
-/**************************************************************************/
-/*  svg_global_manager.cpp                                               */
-/**************************************************************************/
-/*                         This file is part of:                         */
-/*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
-/**************************************************************************/
-/* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
-/* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
-/*                                                                         */
-/* Permission is hereby granted, free of charge, to any person obtaining  */
-/* a copy of this software and associated documentation files (the        */
-/* "Software"), to deal in the Software without restriction, including    */
-/* without limitation the rights to use, copy, modify, merge, publish,    */
-/* distribute, sublicense, and/or sell copies of the Software, and to     */
-/* permit persons to whom the Software is furnished to do so, subject to  */
-/* the following conditions:                                               */
-/*                                                                         */
-/* The above copyright notice and this permission notice shall be         */
-/* included in all copies or substantial portions of the Software.        */
-/*                                                                         */
-/* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,        */
-/* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF     */
-/* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. */
-/* IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY   */
-/* CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,   */
-/* TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE      */
-/* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
-/**************************************************************************/
-
-#include "svg_global_manager.h"
+#include "svg_mgr.h"
 
 #include "core/io/image_loader.h"
 #include "spx_sprite.h"
 #include "spx_engine.h"
 #include "spx_camera_mgr.h"
 
-SvgGlobalManager *SvgGlobalManager::singleton = nullptr;
+SvgManager *SvgManager::singleton = nullptr;
 
-SvgGlobalManager *SvgGlobalManager::get_singleton() {
+SvgManager *SvgManager::get_singleton() {
 	if (!singleton) {
-		singleton = memnew(SvgGlobalManager);
+		singleton = memnew(SvgManager);
 	}
 	return singleton;
 }
 
-SvgGlobalManager::SvgGlobalManager() {
+SvgManager::SvgManager() {
 	singleton = this;
 }
 
-SvgGlobalManager::~SvgGlobalManager() {
+SvgManager::~SvgManager() {
 	svg_registry.clear();
 	singleton = nullptr;
 }
 
-float SvgGlobalManager::SvgInfo::get_max_required_scale() const {
+float SvgManager::SvgInfo::get_max_required_scale() const {
 	float max_scale = 1.0f;
 	
 	for (SpxSprite* sprite : references) {
@@ -67,11 +37,11 @@ float SvgGlobalManager::SvgInfo::get_max_required_scale() const {
 	return max_scale;
 }
 
-bool SvgGlobalManager::is_svg_file(const String& path) const {
+bool SvgManager::is_svg_file(const String& path) const {
 	return path.to_lower().ends_with(".svg");
 }
 
-float SvgGlobalManager::calculate_optimal_scale_level(float required_scale) const {
+float SvgManager::calculate_optimal_scale_level(float required_scale) const {
 	if (required_scale <= 1.0f) {
 		return 1.0f;
 	}
@@ -86,7 +56,7 @@ float SvgGlobalManager::calculate_optimal_scale_level(float required_scale) cons
 	return result;
 }
 
-Ref<ImageTexture> SvgGlobalManager::get_or_create_svg_texture(const String& svg_path) {
+Ref<ImageTexture> SvgManager::get_or_create_svg_texture(const String& svg_path) {
 	if (!is_svg_file(svg_path)) {
 		return Ref<ImageTexture>();
 	}
@@ -116,7 +86,17 @@ Ref<ImageTexture> SvgGlobalManager::get_or_create_svg_texture(const String& svg_
 	return Ref<ImageTexture>();
 }
 
-void SvgGlobalManager::register_reference(const String& svg_path, SpxSprite* sprite) {
+Ref<ImageTexture> SvgManager::get_or_create_svg_texture_at_scale(const String& svg_path, float scale_level) {
+	if (!is_svg_file(svg_path)) {
+		return Ref<ImageTexture>();
+	}
+	
+	// Always create a new texture at the specified scale level
+	// This is used for animation scaling where we need specific scale versions
+	return load_svg_at_scale(svg_path, scale_level);
+}
+
+void SvgManager::register_reference(const String& svg_path, SpxSprite* sprite) {
 	if (!sprite || !is_svg_file(svg_path)) {
 		return;
 	}
@@ -141,7 +121,7 @@ void SvgGlobalManager::register_reference(const String& svg_path, SpxSprite* spr
 	check_and_update_svg_scale(svg_path);
 }
 
-void SvgGlobalManager::unregister_reference(const String& svg_path, SpxSprite* sprite) {
+void SvgManager::unregister_reference(const String& svg_path, SpxSprite* sprite) {
 	if (!sprite || !svg_registry.has(svg_path)) {
 		return;
 	}
@@ -163,7 +143,7 @@ void SvgGlobalManager::unregister_reference(const String& svg_path, SpxSprite* s
 	}
 }
 
-void SvgGlobalManager::on_sprite_scale_changed(SpxSprite* sprite) {
+void SvgManager::on_sprite_scale_changed(SpxSprite* sprite) {
 	if (!sprite) {
 		return;
 	}
@@ -181,7 +161,7 @@ void SvgGlobalManager::on_sprite_scale_changed(SpxSprite* sprite) {
 	}
 }
 
-void SvgGlobalManager::on_sprite_single_texture_scale_changed(SpxSprite* sprite, const String& svg_path) {
+void SvgManager::on_sprite_single_texture_scale_changed(SpxSprite* sprite, const String& svg_path) {
 	if (!sprite || svg_path.is_empty()) {
 		return;
 	}
@@ -190,7 +170,7 @@ void SvgGlobalManager::on_sprite_single_texture_scale_changed(SpxSprite* sprite,
 	check_and_update_svg_scale(svg_path);
 }
 
-void SvgGlobalManager::on_sprite_animation_scale_changed(SpxSprite* sprite, const String& anim_name) {
+void SvgManager::on_sprite_animation_scale_changed(SpxSprite* sprite, const String& anim_name) {
 	if (!sprite || anim_name.is_empty()) {
 		return;
 	}
@@ -208,7 +188,7 @@ void SvgGlobalManager::on_sprite_animation_scale_changed(SpxSprite* sprite, cons
 	}
 }
 
-void SvgGlobalManager::check_and_update_svg_scale(const String& svg_path) {
+void SvgManager::check_and_update_svg_scale(const String& svg_path) {
 	if (!svg_registry.has(svg_path)) {
 		return;
 	}
@@ -232,7 +212,7 @@ void SvgGlobalManager::check_and_update_svg_scale(const String& svg_path) {
 	}
 }
 
-void SvgGlobalManager::update_svg_texture_data(SvgInfo& svg_info, float new_scale) {
+void SvgManager::update_svg_texture_data(SvgInfo& svg_info, float new_scale) {
 	if (new_scale <= svg_info.current_scale_level) {
 		return; // Only support scaling up
 	}
@@ -261,7 +241,7 @@ void SvgGlobalManager::update_svg_texture_data(SvgInfo& svg_info, float new_scal
 	}
 }
 
-Ref<ImageTexture> SvgGlobalManager::load_svg_at_scale(const String& svg_path, float scale) {
+Ref<ImageTexture> SvgManager::load_svg_at_scale(const String& svg_path, float scale) {
 	Ref<Image> image;
 	image.instantiate();
 	
@@ -282,13 +262,13 @@ Ref<ImageTexture> SvgGlobalManager::load_svg_at_scale(const String& svg_path, fl
 	return texture;
 }
 
-void SvgGlobalManager::cleanup_unused_svg(const String& svg_path) {
+void SvgManager::cleanup_unused_svg(const String& svg_path) {
 	if (svg_registry.has(svg_path)) {
 		svg_registry.erase(svg_path);
 	}
 }
 
-HashSet<String> SvgGlobalManager::get_sprite_svg_paths(SpxSprite* sprite) {
+HashSet<String> SvgManager::get_sprite_svg_paths(SpxSprite* sprite) {
 	HashSet<String> paths;
 	
 	if (!sprite) {
@@ -304,17 +284,17 @@ HashSet<String> SvgGlobalManager::get_sprite_svg_paths(SpxSprite* sprite) {
 	
 	return paths;
 }
-void SvgGlobalManager::destroy(){
+void SvgManager::destroy(){
 	svg_registry.clear();
 	singleton = nullptr;
 }
-float SvgGlobalManager::get_image_raw_scale(const String& path) const{
+float SvgManager::get_image_raw_scale(const String& path) const{
 	if (svg_registry.has(path)) {
 		return svg_registry[path].current_scale_level;
 	}
 	return 1.0f;
 }
-void SvgGlobalManager::print_svg_info() const {
+void SvgManager::print_svg_info() const {
 	print_line("=== SVG Global Manager Info ===");
 	print_line("Total SVGs: " + String::num(svg_registry.size()));
 	print_line("Scale threshold: " + String::num(scale_threshold));
@@ -328,7 +308,7 @@ void SvgGlobalManager::print_svg_info() const {
 		print_line("  Max required: " + String::num(info.get_max_required_scale()));
 	}
 } 
-Vector2 SvgGlobalManager::get_image_raw_size(const String& path) const{
+Vector2 SvgManager::get_image_raw_size(const String& path) const{
 	if (svg_registry.has(path)) {
 		return svg_registry[path].raw_size;
 	}

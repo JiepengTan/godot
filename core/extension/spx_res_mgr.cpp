@@ -32,7 +32,7 @@
 #include "core/io/file_access.h"
 #include "core/io/image.h"
 #include "core/io/image_loader.h"
-#include "svg_global_manager.h"
+#include "svg_mgr.h"
 #include "spx_engine.h"
 #include "modules/minimp3/audio_stream_mp3.h"
 #include "modules/modules_enabled.gen.h"
@@ -195,9 +195,10 @@ Ref<Texture2D> SpxResMgr::load_texture(String path, GdBool direct) {
 	
 	// If SVG file, use global manager
 	if (engine_path.to_lower().ends_with(".svg")) {
-		auto svg_manager = svgMgr;
-		if (svg_manager) {
-			return svg_manager->get_or_create_svg_texture(engine_path);
+		auto svg_mgr = svgMgr;
+		if (svg_mgr) {
+			print_line("load_texture ===>",engine_path);
+			return svg_mgr->get_or_create_svg_texture(engine_path);
 		}
 	}
 	
@@ -255,6 +256,13 @@ void SpxResMgr::create_animation(GdString p_sprite_type_name, GdString p_anim_na
 	frames->add_animation(anim_key);
 	frames->set_animation_speed(anim_key,fps);
 	
+	// Enhanced: Analyze animation content for SVG detection and scaling info
+	AnimationInfo anim_info;
+	anim_info.sprite_type = sprite_type_name;
+	anim_info.base_name = clip_name;
+	anim_info.scale_level = 1.0f;  // Default scale level
+	anim_info.full_key = anim_key;
+	
 	// store frame offset information
 	Vector<Vector2> frame_offsets;
 	
@@ -275,15 +283,26 @@ void SpxResMgr::create_animation(GdString p_sprite_type_name, GdString p_anim_na
 						offset.y = offset_parts[1].to_float();
 					}
 				}
+			}	
+		
+		
+			// single texture mode - check if it's SVG
+			if (path.to_lower().ends_with(".svg")) {
+				anim_info.is_svg_animation = true;
+				anim_info.svg_paths.push_back(path);
 			}
-			
 			Ref<Texture2D> texture = load_texture(path);
+			print_line("load_texture",path);
 			if (!texture.is_valid()) {
 				print_error("animation parse error" + sprite_type_name + " " + anim_key + " can not find path " + path);
 				return ;
 			}
 			frames->add_frame(anim_key, texture);
 			frame_offsets.push_back(offset);
+		}
+		if (anim_info.is_svg_animation && anim_info.svg_paths.size() != strs.size()){
+			print_error("animation parse error " + sprite_type_name + " " + anim_key + " svg path count not match frame count");
+			return ;
 		}
 	} else {
 		auto strs = context.split(";");
@@ -373,7 +392,174 @@ void SpxResMgr::create_animation(GdString p_sprite_type_name, GdString p_anim_na
 	
 	// store animation frame offset information
 	animation_frame_offsets[anim_key] = frame_offsets;
+	
+	// Register animation info
+	register_animation_info(anim_key, anim_info);
+	if(anim_info.is_svg_animation){
+		print_line("Created animation:", anim_key, "SVG:", "Scale level:", anim_info.scale_level);
+	}
 }
+
+// Enhanced animation management methods
+void SpxResMgr::register_animation_info(const String& full_key, const AnimationInfo& info) {
+	animation_registry[full_key] = info;
+	
+	// Update scale levels tracking
+	String base_key = get_base_animation_key(info.sprite_type, info.base_name);
+	if (!animation_scale_levels.has(base_key)) {
+		animation_scale_levels[base_key] = Vector<float>();
+	}
+	
+	Vector<float>& levels = animation_scale_levels[base_key];
+	if (!levels.has(info.scale_level)) {
+		levels.push_back(info.scale_level);
+		levels.sort();  // Keep sorted for easier searching
+	}
+}
+
+SpxResMgr::AnimationInfo* SpxResMgr::get_animation_info(const String& full_key) {
+	if (animation_registry.has(full_key)) {
+		return &animation_registry[full_key];
+	}
+	return nullptr;
+}
+
+String SpxResMgr::get_base_animation_key(const String& sprite_type, const String& anim_name) {
+	return sprite_type + "::" + anim_name;
+}
+
+String SpxResMgr::get_scaled_animation_key(const String& sprite_type, const String& anim_name, float scale_level) {
+	if (scale_level == 1.0f) {
+		return get_base_animation_key(sprite_type, anim_name);
+	} else {
+		return sprite_type + "::" + anim_name + "@" + String::num(scale_level) + "x";
+	}
+}
+
+Vector<float> SpxResMgr::get_available_scale_levels(const String& sprite_type, const String& anim_name) {
+	String base_key = get_base_animation_key(sprite_type, anim_name);
+	if (animation_scale_levels.has(base_key)) {
+		return animation_scale_levels[base_key];
+	}
+	return Vector<float>();
+}
+
+String SpxResMgr::find_best_scale_animation(const String& sprite_type, const String& anim_name, float required_scale) {
+	Vector<float> available_levels = get_available_scale_levels(sprite_type, anim_name);
+	
+	if (available_levels.is_empty()) {
+		// Return base animation if no scale levels are available
+		return get_base_animation_key(sprite_type, anim_name);
+	}
+	
+	// Find the smallest scale level that is >= required_scale
+	float best_scale = available_levels[0];
+	for (int i = 0; i < available_levels.size(); i++) {
+		if (available_levels[i] >= required_scale) {
+			best_scale = available_levels[i];
+			break;
+		}
+		best_scale = available_levels[i];  // Use the largest available if none is big enough
+	}
+	
+	return get_scaled_animation_key(sprite_type, anim_name, best_scale);
+}
+
+bool SpxResMgr::is_svg_animation(const String& sprite_type, const String& anim_name) {
+	String base_key = get_base_animation_key(sprite_type, anim_name);
+	AnimationInfo* info = get_animation_info(base_key);
+	return info ? info->is_svg_animation : false;
+}
+
+void SpxResMgr::create_scaled_animation_if_needed(const String& sprite_type, const String& anim_name, float scale_level) {
+	String scaled_key = get_scaled_animation_key(sprite_type, anim_name, scale_level);
+	
+	// Check if scaled animation already exists
+	if (animation_exists(scaled_key)) {
+		return;
+	}
+	
+	// Check if base animation exists and is SVG
+	String base_key = get_base_animation_key(sprite_type, anim_name);
+	AnimationInfo* base_info = get_animation_info(base_key);
+	if (!base_info || !base_info->is_svg_animation) {
+		print_line("Cannot create scaled animation: base animation not found or not SVG");
+		return;
+	}
+	
+	print_line("Creating scaled animation:", scaled_key, "at scale level:", scale_level);
+	
+	// Create new scaled animation info
+	AnimationInfo scaled_info = *base_info;
+	scaled_info.scale_level = scale_level;
+	scaled_info.full_key = scaled_key;
+	
+	// Create SpriteFrames animation
+	auto frames = anim_frames;
+	frames->add_animation(scaled_key);
+	frames->set_animation_speed(scaled_key, frames->get_animation_speed(base_key));
+	frames->set_animation_loop(scaled_key, frames->get_animation_loop(base_key));
+	
+	// Copy frames with scaled SVG textures
+	int frame_count = frames->get_frame_count(base_key);
+	Vector<Vector2> frame_offsets;
+	
+	for (int i = 0; i < frame_count; i++) {
+		auto base_texture = frames->get_frame_texture(base_key, i);
+		if (base_texture.is_valid()) {
+			// For SVG textures, load at the new scale level
+			Ref<Texture2D> scaled_texture;
+			
+			if (base_info->svg_paths.size() > 0 && i < base_info->svg_paths.size()) {
+				// Load SVG at new scale level
+				String svg_path = base_info->svg_paths[i];  
+				scaled_texture = svgMgr->get_or_create_svg_texture_at_scale(svg_path, scale_level);
+			} else {
+				// Fallback to original texture
+				scaled_texture = base_texture;
+			}
+			
+			if (scaled_texture.is_valid()) {
+				float duration = frames->get_frame_duration(base_key, i);
+				frames->add_frame(scaled_key, scaled_texture, duration);
+				
+				// Copy frame offset if available
+				if (animation_frame_offsets.has(base_key)) {
+					Vector<Vector2>& base_offsets = animation_frame_offsets[base_key];
+					if (i < base_offsets.size()) {
+						frame_offsets.push_back(base_offsets[i]);
+					} else {
+						frame_offsets.push_back(Vector2(0, 0));
+					}
+				} else {
+					frame_offsets.push_back(Vector2(0, 0));
+				}
+			}
+		}
+	}
+	
+	// Store frame offsets for scaled animation
+	animation_frame_offsets[scaled_key] = frame_offsets;
+	
+	// Register the new scaled animation
+	register_animation_info(scaled_key, scaled_info);
+	
+	print_line("Successfully created scaled animation:", scaled_key);
+}
+
+float SpxResMgr::calculate_optimal_scale_level(float required_scale) {
+	// Use powers of 2: 1, 2, 4, 8, 16...
+	if (required_scale <= 1.0f) return 1.0f;
+	if (required_scale <= 2.0f) return 2.0f;
+	if (required_scale <= 4.0f) return 4.0f;
+	if (required_scale <= 8.0f) return 8.0f;
+	return 16.0f;  // Max scale level
+}
+
+bool SpxResMgr::animation_exists(const String& full_key) {
+	return anim_frames->has_animation(full_key);
+}
+
 void SpxResMgr::set_load_mode(GdBool is_direct_mode) {
 	is_load_direct = is_direct_mode;
 }
@@ -424,7 +610,7 @@ GdVec2 SpxResMgr::get_image_size(GdString path) {
 	Ref<Texture2D> value = load_texture(path_str);
 	if (value.is_valid()) {
 		if(svgMgr -> is_svg_file(path_str)){
-			print_line("svgMgr->get_image_raw_size(path_str)",svgMgr->get_image_raw_size(path_str)," value->get_size()",value->get_size());
+			print_line(path_str, "svgMgr->get_image_raw_size(path_str)",svgMgr->get_image_raw_size(path_str)," value->get_size()",value->get_size());
 			return GdVec2(svgMgr->get_image_raw_size(path_str));
 		}
 		return value->get_size();
