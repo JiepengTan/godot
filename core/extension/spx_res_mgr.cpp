@@ -286,12 +286,12 @@ void SpxResMgr::create_animation(GdString p_sprite_type_name, GdString p_anim_na
 			}	
 		
 		
+			Ref<Texture2D> texture = load_texture(path);
 			// single texture mode - check if it's SVG
 			if (path.to_lower().ends_with(".svg")) {
 				anim_info.is_svg_animation = true;
 				anim_info.svg_paths.push_back(path);
 			}
-			Ref<Texture2D> texture = load_texture(path);
 			print_line("load_texture",path);
 			if (!texture.is_valid()) {
 				print_error("animation parse error" + sprite_type_name + " " + anim_key + " can not find path " + path);

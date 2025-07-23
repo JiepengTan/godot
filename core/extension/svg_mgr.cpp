@@ -73,6 +73,7 @@ Ref<ImageTexture> SvgManager::get_or_create_svg_texture(const String& svg_path) 
 	svg_info.current_scale_level = 1.0f;
 	svg_info.texture = load_svg_at_scale(svg_path, 1.0f);
 	svg_info.raw_size = GdVec2(1, 1);
+	svg_info.texture->set_path_cache(svg_path);  // 添加这一行
 	if (svg_info.texture.is_valid()) {
 		svg_info.raw_size = svg_info.texture->get_size();
 	} 

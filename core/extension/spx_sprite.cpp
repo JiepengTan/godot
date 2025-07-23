@@ -484,6 +484,7 @@ void SpxSprite::on_svg_changed() {
 
 void SpxSprite::set_texture_direct(GdString path, GdBool direct) {
 	auto path_str = SpxStr(path);
+	print_line("set_texture:",path_str);
 	
 	// Check if we're currently in animation mode and playing
 	// If so, warn about potential mode change but allow override
@@ -497,8 +498,10 @@ void SpxSprite::set_texture_direct(GdString path, GdBool direct) {
 			// For safety, stop the animation before switching to texture mode
 			// This ensures clean state transition
 			print_line("Stopping current animation to prevent state corruption.");
-			anim2d->stop();
+			//anim2d->stop();
 		}
+		// this is debug code , don't delete it 
+		return ;
 	}
 	
 	// Unregister old SVG references
