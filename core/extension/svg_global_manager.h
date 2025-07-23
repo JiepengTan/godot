@@ -47,9 +47,9 @@ public:
 private:
 	struct SvgInfo {
 		String path;
-		Ref<ImageTexture> texture;
-		float current_scale_level;
-		HashSet<SpxSprite*> references;
+		Ref<ImageTexture> texture;      // global shared texture
+		float current_scale_level;      // current scale level (1, 2, 4, 8, 16...)
+		HashSet<SpxSprite*> references; // all sprites that reference this SVG
 		
 		float get_max_required_scale() const;
 		
@@ -58,9 +58,9 @@ private:
 		}
 	};
 	
-	HashMap<String, SvgInfo> svg_registry;
-	float scale_threshold = 1.5f;
-	int max_scale_level = 16;
+	HashMap<String, SvgInfo> svg_registry;  // path -> SvgInfo
+	float scale_threshold = 1.5f;           // upgrade threshold
+	int max_scale_level = 16;               // max scale level
 	
 	static SvgGlobalManager *singleton;
 
