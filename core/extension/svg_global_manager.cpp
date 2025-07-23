@@ -38,6 +38,9 @@
 SvgGlobalManager *SvgGlobalManager::singleton = nullptr;
 
 SvgGlobalManager *SvgGlobalManager::get_singleton() {
+	if (!singleton) {
+		singleton = memnew(SvgGlobalManager);
+	}
 	return singleton;
 }
 
@@ -99,6 +102,10 @@ Ref<ImageTexture> SvgGlobalManager::get_or_create_svg_texture(const String& svg_
 	svg_info.path = svg_path;
 	svg_info.current_scale_level = 1.0f;
 	svg_info.texture = load_svg_at_scale(svg_path, 1.0f);
+	svg_info.raw_size = GdVec2(1, 1);
+	if (svg_info.texture.is_valid()) {
+		svg_info.raw_size = svg_info.texture->get_size();
+	} 
 	svg_registry[svg_path] = svg_info;
 	
 	if (svg_info.texture.is_valid()) {
@@ -297,7 +304,16 @@ HashSet<String> SvgGlobalManager::get_sprite_svg_paths(SpxSprite* sprite) {
 	
 	return paths;
 }
-
+void SvgGlobalManager::destroy(){
+	svg_registry.clear();
+	singleton = nullptr;
+}
+float SvgGlobalManager::get_image_raw_scale(const String& path) const{
+	if (svg_registry.has(path)) {
+		return svg_registry[path].current_scale_level;
+	}
+	return 1.0f;
+}
 void SvgGlobalManager::print_svg_info() const {
 	print_line("=== SVG Global Manager Info ===");
 	print_line("Total SVGs: " + String::num(svg_registry.size()));
@@ -312,3 +328,9 @@ void SvgGlobalManager::print_svg_info() const {
 		print_line("  Max required: " + String::num(info.get_max_required_scale()));
 	}
 } 
+Vector2 SvgGlobalManager::get_image_raw_size(const String& path) const{
+	if (svg_registry.has(path)) {
+		return svg_registry[path].raw_size;
+	}
+	return Vector2(1, 1);
+}

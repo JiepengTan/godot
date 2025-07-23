@@ -421,9 +421,12 @@ GdRect2 SpxResMgr::get_bound_from_alpha(GdString path) {
 
 GdVec2 SpxResMgr::get_image_size(GdString path) {
 	auto path_str = SpxStr(path);
-	
 	Ref<Texture2D> value = load_texture(path_str);
 	if (value.is_valid()) {
+		if(svgMgr -> is_svg_file(path_str)){
+			print_line("svgMgr->get_image_raw_size(path_str)",svgMgr->get_image_raw_size(path_str)," value->get_size()",value->get_size());
+			return GdVec2(svgMgr->get_image_raw_size(path_str));
+		}
 		return value->get_size();
 	} else {
 		print_error("can not find a texture: " + path_str);

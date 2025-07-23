@@ -47,6 +47,7 @@ public:
 private:
 	struct SvgInfo {
 		String path;
+		Vector2 raw_size;
 		Ref<ImageTexture> texture;      // global shared texture
 		float current_scale_level;      // current scale level (1, 2, 4, 8, 16...)
 		HashSet<SpxSprite*> references; // all sprites that reference this SVG
@@ -83,9 +84,12 @@ public:
 	int get_svg_count() const { return svg_registry.size(); }
 	void print_svg_info() const;
 
+	Vector2 get_image_raw_size(const String& path) const;
+	float get_image_raw_scale(const String& path) const;
+	void destroy();
+	bool is_svg_file(const String& path) const;
 private:
 	// 内部方法
-	bool is_svg_file(const String& path) const;
 	float calculate_optimal_scale_level(float required_scale) const;
 	void check_and_update_svg_scale(const String& svg_path);
 	void update_svg_texture_data(SvgInfo& svg_info, float new_scale);

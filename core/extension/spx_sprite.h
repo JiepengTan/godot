@@ -79,7 +79,7 @@ private:
 	void _register_animation_svg_references(const String& anim_name);
 	void _unregister_animation_svg_references(const String& anim_name);
 	String _extract_svg_path_from_texture(Ref<Texture2D> texture);
-
+	void update_anim_scale();
 public:
 	// SVG global manager integration
 	Vector2 get_actual_render_scale();
@@ -94,7 +94,7 @@ protected:
 	CollisionShape2D *trigger2d;
 	CollisionShape2D *collider2d;
 	VisibleOnScreenNotifier2D *visible_notifier;
-
+	Vector2 _render_scale = Vector2(1.0f, 1.0f);
 public:
 	AnimatedSprite2D *anim2d;
 	CollisionShape2D *get_trigger() { return trigger2d; }

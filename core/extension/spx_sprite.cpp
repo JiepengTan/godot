@@ -414,6 +414,7 @@ void SpxSprite::set_texture_altas_direct(GdString path, GdRect2 rect2, GdBool di
 void SpxSprite::on_svg_changed() {
 	if(current_single_texture_svg_path != ""){
 		_set_texture_direct(current_single_texture_svg_path,false);
+		update_anim_scale();
 	}
 }
 
@@ -712,13 +713,23 @@ GdBool SpxSprite::check_collision_with_point(GdVec2 point, GdBool is_trigger) {
 	return is_colliding;
 }
 void SpxSprite::set_render_scale(GdVec2 new_scale) {
-	anim2d->set_scale(new_scale);
-	
+	_render_scale = new_scale;
+	update_anim_scale();
 	notify_svg_manager_scale_changed();
 }
 
+void SpxSprite::update_anim_scale(){
+	GdVec2 finalScale = _render_scale;
+	if (current_single_texture_svg_path != ""){
+		float raw_scale = svgMgr->get_image_raw_scale(current_single_texture_svg_path);
+		finalScale.x = finalScale.x / raw_scale;
+		finalScale.y = finalScale.y / raw_scale;
+	}
+	anim2d->set_scale(finalScale);
+}
+
 GdVec2 SpxSprite::get_render_scale() {
-	return anim2d->get_scale();
+	return _render_scale;
 }
 
 Vector2 SpxSprite::_get_actual_render_scale() {
@@ -727,8 +738,8 @@ Vector2 SpxSprite::_get_actual_render_scale() {
 	}
 	
 	// Get the global transform scale
-	Transform2D global_transform = anim2d->get_global_transform();
-	Vector2 global_scale = global_transform.get_scale();
+	Transform2D global_transform = get_global_transform();
+	Vector2 global_scale = global_transform.get_scale() * _render_scale;
 	
 	// Consider camera zoom if available
 	auto camera_mgr = SpxEngine::get_singleton()->get_camera();
