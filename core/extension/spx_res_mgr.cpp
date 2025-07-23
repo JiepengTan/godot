@@ -195,7 +195,7 @@ Ref<Texture2D> SpxResMgr::load_texture(String path, GdBool direct) {
 	
 	// If SVG file, use global manager
 	if (engine_path.to_lower().ends_with(".svg")) {
-		auto svg_manager = SpxEngine::get_singleton()->get_svg_global_manager();
+		auto svg_manager = svgMgr;
 		if (svg_manager) {
 			return svg_manager->get_or_create_svg_texture(engine_path);
 		}
@@ -421,6 +421,7 @@ GdRect2 SpxResMgr::get_bound_from_alpha(GdString path) {
 
 GdVec2 SpxResMgr::get_image_size(GdString path) {
 	auto path_str = SpxStr(path);
+	
 	Ref<Texture2D> value = load_texture(path_str);
 	if (value.is_valid()) {
 		return value->get_size();

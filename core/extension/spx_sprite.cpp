@@ -778,8 +778,7 @@ Vector2 SpxSprite::get_actual_render_scale() {
 }
 
 void SpxSprite::notify_svg_manager_scale_changed() {
-	auto svg_manager = SpxEngine::get_singleton()->get_svg_global_manager();
-	if (!svg_manager) {
+	if (!svgMgr) {
 		return;
 	}
 	
@@ -797,9 +796,9 @@ void SpxSprite::notify_svg_manager_scale_changed() {
 	}
 	
 	if (current_display_mode == MODE_SINGLE_TEXTURE) {
-		svg_manager->on_sprite_single_texture_scale_changed(this, current_single_texture_svg_path);
+		svgMgr->on_sprite_single_texture_scale_changed(this, current_single_texture_svg_path);
 	} else if (current_display_mode == MODE_ANIMATION) {
-		svg_manager->on_sprite_animation_scale_changed(this, current_animation_name);
+		svgMgr->on_sprite_animation_scale_changed(this, current_animation_name);
 	}
 }
 
@@ -812,19 +811,17 @@ void SpxSprite::_register_svg_references() {
 }
 
 void SpxSprite::_register_single_texture_svg() {
-	auto svg_manager = SpxEngine::get_singleton()->get_svg_global_manager();
-	if (!svg_manager) {
+	if (!svgMgr) {
 		return;
 	}
 	
 	if (!current_single_texture_svg_path.is_empty()) {
-		svg_manager->register_reference(current_single_texture_svg_path, this);
+		svgMgr->register_reference(current_single_texture_svg_path, this);
 	}
 }
 
 void SpxSprite::_register_animation_svg_references(const String& anim_name) {
-	auto svg_manager = SpxEngine::get_singleton()->get_svg_global_manager();
-	if (!svg_manager || !anim2d) {
+	if (!svgMgr || !anim2d) {
 		return;
 	}
 	
@@ -846,7 +843,7 @@ void SpxSprite::_register_animation_svg_references(const String& anim_name) {
 			if (texture.is_valid()) {
 				String svg_path = _extract_svg_path_from_texture(texture);
 				if (!svg_path.is_empty()) {
-					svg_manager->register_reference(svg_path, this);
+					svgMgr->register_reference(svg_path, this);
 				}
 			}
 		}
@@ -862,19 +859,17 @@ void SpxSprite::_unregister_svg_references() {
 }
 
 void SpxSprite::_unregister_single_texture_svg() {
-	auto svg_manager = SpxEngine::get_singleton()->get_svg_global_manager();
-	if (!svg_manager) {
+	if (!svgMgr) {
 		return;
 	}
 	
 	if (!current_single_texture_svg_path.is_empty()) {
-		svg_manager->unregister_reference(current_single_texture_svg_path, this);
+		svgMgr->unregister_reference(current_single_texture_svg_path, this);
 	}
 }
 
 void SpxSprite::_unregister_animation_svg_references(const String& anim_name) {
-	auto svg_manager = SpxEngine::get_singleton()->get_svg_global_manager();
-	if (!svg_manager || !anim2d) {
+	if (!svgMgr || !anim2d) {
 		return;
 	}
 	
@@ -896,7 +891,7 @@ void SpxSprite::_unregister_animation_svg_references(const String& anim_name) {
 			if (texture.is_valid()) {
 				String svg_path = _extract_svg_path_from_texture(texture);
 				if (!svg_path.is_empty()) {
-					svg_manager->unregister_reference(svg_path, this);
+					svgMgr->unregister_reference(svg_path, this);
 				}
 			}
 		}

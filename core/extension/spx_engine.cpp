@@ -33,7 +33,6 @@
 #include "core/os/memory.h"
 #include "gdextension_spx_ext.h"
 #include "scene/main/window.h"
-#include "svg_global_manager.h"
 #include "spx_input_mgr.h"
 #include "spx_audio_mgr.h"
 #include "spx_physic_mgr.h"
@@ -124,8 +123,6 @@ void SpxEngine::register_callbacks(GDExtensionSpxCallbackInfoPtr callback_ptr) {
 	singleton->ext = memnew(SpxExtMgr);
 	singleton->mgrs.append((SpxBaseMgr *)singleton->ext);
 	
-	singleton->svg_global_manager = memnew(SvgGlobalManager);
-
 	singleton->callbacks = *(SpxCallbackInfo *)callback_ptr;
 	singleton->global_id = 1;
 }
@@ -216,6 +213,10 @@ void SpxEngine::on_destroy() {
 		}
 	}
 	callbacks = get_default_spx_callbacks();
+	
+	// Destroy svg global manager
+	svgMgr->destroy();
+	
 	memdelete(input);
 	memdelete(audio);
 	memdelete(physic);
@@ -226,7 +227,6 @@ void SpxEngine::on_destroy() {
 	memdelete(platform);
 	memdelete(res);
 	memdelete(ext);
-	memdelete(svg_global_manager);
 	mgrs.clear();
 	singleton = nullptr;
 }
