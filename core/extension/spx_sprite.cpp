@@ -484,23 +484,10 @@ void SpxSprite::on_svg_changed() {
 
 void SpxSprite::set_texture_direct(GdString path, GdBool direct) {
 	auto path_str = SpxStr(path);
-	print_line("set_texture:",path_str);
 	
 	// Check if we're currently in animation mode and playing
 	// If so, warn about potential mode change but allow override
 	if (current_display_mode == MODE_ANIMATION && !current_animation_name.is_empty()) {
-		bool is_playing = anim2d && anim2d->is_playing();
-		if (is_playing) {
-			print_line("WARNING: set_texture_direct called while animation is playing!");
-			print_line("Current animation:", current_animation_name, "is playing. This will stop the animation.",path_str);
-			print_line("If this is intended, consider calling stop_anim() first or use a different method.");
-			
-			// For safety, stop the animation before switching to texture mode
-			// This ensures clean state transition
-			print_line("Stopping current animation to prevent state corruption.");
-			//anim2d->stop();
-		}
-		// this is debug code , don't delete it 
 		return ;
 	}
 	
@@ -556,7 +543,6 @@ void SpxSprite::_update_single_texture_svg_internal(const String& svg_path) {
 		auto frames = anim2d->get_sprite_frames();
 		if (frames.is_valid() && frames->get_frame_count(SpxSpriteMgr::default_texture_anim) > 0) {
 			frames->set_frame(SpxSpriteMgr::default_texture_anim, 0, texture);
-			print_line("SVG texture updated internally without mode change");
 		}
 	}
 }
@@ -867,7 +853,6 @@ void SpxSprite::set_render_scale(GdVec2 new_scale) {
 
 void SpxSprite::update_anim_scale(){
 	GdVec2 finalScale = _render_scale;
-	print_line("update_anim_scale called, _render_scale:", _render_scale);
 	
 	if (current_display_mode == MODE_SINGLE_TEXTURE) {
 		// Handle single texture mode

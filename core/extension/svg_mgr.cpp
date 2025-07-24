@@ -248,6 +248,7 @@ Ref<ImageTexture> SvgManager::load_svg_at_scale(const String& svg_path, float sc
 	
 	Error err = ImageLoader::load_image(svg_path, image, nullptr, scale);
 	if (err != OK) {
+		print_error("Failed to load SVG: " + svg_path);
 		// 回退到默认加载
 		err = ImageLoader::load_image(svg_path, image);
 		if (err != OK) {
