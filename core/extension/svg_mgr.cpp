@@ -67,20 +67,24 @@ Ref<ImageTexture> SvgManager::get_or_create_svg_texture(const String& svg_path) 
 		return cacheInfo.texture;
 	}
 	
-	// Create new SVG info
+	// Create new SVG info and register it first to enable caching
 	SvgInfo svg_info;
 	svg_info.path = svg_path;
 	svg_info.current_scale_level = 1.0f;
-	svg_info.texture = load_svg_at_scale(svg_path, 1.0f);
 	svg_info.raw_size = GdVec2(1, 1);
-	svg_info.texture->set_path_cache(svg_path);  // 添加这一行
-	if (svg_info.texture.is_valid()) {
-		svg_info.raw_size = svg_info.texture->get_size();
-	} 
+	
+	// Register the info first so that load_svg_at_scale can use caching
 	svg_registry[svg_path] = svg_info;
 	
-	if (svg_info.texture.is_valid()) {
-		return svg_info.texture;
+	// Now load the texture with caching enabled
+	svg_registry[svg_path].texture = load_svg_at_scale(svg_path, 1.0f);
+	svg_registry[svg_path].texture->set_path_cache(svg_path);
+	if (svg_registry[svg_path].texture.is_valid()) {
+		svg_registry[svg_path].raw_size = svg_registry[svg_path].texture->get_size();
+	}
+	
+	if (svg_registry[svg_path].texture.is_valid()) {
+		return svg_registry[svg_path].texture;
 	}
 	
 	print_error("[SVG] Failed to create SVG texture: " + svg_path);
@@ -209,8 +213,10 @@ void SvgManager::check_and_update_svg_scale(const String& svg_path) {
 		// Check threshold
 		if (max_required >= threshold_value) {
 			update_svg_texture_data(svg_info, optimal_level);
+		} else {
+			print_line("[SVG Scale] Threshold not met for", svg_path, "current:", svg_info.current_scale_level, "required:", max_required, "threshold:", threshold_value);
 		}
-	}
+	} 
 }
 
 void SvgManager::update_svg_texture_data(SvgInfo& svg_info, float new_scale) {
@@ -218,43 +224,75 @@ void SvgManager::update_svg_texture_data(SvgInfo& svg_info, float new_scale) {
 		return; // Only support scaling up
 	}
 	
-	// Load new high-resolution SVG image
+	// Check if we already have this scale cached
 	Ref<Image> new_image;
-	new_image.instantiate();
-	
-	Error err = ImageLoader::load_image(svg_info.path, new_image, nullptr,  ImageFormatLoader::FLAG_NONE, new_scale);
-	if (err != OK) {
-		print_error("[SVG] Failed to load SVG at scale " + String::num(new_scale) + ": " + svg_info.path + 
-		           " (error code: " + String::num(err) + ")");
-		return;
+	if (svg_info.scale_image_cache.has(new_scale)) {
+		new_image = svg_info.scale_image_cache[new_scale];
+	} else {
+		// Load new high-resolution SVG image
+		new_image = load_svg_image_at_scale(svg_info.path, new_scale);
+		if (new_image.is_null()) {
+			print_error("[SVG] Failed to load SVG at scale " + String::num(new_scale) + ": " + svg_info.path);
+			return;
+		}
+		
+		// Cache the loaded image
+		svg_info.scale_image_cache[new_scale] = new_image;
+		print_line("[SVG Cache] Cached new image for scale", new_scale, "path:", svg_info.path);
 	}
 	
 	// Update texture data (keep object reference unchanged)
 	svg_info.texture->set_image(new_image);
+	float old_scale = svg_info.current_scale_level;
 	svg_info.current_scale_level = new_scale;
 	
-	// Notify all referenced sprites to refresh display
+	
+	// Notify all referenced sprites to refresh display without triggering scale checks
 	for (SpxSprite* sprite : svg_info.references) {
-		if (sprite && sprite->anim2d) {
-			// Force refresh AnimatedSprite2D display
-			sprite->on_svg_changed();
+		if (sprite) {
+			// Use SpxSprite's own method to handle display refresh
+			sprite->force_redraw();
 		}
 	}
 }
 
-Ref<ImageTexture> SvgManager::load_svg_at_scale(const String& svg_path, float scale) {
+Ref<Image> SvgManager::load_svg_image_at_scale(const String& svg_path, float scale) {
 	Ref<Image> image;
 	image.instantiate();
 	
-	Error err = ImageLoader::load_image(svg_path, image, nullptr, scale);
+	Error err = ImageLoader::load_image(svg_path, image, nullptr, ImageFormatLoader::FLAG_NONE, scale);
 	if (err != OK) {
-		print_error("Failed to load SVG: " + svg_path);
+		print_error("Failed to load SVG image: " + svg_path + " at scale " + String::num(scale));
 		// 回退到默认加载
 		err = ImageLoader::load_image(svg_path, image);
 		if (err != OK) {
-			print_error("Failed to load SVG: " + svg_path);
-			return Ref<ImageTexture>();
+			print_error("Failed to load SVG image with fallback: " + svg_path);
+			return Ref<Image>();
 		}
+	}
+	
+	return image;
+}
+
+Ref<ImageTexture> SvgManager::load_svg_at_scale(const String& svg_path, float scale) {
+	// Check if we have this SVG registered and if the scale is cached
+	if (svg_registry.has(svg_path) && svg_registry[svg_path].scale_image_cache.has(scale)) {
+		Ref<Image> cached_image = svg_registry[svg_path].scale_image_cache[scale];
+		Ref<ImageTexture> texture;
+		texture.instantiate();
+		texture->set_image(cached_image);
+		return texture;
+	}
+	
+	// Load new image
+	Ref<Image> image = load_svg_image_at_scale(svg_path, scale);
+	if (image.is_null()) {
+		return Ref<ImageTexture>();
+	}
+	
+	// Cache if this SVG is registered
+	if (svg_registry.has(svg_path)) {
+		svg_registry[svg_path].scale_image_cache[scale] = image;
 	}
 	
 	Ref<ImageTexture> texture;

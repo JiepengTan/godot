@@ -482,6 +482,12 @@ void SpxSprite::on_svg_changed() {
 	}
 }
 
+void SpxSprite::force_redraw() {
+	if (anim2d) {
+		anim2d->queue_redraw();
+	}
+}
+
 void SpxSprite::set_texture_direct(GdString path, GdBool direct) {
 	auto path_str = SpxStr(path);
 	
@@ -858,23 +864,19 @@ void SpxSprite::update_anim_scale(){
 		// Handle single texture mode
 		if (current_single_texture_svg_path != ""){
 			float raw_scale = svgMgr->get_image_raw_scale(current_single_texture_svg_path);
-			print_line("Single texture mode - SVG raw scale:", raw_scale);
 			finalScale.x = finalScale.x / raw_scale;
 			finalScale.y = finalScale.y / raw_scale;
 		}
 	} else if (current_display_mode == MODE_ANIMATION) {
 		// Handle animation mode - get current frame's SVG info
 		String current_frame_svg_path = _get_current_animation_frame_svg_path();
-		print_line("Animation mode - current frame SVG:", current_frame_svg_path);
 		if (!current_frame_svg_path.is_empty()) {
 			float raw_scale = svgMgr->get_image_raw_scale(current_frame_svg_path);
-			print_line("Animation mode - SVG raw scale:", raw_scale);
 			finalScale.x = finalScale.x / raw_scale;
 			finalScale.y = finalScale.y / raw_scale;
 		}
 	}
 	
-	print_line("Final scale applied:", finalScale);
 	anim2d->set_scale(finalScale);
 }
 

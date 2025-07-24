@@ -133,6 +133,7 @@ public:
 	void set_spx_type_name(String type_name);
 	String get_spx_type_name();
 	void on_svg_changed();
+	void force_redraw();
 	void _set_texture_direct(String path, GdBool direct);
 	
 	// Internal method for SVG texture updates without mode change

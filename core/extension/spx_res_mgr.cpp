@@ -197,7 +197,6 @@ Ref<Texture2D> SpxResMgr::load_texture(String path, GdBool direct) {
 	if (engine_path.to_lower().ends_with(".svg")) {
 		auto svg_mgr = svgMgr;
 		if (svg_mgr) {
-			print_line("load_texture ===>",engine_path);
 			return svg_mgr->get_or_create_svg_texture(engine_path);
 		}
 	}
