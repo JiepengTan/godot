@@ -18,7 +18,8 @@ private:
 	struct SvgInfo {
 		String path;
 		Vector2 raw_size;
-		Ref<ImageTexture> texture;      // global shared texture
+		// Remove single texture, use cache instead
+		HashMap<float, Ref<ImageTexture>> scale_texture_cache; // scale -> cached Texture
 		float current_scale_level;      // current scale level (1, 2, 4, 8, 16...)
 		HashSet<SpxSprite*> references; // all sprites that reference this SVG
 		
@@ -26,6 +27,24 @@ private:
 		HashMap<float, Ref<Image>> scale_image_cache; // scale -> cached Image
 		
 		float get_max_required_scale() const;
+		
+		// Helper method to get texture at specific scale
+		Ref<ImageTexture> get_texture_at_scale(float scale_level) const {
+			if (scale_texture_cache.has(scale_level)) {
+				return scale_texture_cache[scale_level];
+			}
+			return Ref<ImageTexture>();
+		}
+		
+		// Helper method to cache texture at specific scale
+		void cache_texture_at_scale(float scale_level, const Ref<ImageTexture>& texture) {
+			scale_texture_cache[scale_level] = texture;
+		}
+		
+		// Helper method to get current active texture
+		Ref<ImageTexture> get_current_texture() const {
+			return get_texture_at_scale(current_scale_level);
+		}
 		
 		SvgInfo() {
 			current_scale_level = 1.0f;

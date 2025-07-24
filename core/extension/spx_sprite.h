@@ -136,9 +136,6 @@ public:
 	void force_redraw();
 	void _set_texture_direct(String path, GdBool direct);
 	
-	// Internal method for SVG texture updates without mode change
-	void _update_single_texture_svg_internal(const String& svg_path);
-	
 	// Enhanced animation scaling support
 	void _check_and_switch_animation_scale();
 	String _extract_base_animation_name(const String& full_anim_name);

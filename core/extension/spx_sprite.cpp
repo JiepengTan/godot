@@ -416,12 +416,21 @@ void SpxSprite::on_svg_changed() {
 	print_line("on_svg_changed called, mode:", current_display_mode == MODE_SINGLE_TEXTURE ? "SINGLE_TEXTURE" : "ANIMATION");
 	
 	if (current_display_mode == MODE_SINGLE_TEXTURE) {
-		// Handle single texture mode - use internal method to avoid mode switching
+		// Handle single texture mode - get the current active texture from SVG manager
 		if(current_single_texture_svg_path != ""){
 			print_line("Updating single texture SVG:", current_single_texture_svg_path);
-			// Use internal method that doesn't change mode or trigger re-registration
-			_update_single_texture_svg_internal(current_single_texture_svg_path);
-			// Just update scale and redraw
+			
+			// Get the current active texture from SVG manager (which uses the new cache system)
+			Ref<Texture2D> updated_texture = svgMgr->get_or_create_svg_texture(current_single_texture_svg_path);
+			if (updated_texture.is_valid() && anim2d) {
+				auto frames = anim2d->get_sprite_frames();
+				if (frames.is_valid() && frames->get_frame_count(SpxSpriteMgr::default_texture_anim) > 0) {
+					frames->set_frame(SpxSpriteMgr::default_texture_anim, 0, updated_texture);
+					print_line("Updated single texture frame with current active SVG texture");
+				}
+			}
+			
+			// Update scale and redraw
 			update_anim_scale();
 			if (anim2d) {
 				anim2d->queue_redraw();
@@ -434,7 +443,6 @@ void SpxSprite::on_svg_changed() {
 		print_line("Current frame SVG path:", current_frame_svg);
 		
 		if (anim2d && !current_animation_name.is_empty()) {
-			// Save current animation state
 			bool was_playing = anim2d->is_playing();
 			float current_speed_scale = anim2d->get_speed_scale();
 			int current_frame = anim2d->get_frame();
@@ -443,7 +451,7 @@ void SpxSprite::on_svg_changed() {
 			print_line("Saving animation state - playing:", was_playing, "frame:", current_frame, "progress:", current_frame_progress);
 			
 			// Method: Force complete refresh by rebuilding SpriteFrames connection
-			// This ensures AnimatedSprite2D gets the updated SVG textures
+			// This ensures AnimatedSprite2D gets the updated SVG textures from the cache
 			auto sprite_frames = anim2d->get_sprite_frames();
 			if (sprite_frames.is_valid()) {
 				print_line("Rebuilding SpriteFrames connection to force texture refresh");
@@ -534,24 +542,6 @@ void SpxSprite::_set_texture_direct(String path_str, GdBool direct) {
 	}
 }
 
-void SpxSprite::_update_single_texture_svg_internal(const String& svg_path) {
-	// This method only updates SVG texture without changing display mode
-	// Used internally by SVG manager to avoid mode switching issues
-	if (current_display_mode != MODE_SINGLE_TEXTURE || current_single_texture_svg_path != svg_path) {
-		// Only proceed if we're actually in single texture mode with this SVG
-		print_line("_update_single_texture_svg_internal: Mode or path mismatch, skipping update");
-		return;
-	}
-	
-	// Just reload the texture without changing mode or references
-	Ref<Texture2D> texture = resMgr->load_texture(svg_path, false);
-	if (texture.is_valid() && anim2d) {
-		auto frames = anim2d->get_sprite_frames();
-		if (frames.is_valid() && frames->get_frame_count(SpxSpriteMgr::default_texture_anim) > 0) {
-			frames->set_frame(SpxSpriteMgr::default_texture_anim, 0, texture);
-		}
-	}
-}
 void SpxSprite::set_texture_altas(GdString path, GdRect2 rect2) {
 	return set_texture_altas_direct(path, rect2, false);
 }

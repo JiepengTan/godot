@@ -61,10 +61,10 @@ Ref<ImageTexture> SvgManager::get_or_create_svg_texture(const String& svg_path) 
 		return Ref<ImageTexture>();
 	}
 	
-	// If already exists, return directly
+	// If already exists, return current active texture
 	if (svg_registry.has(svg_path)) {
 		auto& cacheInfo = svg_registry[svg_path];
-		return cacheInfo.texture;
+		return cacheInfo.get_current_texture();
 	}
 	
 	// Create new SVG info and register it first to enable caching
@@ -77,14 +77,13 @@ Ref<ImageTexture> SvgManager::get_or_create_svg_texture(const String& svg_path) 
 	svg_registry[svg_path] = svg_info;
 	
 	// Now load the texture with caching enabled
-	svg_registry[svg_path].texture = load_svg_at_scale(svg_path, 1.0f);
-	svg_registry[svg_path].texture->set_path_cache(svg_path);
-	if (svg_registry[svg_path].texture.is_valid()) {
-		svg_registry[svg_path].raw_size = svg_registry[svg_path].texture->get_size();
-	}
-	
-	if (svg_registry[svg_path].texture.is_valid()) {
-		return svg_registry[svg_path].texture;
+	Ref<ImageTexture> texture = load_svg_at_scale(svg_path, 1.0f);
+	if (texture.is_valid()) {
+		texture->set_path_cache(svg_path);
+		svg_registry[svg_path].raw_size = texture->get_size();
+		// Cache the texture at scale 1.0
+		svg_registry[svg_path].cache_texture_at_scale(1.0f, texture);
+		return texture;
 	}
 	
 	print_error("[SVG] Failed to create SVG texture: " + svg_path);
@@ -96,9 +95,24 @@ Ref<ImageTexture> SvgManager::get_or_create_svg_texture_at_scale(const String& s
 		return Ref<ImageTexture>();
 	}
 	
-	// Always create a new texture at the specified scale level
-	// This is used for animation scaling where we need specific scale versions
-	return load_svg_at_scale(svg_path, scale_level);
+	// Check if we have this scale cached for registered SVGs
+	if (svg_registry.has(svg_path)) {
+		SvgInfo& svg_info = svg_registry[svg_path];
+		Ref<ImageTexture> cached_texture = svg_info.get_texture_at_scale(scale_level);
+		if (cached_texture.is_valid()) {
+			return cached_texture;
+		}
+	}
+	
+	// Load texture at the specified scale level
+	Ref<ImageTexture> texture = load_svg_at_scale(svg_path, scale_level);
+	
+	// Cache it if this SVG is registered
+	if (texture.is_valid() && svg_registry.has(svg_path)) {
+		svg_registry[svg_path].cache_texture_at_scale(scale_level, texture);
+	}
+	
+	return texture;
 }
 
 void SvgManager::register_reference(const String& svg_path, SpxSprite* sprite) {
@@ -213,8 +227,6 @@ void SvgManager::check_and_update_svg_scale(const String& svg_path) {
 		// Check threshold
 		if (max_required >= threshold_value) {
 			update_svg_texture_data(svg_info, optimal_level);
-		} else {
-			print_line("[SVG Scale] Threshold not met for", svg_path, "current:", svg_info.current_scale_level, "required:", max_required, "threshold:", threshold_value);
 		}
 	} 
 }
@@ -224,7 +236,22 @@ void SvgManager::update_svg_texture_data(SvgInfo& svg_info, float new_scale) {
 		return; // Only support scaling up
 	}
 	
-	// Check if we already have this scale cached
+	// Check if we already have this scale cached as a texture
+	Ref<ImageTexture> cached_texture = svg_info.get_texture_at_scale(new_scale);
+	if (cached_texture.is_valid()) {
+		// We already have the texture at this scale, just update current scale level
+		svg_info.current_scale_level = new_scale;
+		
+		// Notify all referenced sprites to refresh display
+		for (SpxSprite* sprite : svg_info.references) {
+			if (sprite) {
+				sprite->force_redraw();
+			}
+		}
+		return;
+	}
+	
+	// Check if we already have this scale cached as an image
 	Ref<Image> new_image;
 	if (svg_info.scale_image_cache.has(new_scale)) {
 		new_image = svg_info.scale_image_cache[new_scale];
@@ -241,11 +268,19 @@ void SvgManager::update_svg_texture_data(SvgInfo& svg_info, float new_scale) {
 		print_line("[SVG Cache] Cached new image for scale", new_scale, "path:", svg_info.path);
 	}
 	
-	// Update texture data (keep object reference unchanged)
-	svg_info.texture->set_image(new_image);
+	// Create new texture for this scale
+	Ref<ImageTexture> new_texture;
+	new_texture.instantiate();
+	new_texture->set_image(new_image);
+	new_texture->set_path_cache(svg_info.path);
+	
+	// Cache the new texture
+	svg_info.cache_texture_at_scale(new_scale, new_texture);
+	
 	float old_scale = svg_info.current_scale_level;
 	svg_info.current_scale_level = new_scale;
 	
+	print_line("[SVG Scale] Updated texture data for", svg_info.path, "from scale", old_scale, "to", new_scale);
 	
 	// Notify all referenced sprites to refresh display without triggering scale checks
 	for (SpxSprite* sprite : svg_info.references) {
@@ -275,13 +310,26 @@ Ref<Image> SvgManager::load_svg_image_at_scale(const String& svg_path, float sca
 }
 
 Ref<ImageTexture> SvgManager::load_svg_at_scale(const String& svg_path, float scale) {
-	// Check if we have this SVG registered and if the scale is cached
-	if (svg_registry.has(svg_path) && svg_registry[svg_path].scale_image_cache.has(scale)) {
-		Ref<Image> cached_image = svg_registry[svg_path].scale_image_cache[scale];
-		Ref<ImageTexture> texture;
-		texture.instantiate();
-		texture->set_image(cached_image);
-		return texture;
+	// Check if we have this SVG registered and if the texture is cached at this scale
+	if (svg_registry.has(svg_path)) {
+		SvgInfo& svg_info = svg_registry[svg_path];
+		Ref<ImageTexture> cached_texture = svg_info.get_texture_at_scale(scale);
+		if (cached_texture.is_valid()) {
+			return cached_texture;
+		}
+		
+		// Check if we have the image cached, create texture from it
+		if (svg_info.scale_image_cache.has(scale)) {
+			Ref<Image> cached_image = svg_info.scale_image_cache[scale];
+			Ref<ImageTexture> texture;
+			texture.instantiate();
+			texture->set_image(cached_image);
+			texture->set_path_cache(svg_path);
+			
+			// Cache the texture too
+			svg_info.cache_texture_at_scale(scale, texture);
+			return texture;
+		}
 	}
 	
 	// Load new image
@@ -290,19 +338,24 @@ Ref<ImageTexture> SvgManager::load_svg_at_scale(const String& svg_path, float sc
 		return Ref<ImageTexture>();
 	}
 	
-	// Cache if this SVG is registered
-	if (svg_registry.has(svg_path)) {
-		svg_registry[svg_path].scale_image_cache[scale] = image;
-	}
-	
+	// Create texture
 	Ref<ImageTexture> texture;
 	texture.instantiate();
 	texture->set_image(image);
+	texture->set_path_cache(svg_path);
+	
+	// Cache both image and texture if this SVG is registered
+	if (svg_registry.has(svg_path)) {
+		svg_registry[svg_path].scale_image_cache[scale] = image;
+		svg_registry[svg_path].cache_texture_at_scale(scale, texture);
+	}
 	
 	return texture;
 }
 
 void SvgManager::cleanup_unused_svg(const String& svg_path) {
+	return ;
+	// TODO don't remove cache, current has some bug ,TODO fix it
 	if (svg_registry.has(svg_path)) {
 		svg_registry.erase(svg_path);
 	}
