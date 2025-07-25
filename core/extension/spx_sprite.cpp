@@ -389,8 +389,6 @@ GdColor SpxSprite::get_material_params_color(GdString effect) {
 void SpxSprite::set_texture_altas_direct(GdString path, GdRect2 rect2, GdBool direct) {
 	auto path_str = SpxStr(path);
 	is_svg_mode = false;// svg don't support atlas
-	is_single_image_mode = true;
-
 	Ref<Texture2D> texture = resMgr->load_texture(path_str, direct);
 
 	Ref<AtlasTexture> atlas_texture_frame = memnew(AtlasTexture);
@@ -405,12 +403,10 @@ void SpxSprite::set_texture_direct(GdString path, GdBool direct) {
 	auto path_str = SpxStr(path);
 	Ref<Texture2D> texture = nullptr;
 	is_svg_mode = svgMgr->is_svg_file(path_str);
-	is_single_image_mode = true;
 	if (is_svg_mode){
 		int scale = _get_actual_match_render_scale();
 		current_svg_path = path_str;
 		texture = svgMgr->get_svg_image(path_str, scale);
-		return;
 	}else{
 		texture = resMgr->load_texture(path_str, direct);
 	}
@@ -419,6 +415,7 @@ void SpxSprite::set_texture_direct(GdString path, GdBool direct) {
 
 void SpxSprite::_play_single_image_animation(Ref<Texture2D> texture){
 	if (texture.is_valid()) {
+		is_single_image_mode = true;
 		anim2d->set_sprite_frames(default_sprite_frames);
 		auto frames = anim2d->get_sprite_frames();
 		if (frames->get_frame_count(SpxSpriteMgr::default_texture_anim) == 0) {
@@ -427,7 +424,6 @@ void SpxSprite::_play_single_image_animation(Ref<Texture2D> texture){
 			frames->set_frame(SpxSpriteMgr::default_texture_anim, 0, texture);
 		}
 		anim2d->set_animation(SpxSpriteMgr::default_texture_anim);
-		current_animation_name = SpxSpriteMgr::default_texture_anim;
 	} else {
 		print_error("can not set single image animation, texture is null");
 	}
@@ -797,36 +793,3 @@ GdBool SpxSprite::is_dynamic_frame_offset_enabled() const {
 	return enable_dynamic_frame_offset;
 }
 
-
-String SpxSprite::_get_current_animation_frame_svg_path() {
-	if (!anim2d || current_animation_name.is_empty()) {
-		return String();
-	}
-	
-	auto frames = anim2d->get_sprite_frames();
-	if (!frames.is_valid()) {
-		return String();
-	}
-	
-	int current_frame = anim2d->get_frame();
-	current_animation_name = String(anim2d->get_animation());
-	if (current_frame < 0 || current_frame >= frames->get_frame_count(current_animation_name)) {
-		return String();
-	}
-	
-	auto texture = frames->get_frame_texture(current_animation_name, current_frame);
-	if (!texture.is_valid()) {
-		return String();
-	}
-	
-	String texture_path = texture->get_path();
-	if (texture_path.is_empty()) {
-		texture_path = texture->get_name();
-	}
-	
-	if (texture_path.to_lower().ends_with(".svg")) {
-		return texture_path;
-	}
-	
-	return String();
-}

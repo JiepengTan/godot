@@ -209,12 +209,12 @@ void SvgManager::destroy() {
 	singleton = nullptr;
 }
 
-float SvgManager::calculate_optimal_scale_level(Vector2 required_scale) {
+int SvgManager::calculate_optimal_scale_level(Vector2 required_scale) {
 	float scale = MAX(required_scale.x, required_scale.y);
 	// Use powers of 2: 1, 2, 4, 8, 16...
-	if (scale <= 1.0f) return 1.0f;
-	if (scale <= 2.0f) return 2.0f;
-	if (scale <= 4.0f) return 4.0f;
-	if (scale <= 8.0f) return 8.0f;
-	return 16.0f;  // Max scale level
+	if (scale <= 1.0f) return 1;
+	if (scale <= 2.0f) return 2;
+	if (scale <= 4.0f) return 4;
+	if (scale <= 8.0f) return 8;
+	return 16;  // Max scale level
 }
