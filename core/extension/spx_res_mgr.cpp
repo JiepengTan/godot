@@ -1,4 +1,4 @@
-﻿/**************************************************************************/
+/**************************************************************************/
 /*  spx_platform_mgr.cpp                                                     */
 /**************************************************************************/
 /*                         This file is part of:                          */
@@ -32,6 +32,9 @@
 #include "core/io/file_access.h"
 #include "core/io/image.h"
 #include "core/io/image_loader.h"
+#include "core/math/vector2.h"
+#include "svg_mgr.h"
+#include "spx_engine.h"
 #include "modules/minimp3/audio_stream_mp3.h"
 #include "modules/modules_enabled.gen.h"
 #include "scene/2d/audio_stream_player_2d.h"
@@ -187,7 +190,16 @@ void SpxResMgr::reload_texture(GdString path) {
 	_reload_texture(path_str);
 }
 
+
 Ref<Texture2D> SpxResMgr::load_texture(String path, GdBool direct) {
+	String engine_path = _to_engine_path(path);
+	
+	// If SVG file, use SVG manager
+	if (engine_path.to_lower().ends_with(".svg")) {
+		return svgMgr->get_svg_image(engine_path, 1); // 默认1倍缩放
+	}
+	
+	// For non-SVG files, use original logic
 	if (!is_load_direct && !direct) {
 		Ref<Resource> res = ResourceLoader::load(path);
 		if (res.is_null()) {
@@ -243,7 +255,7 @@ void SpxResMgr::create_animation(GdString p_sprite_type_name, GdString p_anim_na
 	
 	// store frame offset information
 	Vector<Vector2> frame_offsets;
-	
+	int svg_count = 0;
 	if (!is_altas) {
 		auto strs = context.split(";");
 		for (const String &path_with_offset : strs) {
@@ -261,8 +273,11 @@ void SpxResMgr::create_animation(GdString p_sprite_type_name, GdString p_anim_na
 						offset.y = offset_parts[1].to_float();
 					}
 				}
+			}	
+			if (path.to_lower().ends_with(".svg")) {
+				svg_count++;
 			}
-			
+		
 			Ref<Texture2D> texture = load_texture(path);
 			if (!texture.is_valid()) {
 				print_error("animation parse error" + sprite_type_name + " " + anim_key + " can not find path " + path);
@@ -271,6 +286,11 @@ void SpxResMgr::create_animation(GdString p_sprite_type_name, GdString p_anim_na
 			frames->add_frame(anim_key, texture);
 			frame_offsets.push_back(offset);
 		}
+		if (svg_count>0 && svg_count != strs.size()){
+			print_error("animation parse error " + sprite_type_name + " " + anim_key + " svg path count not match frame count");
+			return ;
+		}
+		svgMgr->set_is_svg_animation(anim_key, svg_count > 0);
 	} else {
 		auto strs = context.split(";");
 		if (strs.size() < 2) {
@@ -359,7 +379,10 @@ void SpxResMgr::create_animation(GdString p_sprite_type_name, GdString p_anim_na
 	
 	// store animation frame offset information
 	animation_frame_offsets[anim_key] = frame_offsets;
+	
 }
+
+
 void SpxResMgr::set_load_mode(GdBool is_direct_mode) {
 	is_load_direct = is_direct_mode;
 }
@@ -409,6 +432,10 @@ GdVec2 SpxResMgr::get_image_size(GdString path) {
 	auto path_str = SpxStr(path);
 	Ref<Texture2D> value = load_texture(path_str);
 	if (value.is_valid()) {
+		if(svgMgr -> is_svg_file(path_str)){
+			print_line(path_str, "svgMgr->get_image_raw_size(path_str)",svgMgr->get_image_raw_size(path_str)," value->get_size()",value->get_size());
+			return GdVec2(svgMgr->get_image_raw_size(path_str));
+		}
 		return value->get_size();
 	} else {
 		print_error("can not find a texture: " + path_str);

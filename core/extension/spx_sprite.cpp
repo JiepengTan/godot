@@ -30,6 +30,7 @@
 
 #include "spx_sprite.h"
 
+#include "core/extension/spx_base_mgr.h"
 #include "scene/2d/animated_sprite_2d.h"
 #include "scene/2d/area_2d.h"
 #include "scene/2d/collision_shape_2d.h"
@@ -42,6 +43,8 @@
 #include "spx_engine.h"
 #include "spx_res_mgr.h"
 #include "spx_sprite_mgr.h"
+#include "spx_camera_mgr.h"
+#include "svg_mgr.h"
 #define SPX_CALLBACK SpxEngine::get_singleton()->get_callbacks()
 #define spriteMgr SpxEngine::get_singleton()->get_sprite()
 
@@ -243,7 +246,6 @@ void SpxSprite::on_sprite_frame_changed() {
 		return;
 	}
 	
-	// 处理动态帧偏移
 	_on_frame_changed();
 	
 	SPX_CALLBACK->func_on_sprite_frame_changed(this->gid);
@@ -386,29 +388,36 @@ GdColor SpxSprite::get_material_params_color(GdString effect) {
 
 void SpxSprite::set_texture_altas_direct(GdString path, GdRect2 rect2, GdBool direct) {
 	auto path_str = SpxStr(path);
+	is_svg_mode = false;// svg don't support atlas
+	is_single_image_mode = true;
+
 	Ref<Texture2D> texture = resMgr->load_texture(path_str, direct);
 
 	Ref<AtlasTexture> atlas_texture_frame = memnew(AtlasTexture);
 	atlas_texture_frame->set_atlas(texture);
 	atlas_texture_frame->set_region(rect2);
 
-	if (texture.is_valid()) {
-		anim2d->set_sprite_frames(default_sprite_frames);
-		auto frames = anim2d->get_sprite_frames();
-		if (frames->get_frame_count(SpxSpriteMgr::default_texture_anim) == 0) {
-			frames->add_frame(SpxSpriteMgr::default_texture_anim, atlas_texture_frame);
-		} else {
-			frames->set_frame(SpxSpriteMgr::default_texture_anim, 0, atlas_texture_frame);
-		}
-		anim2d->set_animation(SpxSpriteMgr::default_texture_anim);
-	} else {
-		print_error("can not find a texture: " + path_str);
-	}
+	_play_single_image_animation(atlas_texture_frame);
 }
+
 
 void SpxSprite::set_texture_direct(GdString path, GdBool direct) {
 	auto path_str = SpxStr(path);
-	Ref<Texture2D> texture = resMgr->load_texture(path_str, direct);
+	Ref<Texture2D> texture = nullptr;
+	is_svg_mode = svgMgr->is_svg_file(path_str);
+	is_single_image_mode = true;
+	if (is_svg_mode){
+		int scale = _get_actual_match_render_scale();
+		current_svg_path = path_str;
+		texture = svgMgr->get_svg_image(path_str, scale);
+		return;
+	}else{
+		texture = resMgr->load_texture(path_str, direct);
+	}
+	_play_single_image_animation(texture);
+}
+
+void SpxSprite::_play_single_image_animation(Ref<Texture2D> texture){
 	if (texture.is_valid()) {
 		anim2d->set_sprite_frames(default_sprite_frames);
 		auto frames = anim2d->get_sprite_frames();
@@ -418,10 +427,12 @@ void SpxSprite::set_texture_direct(GdString path, GdBool direct) {
 			frames->set_frame(SpxSpriteMgr::default_texture_anim, 0, texture);
 		}
 		anim2d->set_animation(SpxSpriteMgr::default_texture_anim);
+		current_animation_name = SpxSpriteMgr::default_texture_anim;
 	} else {
-		print_error("can not find a texture: " + path_str);
+		print_error("can not set single image animation, texture is null");
 	}
 }
+
 void SpxSprite::set_texture_altas(GdString path, GdRect2 rect2) {
 	return set_texture_altas_direct(path, rect2, false);
 }
@@ -435,15 +446,40 @@ GdString SpxSprite::get_texture() {
 	return SpxReturnStr(tex->get_name());
 }
 
+
 void SpxSprite::play_anim(GdString p_name, GdFloat p_speed, GdBool isLoop, GdBool p_from_end) {
 	String anim_name = SpxStr(p_name);
+	print_line("play_anim:", anim_name);
+	// Enhanced: Check if we need to use a scaled version of the animation
+	String final_anim_key;
+	is_svg_mode = false;
+	is_single_image_mode = false;
+
 	if (resMgr->is_dynamic_anim_mode()) {
-		anim_name = resMgr->get_anim_key_name(get_spx_type_name(), anim_name);
-		auto frames = resMgr->get_anim_frames(anim_name);
+		String sprite_type = get_spx_type_name();
+		String base_anim_key = resMgr->get_anim_key_name(sprite_type, anim_name);
+		current_svg_path = base_anim_key;
+		Ref<SpriteFrames> frames;
+		is_svg_mode = svgMgr->is_svg_animation(base_anim_key);
+		// Check if this is an SVG animation that supports scaling
+		if (is_svg_mode) {
+			// Calculate required scale based on current render scale
+			int scale = _get_actual_match_render_scale();
+			frames = svgMgr->get_svg_animation(base_anim_key, scale);
+			final_anim_key = base_anim_key;
+		} else {
+			frames = resMgr->get_anim_frames(final_anim_key);
+			// Use base animation for non-SVG animations
+			final_anim_key = base_anim_key;
+		}
 		anim2d->set_sprite_frames(frames);
-		frames->set_animation_loop(anim_name, isLoop);
+		frames->set_animation_loop(final_anim_key, isLoop);
+	} else {
+		final_anim_key = anim_name;
 	}
-	anim2d->play(anim_name, p_speed, p_from_end);
+	
+	anim2d->play(final_anim_key, p_speed, p_from_end);
+	
 }
 
 void SpxSprite::play_backwards_anim(GdString p_name) {
@@ -506,7 +542,7 @@ GdBool SpxSprite::is_anim_centered() const {
 }
 
 void SpxSprite::set_anim_offset(GdVec2 p_offset) {
-	base_offset = p_offset;  // 保存基础偏移量
+	base_offset = p_offset;
 	anim2d->set_offset(p_offset);
 }
 
@@ -662,28 +698,87 @@ GdBool SpxSprite::check_collision_with_point(GdVec2 point, GdBool is_trigger) {
 	bool is_colliding = this_shape->get_shape()->collide(sprite_transform, point_shape, point_transform);
 	return is_colliding;
 }
+
 void SpxSprite::set_render_scale(GdVec2 new_scale) {
-	anim2d->set_scale(new_scale);
+	_render_scale = new_scale;
+	update_anim_scale();
 }
+
+void SpxSprite::update_anim_scale(){
+	GdVec2 finalScale = _render_scale;
+	auto scale = _get_actual_match_render_scale();
+	if(scale != current_svg_scale){
+		print_line("===>update_anim_scale: ", current_svg_path, " scale: ", scale);
+		current_svg_scale = scale;
+		if(is_svg_mode){
+			// 单图片模式
+			if(is_single_image_mode){
+				Ref<Texture2D> texture = svgMgr->get_svg_image(current_svg_path, scale);
+				_play_single_image_animation(texture);
+			}else{ 
+				auto anim_name = current_svg_path;
+				auto frames = svgMgr->get_svg_animation(anim_name, scale);
+				if (frames.is_valid()) {
+					anim2d->set_sprite_frames(frames);
+					anim2d->set_animation(anim_name);
+				}
+			}
+		}
+	}
+	if(is_svg_mode){
+		finalScale.x = finalScale.x / current_svg_scale;
+		finalScale.y = finalScale.y / current_svg_scale;
+	}
+	anim2d->set_scale(finalScale);
+}
+
 GdVec2 SpxSprite::get_render_scale() {
-	return anim2d->get_scale();
+	return _render_scale;
+}
+
+int SpxSprite::_get_actual_match_render_scale() {
+	Vector2 current_scale = _get_actual_render_scale();
+	int optimal_scale = svgMgr->calculate_optimal_scale_level(current_scale);
+	return optimal_scale;
+}
+
+Vector2 SpxSprite::_get_actual_render_scale() {
+	if (!anim2d) {
+		return Vector2(1.0f, 1.0f);
+	}
+	
+	// Get the global transform scale
+	Transform2D global_transform = get_global_transform();
+	Vector2 global_scale = global_transform.get_scale() * _render_scale;
+	
+	// Consider camera zoom if available
+	auto camera_mgr = SpxEngine::get_singleton()->get_camera();
+	if (camera_mgr) {
+		Vector2 camera_zoom = camera_mgr->get_camera_zoom();
+		global_scale *= camera_zoom;
+	}
+	
+	return global_scale;
 }
 
 void SpxSprite::_on_frame_changed() {
-	if (!enable_dynamic_frame_offset || anim2d == nullptr) {
+	if (anim2d == nullptr) {
 		return;
 	}
 	
-	String current_anim = String(anim2d->get_animation());
-	int current_frame = anim2d->get_frame();
-	
-	Vector2 frame_offset = resMgr->get_animation_frame_offset(
-		current_anim, 
-		current_frame
-	);
-	
-	Vector2 final_offset = base_offset + frame_offset;
-	anim2d->set_offset(final_offset);
+	// Handle dynamic frame offset
+	if (enable_dynamic_frame_offset) {
+		String current_anim = String(anim2d->get_animation());
+		int current_frame = anim2d->get_frame();
+		
+		Vector2 frame_offset = resMgr->get_animation_frame_offset(
+			current_anim, 
+			current_frame
+		);
+		
+		Vector2 final_offset = base_offset + frame_offset;
+		anim2d->set_offset(final_offset);
+	}
 }
 
 void SpxSprite::set_dynamic_frame_offset_enabled(GdBool enabled) {
@@ -700,4 +795,38 @@ void SpxSprite::set_dynamic_frame_offset_enabled(GdBool enabled) {
 
 GdBool SpxSprite::is_dynamic_frame_offset_enabled() const {
 	return enable_dynamic_frame_offset;
+}
+
+
+String SpxSprite::_get_current_animation_frame_svg_path() {
+	if (!anim2d || current_animation_name.is_empty()) {
+		return String();
+	}
+	
+	auto frames = anim2d->get_sprite_frames();
+	if (!frames.is_valid()) {
+		return String();
+	}
+	
+	int current_frame = anim2d->get_frame();
+	current_animation_name = String(anim2d->get_animation());
+	if (current_frame < 0 || current_frame >= frames->get_frame_count(current_animation_name)) {
+		return String();
+	}
+	
+	auto texture = frames->get_frame_texture(current_animation_name, current_frame);
+	if (!texture.is_valid()) {
+		return String();
+	}
+	
+	String texture_path = texture->get_path();
+	if (texture_path.is_empty()) {
+		texture_path = texture->get_name();
+	}
+	
+	if (texture_path.to_lower().ends_with(".svg")) {
+		return texture_path;
+	}
+	
+	return String();
 }
