@@ -69,7 +69,6 @@ private:
 	void update_anim_scale();
 	Vector2 _get_actual_render_scale();
 	int _get_actual_match_render_scale();
-	int calculate_required_svg_scale(GdVec2 render_scale);
 
 protected:
 	void _notification(int p_what);
@@ -119,8 +118,6 @@ public:
 
 	void set_spx_type_name(String type_name);
 	String get_spx_type_name();
-	void on_svg_changed();
-	void force_redraw();
 	// Enhanced animation scaling support
 	void _check_and_switch_animation_scale();
 	String _extract_base_animation_name(const String& full_anim_name);

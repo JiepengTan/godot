@@ -409,11 +409,6 @@ void SpxSprite::set_texture_altas_direct(GdString path, GdRect2 rect2, GdBool di
 	}
 }
 
-void SpxSprite::force_redraw() {
-	if (anim2d) {
-		anim2d->queue_redraw();
-	}
-}
 
 void SpxSprite::set_texture_direct(GdString path, GdBool direct) {
 	auto path_str = SpxStr(path);
@@ -513,15 +508,6 @@ void SpxSprite::_set_animation(const String& anim_name) {
 		}
 	}
 		
-}
-
-
-int SpxSprite::calculate_required_svg_scale(GdVec2 render_scale) {
-	float max_scale = MAX(render_scale.x, render_scale.y);
-	if (max_scale <= 1.0f) return 1;
-	if (max_scale <= 2.0f) return 2;
-	if (max_scale <= 4.0f) return 4;
-	return 8; // 最大支持8倍
 }
 
 
