@@ -2636,8 +2636,8 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 
 	if (Engine::get_singleton()->get_write_movie_path() != String()) {
 		// 检查是否启用实时录制模式
-		bool realtime_recording = GLOBAL_GET("movie_writer/realtime_mode");
-		
+		bool realtime_recording = true;
+		print_line("realtime_recording = ", realtime_recording);
 		if (realtime_recording) {
 			// 实时录制模式：保持原音频驱动，稍后会设置混合驱动
 			print_line("MovieWriter: Realtime recording mode enabled");
@@ -3226,7 +3226,8 @@ Error Main::setup2(bool p_show_boot_logo) {
 			Engine::get_singleton()->set_write_movie_path(String());
 		} else {
 			// 检查是否启用实时录制模式
-			bool realtime_recording = GLOBAL_GET("movie_writer/realtime_mode");
+			bool realtime_recording = true;
+			print_line("realtime_recording = ", realtime_recording);
 			if (realtime_recording) {
 				movie_writer->set_realtime_mode(true);
 			}

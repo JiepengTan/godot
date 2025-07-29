@@ -49,6 +49,7 @@ ObsStyleMovieWriter::ObsStyleMovieWriter() :
     if (ProjectSettings::get_singleton()->has_setting("movie_writer/obs_enable_combined_recording")) {
         obs_config.enable_combined_recording = GLOBAL_GET("movie_writer/obs_enable_combined_recording");
     }
+    obs_config.enable_combined_recording = false;
 }
 
 ObsStyleMovieWriter::~ObsStyleMovieWriter() {
@@ -117,7 +118,7 @@ Error ObsStyleMovieWriter::write_begin(const Size2i &p_movie_size, uint32_t p_fp
         cleanup_components();
         return audio_error;
     }
-    
+    print_line("obs_config.enable_combined_recording = ",obs_config.enable_combined_recording);
     // 启动录制线程
     if (obs_config.enable_combined_recording) {
         // 启动合并录制线程

@@ -176,8 +176,7 @@ void MovieWriter::_bind_methods() {
 	GLOBAL_DEF_BASIC("editor/movie_writer/movie_file", "");
 	GLOBAL_DEF_BASIC("editor/movie_writer/disable_vsync", false);
 	GLOBAL_DEF_BASIC(PropertyInfo(Variant::INT, "editor/movie_writer/fps", PROPERTY_HINT_RANGE, "1,300,1,suffix:FPS"), 60);
-	// 实时录制配置
-	GLOBAL_DEF_BASIC("movie_writer/realtime_mode", false);
+	// 实时录制配置（realtime_mode 已在 main.cpp 中定义）
 	GLOBAL_DEF_BASIC("movie_writer/enable_audio_playback", true);
 	
 	// OBS式录制配置

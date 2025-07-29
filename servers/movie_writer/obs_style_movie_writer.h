@@ -51,7 +51,7 @@ public:
         bool enable_repeat_frame_marking = true;  // 启用重复帧标记
         bool enable_audio_monitoring = false;     // 启用音频监控
         bool enable_debug_output = true;          // 启用调试输出
-        bool enable_combined_recording = true;    // 启用合并录制（video+audio到同一文件）
+        bool enable_combined_recording = false;    // 启用合并录制（video+audio到同一文件）
         
         // 性能参数
         uint32_t max_frame_buffer_size = 4;       // 最大帧缓冲区大小
