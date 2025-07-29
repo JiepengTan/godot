@@ -1172,6 +1172,9 @@ class Bus {
 
 const _GodotAudio = {
 	$GodotAudio__deps: ['$GodotRuntime', '$GodotOS'],
+	$GodotAudio__postset: [
+		'Module["getAudioContext"] = GodotAudio.get_audio_context;',
+	].join(''),
 	$GodotAudio: {
 		/**
 		 * Max number of volume channels.
@@ -1576,6 +1579,9 @@ const _GodotAudio = {
 				return;
 			}
 			bus.mute(enable);
+		},
+		get_audio_context: function () {
+			return GodotAudio.ctx;
 		},
 	},
 
@@ -2323,3 +2329,340 @@ const GodotAudioScript = {
 
 autoAddDeps(GodotAudioScript, '$GodotAudioScript');
 mergeInto(LibraryManager.library, GodotAudioScript);
+
+/**
+ * Web Audio Recorder using MediaRecorder API for Web端音频录制
+ * 实现方案1：MediaRecorder API
+ */
+const GodotAudioRecorder = {
+	$GodotAudioRecorder__deps: ['$GodotAudio'],
+	$GodotAudioRecorder: {
+		mediaRecorder: null,
+		recordedChunks: [],
+		isRecording: false,
+		recordingStream: null,
+		destination: null,
+		
+		/**
+		 * 初始化录制器
+		 */
+		init: function() {
+			if (!GodotAudio.ctx) {
+				GodotRuntime.error('AudioContext not initialized for recording');
+				return false;
+			}
+			
+			try {
+				// 创建录制目标 - MediaStreamDestination
+				this.destination = GodotAudio.ctx.createMediaStreamDestination();
+				
+				// 验证：MediaStreamDestination只创建音频流
+				this.recordingStream = this.destination.stream;
+				const audioTracks = this.recordingStream.getAudioTracks().length;
+				const videoTracks = this.recordingStream.getVideoTracks().length;
+				
+				GodotRuntime.print('GodotAudioRecorder stream verification:');
+				GodotRuntime.print('  Audio tracks: ' + audioTracks);
+				GodotRuntime.print('  Video tracks: ' + videoTracks);
+				
+				if (audioTracks === 0) {
+					GodotRuntime.error('GodotAudioRecorder: No audio tracks in MediaStream!');
+					return false;
+				}
+				
+				if (videoTracks > 0) {
+					GodotRuntime.error('GodotAudioRecorder: Unexpected video tracks found!');
+					return false;
+				}
+				
+				// 将主音频总线（索引0）连接到录制目标（不影响正常播放）
+				const masterBus = GodotAudio.buses[0];
+				if (masterBus) {
+					masterBus.getOutputNode().connect(this.destination);
+					GodotRuntime.print('GodotAudioRecorder: Connected master bus to recording destination');
+				} else {
+					GodotRuntime.error('GodotAudioRecorder: Master bus not found');
+					return false;
+				}
+				
+				GodotRuntime.print('GodotAudioRecorder initialized successfully - AUDIO ONLY recording ready');
+				return true;
+			} catch (error) {
+				GodotRuntime.error('GodotAudioRecorder init failed: ' + error.message);
+				return false;
+			}
+		},
+		
+		/**
+		 * 开始录制
+		 */
+		startRecording: function() {
+			if (!this.recordingStream) {
+				GodotRuntime.error('GodotAudioRecorder: Recorder not initialized');
+				return false;
+			}
+			
+			if (this.isRecording) {
+				GodotRuntime.print('GodotAudioRecorder: Already recording');
+				return true;
+			}
+			
+			try {
+				// 创建MediaRecorder - 明确指定为音频录制
+				const mimeType = this.getSupportedMimeType();
+				
+				// 验证MIME类型确实是音频
+				if (!mimeType.startsWith('audio/')) {
+					GodotRuntime.error('GodotAudioRecorder: Selected MIME type is not audio: ' + mimeType);
+					return false;
+				}
+				
+				this.mediaRecorder = new MediaRecorder(this.recordingStream, {
+					mimeType: mimeType,
+					audioBitsPerSecond: 128000
+				});
+				
+				this.recordedChunks = [];
+				
+				// 处理录制数据
+				this.mediaRecorder.ondataavailable = (event) => {
+					if (event.data.size > 0) {
+						// 验证每个chunk确实是音频
+						const chunkType = event.data.type;
+						if (!chunkType.startsWith('audio/')) {
+							GodotRuntime.error('GodotAudioRecorder: Recorded chunk is not audio type: ' + chunkType);
+						} else {
+							GodotRuntime.print('GodotAudioRecorder: Audio chunk recorded: ' + event.data.size + ' bytes (' + chunkType + ')');
+						}
+						this.recordedChunks.push(event.data);
+					}
+				};
+				
+				// 错误处理
+				this.mediaRecorder.onerror = (event) => {
+					GodotRuntime.error('GodotAudioRecorder MediaRecorder error: ' + event.error);
+				};
+				
+				// 录制结束处理
+				this.mediaRecorder.onstop = () => {
+					GodotRuntime.print('GodotAudioRecorder: Recording stopped, ' + this.recordedChunks.length + ' audio chunks collected');
+				};
+				
+				// 开始录制 (每100ms一个chunk)
+				this.mediaRecorder.start(100);
+				this.isRecording = true;
+				
+				GodotRuntime.print('GodotAudioRecorder: AUDIO-ONLY recording started with ' + mimeType);
+				return true;
+				
+			} catch (error) {
+				GodotRuntime.error('GodotAudioRecorder: Failed to start recording: ' + error.message);
+				return false;
+			}
+		},
+		
+		/**
+		 * 停止录制
+		 */
+		stopRecording: function() {
+			if (this.mediaRecorder && this.isRecording) {
+				this.mediaRecorder.stop();
+				this.isRecording = false;
+				GodotRuntime.print('GodotAudioRecorder: Recording stopped');
+				return true;
+			}
+			return false;
+		},
+		
+		/**
+		 * 获取录制的音频数据作为Blob
+		 */
+		getRecordedAudioBlob: function() {
+			if (this.recordedChunks.length === 0) {
+				return null;
+			}
+			
+			const blob = new Blob(this.recordedChunks, {
+				type: this.getSupportedMimeType()
+			});
+			
+			// 最终验证：确保生成的blob确实是音频
+			const isAudioBlob = blob.type.startsWith('audio/');
+			GodotRuntime.print('GodotAudioRecorder: Generated blob verification:');
+			GodotRuntime.print('  Type: ' + blob.type);
+			GodotRuntime.print('  Size: ' + blob.size + ' bytes');
+			GodotRuntime.print('  Is audio only: ' + isAudioBlob);
+			
+			if (!isAudioBlob) {
+				GodotRuntime.error('GodotAudioRecorder: Generated blob is not audio type!');
+			}
+			
+			return blob;
+		},
+		
+		/**
+		 * 获取录制的音频数据作为ArrayBuffer（供C++使用）
+		 */
+		getRecordedAudioData: function() {
+			const blob = this.getRecordedAudioBlob();
+			if (!blob) {
+				return null;
+			}
+			
+			return blob.arrayBuffer();
+		},
+		
+		/**
+		 * 获取支持的MIME类型
+		 */
+		getSupportedMimeType: function() {
+			// 优先选择高质量的音频格式（注意：这些都是纯音频格式，不包含视频）
+			const types = [
+				'audio/webm;codecs=opus',  // 最佳选择：Opus编码，高质量低延迟
+				'audio/webm',              // WebM音频容器
+				'audio/mp4',               // MP4音频容器
+				'audio/wav'                // WAV格式（未压缩）
+			];
+			
+			for (const type of types) {
+				if (MediaRecorder.isTypeSupported(type)) {
+					GodotRuntime.print('GodotAudioRecorder: Selected audio format: ' + type);
+					return type;
+				}
+			}
+			
+			// 保险起见，fallback到webm（几乎所有现代浏览器都支持）
+			GodotRuntime.print('GodotAudioRecorder: Using fallback audio format: audio/webm');
+			return 'audio/webm';
+		},
+		
+		/**
+		 * 检查是否正在录制
+		 */
+		isActiveRecording: function() {
+			return this.isRecording;
+		},
+		
+		/**
+		 * 清理资源
+		 */
+		cleanup: function() {
+			this.stopRecording();
+			this.recordedChunks = [];
+			this.mediaRecorder = null;
+			
+			if (this.destination) {
+				this.destination.disconnect();
+				this.destination = null;
+			}
+			
+			this.recordingStream = null;
+			GodotRuntime.print('GodotAudioRecorder: Cleaned up');
+		}
+	},
+	
+	// C++接口函数
+	godot_audio_recorder_init__proxy: 'sync',
+	godot_audio_recorder_init__sig: 'i',
+	/**
+	 * 初始化Web音频录制器
+	 * @returns {number} 成功返回1，失败返回0
+	 */
+	godot_audio_recorder_init: function() {
+		return GodotAudioRecorder.init() ? 1 : 0;
+	},
+	
+	godot_audio_recorder_start__proxy: 'sync', 
+	godot_audio_recorder_start__sig: 'i',
+	/**
+	 * 开始录制
+	 * @returns {number} 成功返回1，失败返回0
+	 */
+	godot_audio_recorder_start: function() {
+		return GodotAudioRecorder.startRecording() ? 1 : 0;
+	},
+	
+	godot_audio_recorder_stop__proxy: 'sync',
+	godot_audio_recorder_stop__sig: 'v',
+	/**
+	 * 停止录制
+	 */
+	godot_audio_recorder_stop: function() {
+		GodotAudioRecorder.stopRecording();
+	},
+	
+	godot_audio_recorder_is_recording__proxy: 'sync',
+	godot_audio_recorder_is_recording__sig: 'i',
+	/**
+	 * 检查是否正在录制
+	 * @returns {number} 正在录制返回1，否则返回0
+	 */
+	godot_audio_recorder_is_recording: function() {
+		return GodotAudioRecorder.isActiveRecording() ? 1 : 0;
+	},
+	
+	godot_audio_recorder_get_data_size__proxy: 'sync',
+	godot_audio_recorder_get_data_size__sig: 'i',
+	/**
+	 * 获取录制数据的大小
+	 * @returns {number} 数据大小（字节）
+	 */
+	godot_audio_recorder_get_data_size: function() {
+		const blob = GodotAudioRecorder.getRecordedAudioBlob();
+		return blob ? blob.size : 0;
+	},
+	
+	godot_audio_recorder_get_mime_type__proxy: 'sync',
+	godot_audio_recorder_get_mime_type__sig: 'i',
+	/**
+	 * 获取录制音频的MIME类型字符串指针
+	 * @returns {number} 字符串指针
+	 */
+	godot_audio_recorder_get_mime_type: function() {
+		const mimeType = GodotAudioRecorder.getSupportedMimeType();
+		return GodotRuntime.allocString(mimeType);
+	},
+	
+	godot_audio_recorder_download_data__proxy: 'sync',
+	godot_audio_recorder_download_data__sig: 'vi',
+	/**
+	 * 下载录制的音频数据（用于测试）
+	 * @param {number} filenamePtr 文件名字符串指针
+	 */
+	godot_audio_recorder_download_data: function(filenamePtr) {
+		const blob = GodotAudioRecorder.getRecordedAudioBlob();
+		if (!blob) {
+			GodotRuntime.error('GodotAudioRecorder: No recorded data to download');
+			return;
+		}
+		
+		const filename = GodotRuntime.parseString(filenamePtr);
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = filename || 'recorded_audio.' + GodotAudioRecorder.getSupportedMimeType().split('/')[1].split(';')[0];
+		document.body.appendChild(a);
+		a.click();
+		document.body.removeChild(a);
+		URL.revokeObjectURL(url);
+		
+		GodotRuntime.print('GodotAudioRecorder: Downloaded recorded audio as ' + a.download);
+	},
+	
+	godot_audio_recorder_cleanup__proxy: 'sync',
+	godot_audio_recorder_cleanup__sig: 'v',
+	/**
+	 * 清理录制器资源
+	 */
+	godot_audio_recorder_cleanup: function() {
+		GodotAudioRecorder.cleanup();
+	}
+};
+
+// 将GodotAudioRecorder添加到GodotAudio对象中
+if (typeof GodotAudio !== 'undefined') {
+	GodotAudio.Recorder = GodotAudioRecorder;
+}
+
+autoAddDeps(GodotAudioRecorder, '$GodotAudioRecorder');
+mergeInto(LibraryManager.library, GodotAudioRecorder);
