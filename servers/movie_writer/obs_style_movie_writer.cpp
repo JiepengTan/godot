@@ -126,7 +126,7 @@ Error ObsStyleMovieWriter::write_begin(const Size2i &p_movie_size, uint32_t p_fp
         combined_recording_thread->start(combined_recording_thread_function, this);
         
         if (obs_config.enable_debug_output) {
-            print_line("合并录制线程已启动");
+            print_line("Combined recording thread started");
         }
     } else {
         // 启动分离录制线程
@@ -350,7 +350,7 @@ Error ObsStyleMovieWriter::setup_audio_capture() {
     if (obs_config.enable_combined_recording) {
         // 合并录制模式：音频数据通过write_frame直接传递，无需设置HybridAudioDriver
         if (obs_config.enable_debug_output) {
-            print_line("合并录制模式：跳过HybridAudioDriver设置，使用直接音频传递");
+            print_line("Combined recording mode: skipping HybridAudioDriver setup, using direct audio transfer");
         }
         return OK;
     }
@@ -611,7 +611,7 @@ bool ObsStyleMovieWriter::is_paused() const {
 
 Error ObsStyleMovieWriter::setup_combined_recording() {
     if (obs_config.enable_debug_output) {
-        print_line("ObsStyleMovieWriter: 设置合并录制模式 (视频+音频合并到同一文件)");
+        print_line("ObsStyleMovieWriter: Setting up combined recording mode (video+audio merged to single file)");
     }
     
     // 创建双缓冲区（仅用于视频帧）
@@ -641,7 +641,7 @@ Error ObsStyleMovieWriter::setup_combined_recording() {
     );
     
     if (avi_error != OK) {
-        ERR_PRINT("ObsStyleMovieWriter: 合并AVI文件初始化失败");
+        ERR_PRINT("ObsStyleMovieWriter: Failed to initialize combined AVI file");
         return avi_error;
     }
     
@@ -652,8 +652,8 @@ Error ObsStyleMovieWriter::setup_combined_recording() {
     combined_recording_active = false;
     
     if (obs_config.enable_debug_output) {
-        print_line(String("合并录制文件: ") + combined_file_path);
-        print_line("双缓冲区和AVI写入器初始化成功");
+        print_line(String("Combined recording file: ") + combined_file_path);
+        print_line("Frame buffer and AVI writer initialized successfully");
     }
     
     update_recording_state(STATE_INITIALIZED);
@@ -676,7 +676,7 @@ void ObsStyleMovieWriter::cleanup_combined_recording() {
     }
     
     if (obs_config.enable_debug_output) {
-        print_line("合并录制线程已停止，缓冲区已清理");
+        print_line("Combined recording thread stopped, buffers cleared");
     }
 }
 
@@ -687,7 +687,7 @@ void ObsStyleMovieWriter::combined_recording_thread_function(void *p_userdata) {
 
 void ObsStyleMovieWriter::combined_recording_loop() {
     if (obs_config.enable_debug_output) {
-        print_line("合并录制线程开始运行");
+        print_line("Combined recording thread started");
     }
     
     uint64_t frame_interval_us = 1000000 / obs_config.video_fps; // 微秒
@@ -703,7 +703,7 @@ void ObsStyleMovieWriter::combined_recording_loop() {
         if (current_time >= next_frame_time) {
             Error write_error = write_combined_frame_and_audio();
             if (write_error != OK) {
-                ERR_PRINT("合并录制帧写入失败");
+                ERR_PRINT("Combined frame recording write failed");
                 break;
             }
             
@@ -715,8 +715,8 @@ void ObsStyleMovieWriter::combined_recording_loop() {
                 uint64_t elapsed_us = current_time - loop_start_time;
                 float elapsed_sec = elapsed_us / 1000000.0f;
                 float actual_fps = recorded_frames / elapsed_sec;
-                print_line(String("合并录制进度: ") + String::num_int64(recorded_frames) + 
-                          " 帧, 实际FPS: " + String::num(actual_fps, 1));
+                print_line(String("Combined recording progress: ") + String::num_int64(recorded_frames) + 
+                          " frames, actual FPS: " + String::num(actual_fps, 1));
             }
         }
         
@@ -734,8 +734,8 @@ void ObsStyleMovieWriter::combined_recording_loop() {
         uint64_t total_elapsed_us = OS::get_singleton()->get_ticks_usec() - loop_start_time;
         float total_elapsed_sec = total_elapsed_us / 1000000.0f;
         float average_fps = recorded_frames / total_elapsed_sec;
-        print_line(String("合并录制线程结束: 总帧数 ") + String::num_int64(recorded_frames) + 
-                  ", 平均FPS: " + String::num(average_fps, 2));
+        print_line(String("Combined recording thread ended: total frames ") + String::num_int64(recorded_frames) + 
+                  ", average FPS: " + String::num(average_fps, 2));
     }
 }
 
@@ -763,7 +763,7 @@ Error ObsStyleMovieWriter::write_combined_frame_and_audio() {
     // 3. 写入视频帧
     Error video_error = avi_writer->write_video_frame(frame_data.image, current_time, frame_data.game_timestamp, frame_data.frame_sequence, frame_flags);
     if (video_error != OK) {
-        ERR_PRINT("写入视频帧失败");
+        ERR_PRINT("Failed to write video frame");
         return video_error;
     }
     
@@ -819,7 +819,7 @@ Error ObsStyleMovieWriter::write_combined_frame_and_audio() {
         uint32_t audio_frames = audio_to_write.size() / obs_config.audio_channels;
         Error audio_error = avi_writer->write_audio_chunk(audio_to_write.ptr(), audio_frames, current_time);
         if (audio_error != OK) {
-            ERR_PRINT("写入音频块失败");
+            ERR_PRINT("Failed to write audio chunk");
             return audio_error;
         }
         

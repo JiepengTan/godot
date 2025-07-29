@@ -342,26 +342,26 @@ void EnhancedAviWriter::close() {
     
     file->close();
     
-    print_line(String("=== AVI合并录制完成 ==="));
-    print_line(String("输出文件: ") + file_path);
-    print_line(String("视频帧数: ") + String::num_int64(video_frame_count));
-    print_line(String("音频块数: ") + String::num_int64(audio_chunk_count)); 
-    print_line(String("总音频样本: ") + String::num_int64(total_audio_samples));
-    print_line(String("索引条目: ") + String::num_int64(index_entries.size()));
+    print_line(String("=== AVI Combined Recording Completed ==="));
+    print_line(String("Output file: ") + file_path);
+    print_line(String("Video frames: ") + String::num_int64(video_frame_count));
+    print_line(String("Audio chunks: ") + String::num_int64(audio_chunk_count)); 
+    print_line(String("Total audio samples: ") + String::num_int64(total_audio_samples));
+    print_line(String("Index entries: ") + String::num_int64(index_entries.size()));
     
     if (first_frame_written && video_frame_count > 0) {
         float duration_sec = (float)video_frame_count / (float)video_fps;
-        print_line(String("视频时长: ") + String::num(duration_sec, 2) + " 秒");
+        print_line(String("Video duration: ") + String::num(duration_sec, 2) + " seconds");
         
         if (total_audio_samples > 0) {
             float audio_duration_sec = (float)total_audio_samples / (float)audio_sample_rate;
-            print_line(String("音频时长: ") + String::num(audio_duration_sec, 2) + " 秒");
+            print_line(String("Audio duration: ") + String::num(audio_duration_sec, 2) + " seconds");
             
             float sync_diff = Math::abs(duration_sec - audio_duration_sec);
             if (sync_diff < 0.1f) {
-                print_line("✓ 音视频同步正常");
+                print_line("✓ Audio-video sync normal");
             } else {
-                print_line(String("⚠ 音视频时长差异: ") + String::num(sync_diff, 3) + " 秒");
+                print_line(String("⚠ Audio-video duration difference: ") + String::num(sync_diff, 3) + " seconds");
             }
         }
     }

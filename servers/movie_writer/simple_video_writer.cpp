@@ -108,7 +108,7 @@ Error SimpleVideoWriter::open(const String &p_path, const Size2i &p_movie_size, 
     f->store_32(0); // Number of frames (to be updated later)
     f->store_buffer((const uint8_t *)"movi", 4);
 
-    print_line(String("SimpleVideoWriter: 开始录制视频到 ") + base_path);
+    print_line(String("SimpleVideoWriter: Starting video recording to ") + base_path);
     
     return OK;
 }
@@ -176,5 +176,5 @@ void SimpleVideoWriter::close() {
 
     f.unref();
     
-    print_line(String("SimpleVideoWriter: 视频录制完成，总帧数: ") + String::num_int64(frame_count));
+    print_line(String("SimpleVideoWriter: Video recording completed, total frames: ") + String::num_int64(frame_count));
 } 
