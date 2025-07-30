@@ -57,6 +57,13 @@ class MovieWriter : public Object {
 	static class HybridAudioDriver *hybrid_driver;
 	class AudioDriver *original_driver = nullptr;
 
+#ifdef WEB_ENABLED
+	// Web端音频录制支持（方案1：MediaRecorder API）
+	bool web_audio_recorder_initialized = false;
+	bool web_audio_recording_active = false;
+	Vector<uint8_t> web_audio_buffer; // 存储Web端录制的音频数据
+#endif
+
 	enum {
 		MAX_WRITERS = 8
 	};
@@ -109,6 +116,13 @@ public:
 private:
 	void setup_hybrid_audio_driver();
 	void restore_original_audio_driver();
+
+#ifdef WEB_ENABLED
+	// Web端音频录制专用方法
+	void setup_web_audio_recorder();
+	void cleanup_web_audio_recorder();
+	bool process_web_audio_data();
+#endif
 };
 
 #endif // MOVIE_WRITER_H

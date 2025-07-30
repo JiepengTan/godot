@@ -37,6 +37,11 @@
 #include "servers/display_server.h"
 #include "servers/rendering_server.h"
 
+#ifdef WEB_ENABLED
+#include "platform/web/godot_audio.h"
+#include "core/io/file_access.h"
+#endif
+
 MovieWriter *MovieWriter::writers[MovieWriter::MAX_WRITERS];
 uint32_t MovieWriter::writer_count = 0;
 HybridAudioDriver *MovieWriter::hybrid_driver = nullptr;
@@ -124,6 +129,26 @@ void MovieWriter::begin(const Size2i &p_movie_size, uint32_t p_fps, const String
 	fps = p_fps;
 	
 	if (realtime_mode) {
+#ifdef WEB_ENABLED
+		// Web端使用MediaRecorder API
+		setup_web_audio_recorder();
+		if (web_audio_recorder_initialized) {
+			// 开始Web音频录制
+			int start_result = godot_audio_recorder_start();
+			if (start_result == 1) {
+				web_audio_recording_active = true;
+				audio_channels = 2; // Web端默认立体声
+				print_line("MovieWriter: Web realtime recording mode - MediaRecorder started");
+			} else {
+				ERR_PRINT("MovieWriter: Failed to start web audio recording, falling back to offline mode");
+				realtime_mode = false;
+			}
+		} else {
+			ERR_PRINT("MovieWriter: Failed to initialize web audio recorder, falling back to offline mode");
+			realtime_mode = false;
+		}
+#else
+		// PC端使用HybridAudioDriver
 		// 确保HybridAudioDriver已经初始化（如果之前因为时序问题没有初始化）
 		if (!MovieWriter::hybrid_driver) {
 			setup_hybrid_audio_driver();
@@ -138,6 +163,7 @@ void MovieWriter::begin(const Size2i &p_movie_size, uint32_t p_fps, const String
 			ERR_PRINT("MovieWriter: Failed to initialize HybridAudioDriver, falling back to offline mode");
 			realtime_mode = false;
 		}
+#endif
 	}
 	
 	if (!realtime_mode) {
@@ -237,23 +263,48 @@ void MovieWriter::add_frame() {
 	cpu_time += RenderingServer::get_singleton()->get_frame_setup_time_cpu();
 	gpu_time += RenderingServer::get_singleton()->viewport_get_measured_render_time_gpu(main_vp_rid);
 
-	if (realtime_mode && MovieWriter::hybrid_driver) {
-		// 实时录制模式：从HybridAudioDriver获取捕获的音频数据
-		int requested_frames = mix_rate / fps;
-		int available_frames = MovieWriter::hybrid_driver->get_available_frames();
-		
-		// 获取音频数据
-		MovieWriter::hybrid_driver->get_captured_audio_data(audio_mix_buffer.ptr(), requested_frames);
-		
-		// 检查音频质量
-		if (available_frames < requested_frames / 2) {
-			static int low_buffer_warnings = 0;
-			if (low_buffer_warnings < 5) { // 限制警告次数
-				WARN_PRINT(vformat("MovieWriter: Low audio buffer (%d frames available, %d requested)", 
-						   available_frames, requested_frames));
-				low_buffer_warnings++;
+	if (realtime_mode) {
+#ifdef WEB_ENABLED
+		// Web端实时录制模式：使用MediaRecorder录制的音频
+		if (web_audio_recording_active) {
+			// 处理Web端录制的音频数据
+			bool has_audio_data = process_web_audio_data();
+			if (!has_audio_data) {
+				// 如果没有音频数据，用静音填充
+				int requested_frames = mix_rate / fps;
+				for (int i = 0; i < requested_frames * audio_channels; i++) {
+					audio_mix_buffer[i] = 0;
+				}
 			}
+			// 注意：Web端的音频数据是以WebM/Opus等格式录制的，
+			// 在实际使用中需要解码为PCM格式才能写入视频文件
+		} else {
+			// Web端fallback到离线模式
+			AudioDriverDummy::get_dummy_singleton()->mix_audio(mix_rate / fps, audio_mix_buffer.ptr());
 		}
+#else
+		// PC端实时录制模式：从HybridAudioDriver获取捕获的音频数据
+		if (MovieWriter::hybrid_driver) {
+			int requested_frames = mix_rate / fps;
+			int available_frames = MovieWriter::hybrid_driver->get_available_frames();
+			
+			// 获取音频数据
+			MovieWriter::hybrid_driver->get_captured_audio_data(audio_mix_buffer.ptr(), requested_frames);
+			
+			// 检查音频质量
+			if (available_frames < requested_frames / 2) {
+				static int low_buffer_warnings = 0;
+				if (low_buffer_warnings < 5) { // 限制警告次数
+					WARN_PRINT(vformat("MovieWriter: Low audio buffer (%d frames available, %d requested)", 
+							   available_frames, requested_frames));
+					low_buffer_warnings++;
+				}
+			}
+		} else {
+			// PC端fallback到离线模式
+			AudioDriverDummy::get_dummy_singleton()->mix_audio(mix_rate / fps, audio_mix_buffer.ptr());
+		}
+#endif
 	} else {
 		// 传统离线录制模式：从 dummy 驱动获取音频数据
 		AudioDriverDummy::get_dummy_singleton()->mix_audio(mix_rate / fps, audio_mix_buffer.ptr());
@@ -291,9 +342,15 @@ void MovieWriter::end() {
 	print_line(vformat("GPU time: %.2f seconds (average: %.2f ms/frame)", gpu_time / 1000, gpu_time / Engine::get_singleton()->get_frames_drawn()));
 	print_line("----------------");
 	
-	// 恢复原音频驱动
+	// 恢复原音频驱动和清理Web录制器
 	if (realtime_mode) {
+#ifdef WEB_ENABLED
+		// 清理Web音频录制器
+		cleanup_web_audio_recorder();
+#else
+		// 恢复PC端音频驱动
 		restore_original_audio_driver();
+#endif
 	}
 }
 
@@ -365,6 +422,75 @@ void MovieWriter::restore_original_audio_driver() {
 		print_line("HybridAudioDriver restored");
 	}
 }
+
+#ifdef WEB_ENABLED
+// Web端音频录制方法实现
+
+void MovieWriter::setup_web_audio_recorder() {
+	if (web_audio_recorder_initialized) {
+		print_line("MovieWriter: Web audio recorder already initialized");
+		return;
+	}
+
+	// 初始化Web音频录制器
+	int result = godot_audio_recorder_init();
+	if (result == 1) {
+		web_audio_recorder_initialized = true;
+		print_line("MovieWriter: Web audio recorder initialized successfully");
+		
+		// 获取支持的MIME类型
+		int mime_type_ptr = godot_audio_recorder_get_mime_type();
+		if (mime_type_ptr != 0) {
+			// 注意：这里需要适当处理字符串指针，在实际使用中需要释放内存
+			print_line("MovieWriter: Web audio recorder MIME type initialized");
+		}
+	} else {
+		ERR_PRINT("MovieWriter: Failed to initialize web audio recorder");
+		web_audio_recorder_initialized = false;
+	}
+}
+
+void MovieWriter::cleanup_web_audio_recorder() {
+	if (!web_audio_recorder_initialized) {
+		return;
+	}
+
+	// 停止录制
+	if (web_audio_recording_active) {
+		godot_audio_recorder_stop();
+		web_audio_recording_active = false;
+	}
+
+	// 清理录制器资源
+	godot_audio_recorder_cleanup();
+	web_audio_recorder_initialized = false;
+	web_audio_buffer.clear();
+	
+	print_line("MovieWriter: Web audio recorder cleaned up");
+}
+
+bool MovieWriter::process_web_audio_data() {
+	if (!web_audio_recorder_initialized || !web_audio_recording_active) {
+		return false;
+	}
+
+	// 检查是否有录制数据
+	int data_size = godot_audio_recorder_get_data_size();
+	if (data_size > 0) {
+		print_line(vformat("MovieWriter: Web audio data available: %d bytes", data_size));
+		
+		// 注意：在实际实现中，我们需要：
+		// 1. 获取录制的音频数据（Blob -> ArrayBuffer）
+		// 2. 将其转换为MovieWriter期望的格式（int32_t数组）
+		// 3. 这可能需要额外的JavaScript接口来处理格式转换
+		
+		return true;
+	}
+	
+	return false;
+}
+
+#endif // WEB_ENABLED
 
 HybridAudioDriver *MovieWriter::get_hybrid_audio_driver() {
 	return MovieWriter::hybrid_driver;
