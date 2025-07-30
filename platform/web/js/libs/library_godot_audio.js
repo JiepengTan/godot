@@ -2757,14 +2757,8 @@ const GodotAudioRecorder = {
 					if (event.data.size > 0) {
 						this.videoRecordedChunks.push(event.data);
 						
-						// 清除缓存，强制重新计算
 						this.cachedBlob = null;
 						this.hasNewData = true;
-						
-						// 减少日志频率
-						if (event.data.size > 10000) { // 大于10KB时才输出
-							GodotRuntime.print('GodotVideoRecorder: Video+Audio chunk recorded: ' + event.data.size + ' bytes');
-						}
 					}
 				};
 				

@@ -213,6 +213,14 @@ void MovieWriter::begin(const Size2i &p_movie_size, uint32_t p_fps, const String
 
 	audio_mix_buffer.resize(mix_rate * audio_channels / fps);
 
+#ifdef WEB_ENABLED
+	// Web端：如果Canvas录制或音频录制成功，跳过传统的write_begin流程
+	if (realtime_mode && (web_video_recording_active || web_audio_recording_active)) {
+		print_line("MovieWriter: Using Web native recording, skipping traditional MovieWriter pipeline");
+		return; // 跳过write_begin调用
+	}
+#endif
+
 	write_begin(p_movie_size, p_fps, p_base_path);
 }
 
@@ -298,9 +306,12 @@ void MovieWriter::add_frame() {
 
 	if (realtime_mode) {
 #ifdef WEB_ENABLED
-		// Web端实时录制模式：使用MediaRecorder录制的音频
-		if (web_audio_recording_active) {
-			// 处理Web端录制的音频数据
+		// Web端实时录制模式：检查Canvas视频录制状态
+		if (web_video_recording_active) {
+			// Canvas视频录制正在工作，包含音视频，无需额外处理音频
+			// 视频和音频都由MediaRecorder直接处理
+		} else if (web_audio_recording_active) {
+			// 只有音频录制在工作
 			bool has_audio_data = process_web_audio_data();
 			if (!has_audio_data) {
 				// 如果没有音频数据，用静音填充
@@ -309,8 +320,6 @@ void MovieWriter::add_frame() {
 					audio_mix_buffer[i] = 0;
 				}
 			}
-			// 注意：Web端的音频数据是以WebM/Opus等格式录制的，
-			// 在实际使用中需要解码为PCM格式才能写入视频文件
 		} else {
 			// Web端fallback到离线模式
 			AudioDriverDummy::get_dummy_singleton()->mix_audio(mix_rate / fps, audio_mix_buffer.ptr());
@@ -342,6 +351,15 @@ void MovieWriter::add_frame() {
 		// 传统离线录制模式：从 dummy 驱动获取音频数据
 		AudioDriverDummy::get_dummy_singleton()->mix_audio(mix_rate / fps, audio_mix_buffer.ptr());
 	}
+	
+#ifdef WEB_ENABLED
+	// Web端：如果Canvas录制或音频录制成功，跳过传统的write_frame流程
+	if (realtime_mode && (web_video_recording_active || web_audio_recording_active)) {
+		// Canvas录制或Web音频录制正在工作，不需要调用传统的write_frame
+		return;
+	}
+#endif
+	
 	write_frame(vp_tex, audio_mix_buffer.ptr());
 }
 

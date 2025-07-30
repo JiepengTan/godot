@@ -357,12 +357,48 @@ MovieWriter: Web realtime recording mode - MediaRecorder started
 
 在Web平台中，现在支持使用Canvas的`captureStream()`API结合MediaRecorder进行音视频合并录制，这是比复杂的ObsStyleMovieWriter更优的解决方案。
 
+#### ✅ 已修复的问题
+
+1. **消除audio_driver_dummy错误**：Canvas录制启用时，自动跳过传统MovieWriter流程，避免dummy driver冲突
+2. **防止双录制器冲突**：确保Canvas录制时不会同时启动ObsStyleMovieWriter
+3. **优化性能表现**：Canvas录制直接使用浏览器原生API，无文件I/O瓶颈
+4. **简化录制流程**：统一的Web端录制管理，自动选择最佳方案
+
+#### 技术改进详情
+
+**问题诊断**：之前版本中，即使Canvas录制成功启动，传统的MovieWriter流程仍然会被调用，导致：
+```
+ERROR: Condition "!active.is_set()" is true.
+at: mix_audio (servers/audio/audio_driver_dummy.cpp:114)
+```
+
+**解决方案**：在关键位置添加了Web录制检查：
+
+```cpp
+// MovieWriter::begin() - 跳过write_begin调用
+#ifdef WEB_ENABLED
+if (realtime_mode && (web_video_recording_active || web_audio_recording_active)) {
+    print_line("MovieWriter: Using Web native recording, skipping traditional MovieWriter pipeline");
+    return; // 跳过write_begin调用
+}
+#endif
+
+// MovieWriter::add_frame() - 跳过write_frame调用
+#ifdef WEB_ENABLED
+if (realtime_mode && (web_video_recording_active || web_audio_recording_active)) {
+    // Canvas录制或Web音频录制正在工作，不需要调用传统的write_frame
+    return;
+}
+#endif
+```
+
 #### 核心优势
 
 1. **性能优异**：避免文件I/O瓶颈，使用浏览器原生流媒体处理
 2. **实现简单**：无需复杂的编码和文件管理逻辑
 3. **稳定可靠**：不会出现录制7-8秒后性能急剧下降的问题
 4. **格式优化**：输出标准的WebM/MP4格式，兼容性更好
+5. **错误消除**：完全避免audio_driver_dummy和ObsStyleMovieWriter冲突
 
 #### 自动启用机制
 
