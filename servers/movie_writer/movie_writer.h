@@ -63,6 +63,10 @@ class MovieWriter : public Object {
 	bool web_audio_recording_active = false;
 	Vector<uint8_t> web_audio_buffer; // 存储Web端录制的音频数据
 	
+	// Web端Canvas视频录制支持（方案2：Canvas.captureStream + MediaRecorder）
+	bool web_video_recorder_initialized = false;
+	bool web_video_recording_active = false;
+	
 #endif
 
 	enum {
@@ -123,6 +127,11 @@ private:
 	void setup_web_audio_recorder();
 	void cleanup_web_audio_recorder();
 	bool process_web_audio_data();
+	
+	// Web端Canvas视频录制专用方法
+	void setup_web_video_recorder(uint32_t p_fps);
+	void cleanup_web_video_recorder();
+	bool process_web_video_data();
 #endif
 };
 

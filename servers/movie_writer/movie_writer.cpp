@@ -131,22 +131,54 @@ void MovieWriter::begin(const Size2i &p_movie_size, uint32_t p_fps, const String
 	
 	if (realtime_mode) {
 #ifdef WEB_ENABLED
-		// Web端使用MediaRecorder API
-		setup_web_audio_recorder();
-		if (web_audio_recorder_initialized) {
-			// 开始Web音频录制
-			int start_result = godot_audio_recorder_start();
+		// Web端优先使用Canvas视频录制（如果可用）
+		if (godot_video_recorder_init(p_fps) == 1) {
+			// Canvas视频录制初始化成功
+			web_video_recorder_initialized = true;
+			int start_result = godot_video_recorder_start();
 			if (start_result == 1) {
-				web_audio_recording_active = true;
+				web_video_recording_active = true;
 				audio_channels = 2; // Web端默认立体声
-				print_line("MovieWriter: Web realtime recording mode - MediaRecorder started");
+				print_line("MovieWriter: Web realtime recording mode - Canvas video + audio recording started");
+				print_line("  Using Canvas.captureStream() for video");
+				print_line("  Using MediaRecorder API for audio+video combined recording");
+				print_line("  Frame rate: " + itos(p_fps) + " FPS");
 			} else {
-				ERR_PRINT("MovieWriter: Failed to start web audio recording, falling back to offline mode");
-				realtime_mode = false;
+				ERR_PRINT("MovieWriter: Failed to start Canvas video recording, falling back to audio-only");
+				// 回退到纯音频录制
+				setup_web_audio_recorder();
+				if (web_audio_recorder_initialized) {
+					int audio_start_result = godot_audio_recorder_start();
+					if (audio_start_result == 1) {
+						web_audio_recording_active = true;
+						audio_channels = 2;
+						print_line("MovieWriter: Fallback to audio-only recording mode");
+					} else {
+						realtime_mode = false;
+					}
+				} else {
+					realtime_mode = false;
+				}
 			}
 		} else {
-			ERR_PRINT("MovieWriter: Failed to initialize web audio recorder, falling back to offline mode");
-			realtime_mode = false;
+			ERR_PRINT("MovieWriter: Canvas video recording not supported, falling back to audio-only");
+			// Web端使用MediaRecorder API（纯音频）
+			setup_web_audio_recorder();
+			if (web_audio_recorder_initialized) {
+				// 开始Web音频录制
+				int start_result = godot_audio_recorder_start();
+				if (start_result == 1) {
+					web_audio_recording_active = true;
+					audio_channels = 2; // Web端默认立体声
+					print_line("MovieWriter: Web realtime recording mode - MediaRecorder started (audio only)");
+				} else {
+					ERR_PRINT("MovieWriter: Failed to start web audio recording, falling back to offline mode");
+					realtime_mode = false;
+				}
+			} else {
+				ERR_PRINT("MovieWriter: Failed to initialize web audio recorder, falling back to offline mode");
+				realtime_mode = false;
+			}
 		}
 #else
 		// PC端使用HybridAudioDriver
@@ -314,6 +346,21 @@ void MovieWriter::add_frame() {
 }
 
 void MovieWriter::end() {
+	if (realtime_mode) {
+#ifdef WEB_ENABLED
+		// Web端录制清理
+		if (web_video_recording_active) {
+			cleanup_web_video_recorder();
+		} else if (web_audio_recording_active) {
+			cleanup_web_audio_recorder();
+		}
+#else
+		// PC端使用HybridAudioDriver的清理
+		restore_original_audio_driver();
+#endif
+	}
+	
+	// 调用子类的write_end方法
 	write_end();
 
 	// Print a report with various statistics.
@@ -342,17 +389,6 @@ void MovieWriter::end() {
 	print_line(vformat("CPU time: %.2f seconds (average: %.2f ms/frame)", cpu_time / 1000, cpu_time / Engine::get_singleton()->get_frames_drawn()));
 	print_line(vformat("GPU time: %.2f seconds (average: %.2f ms/frame)", gpu_time / 1000, gpu_time / Engine::get_singleton()->get_frames_drawn()));
 	print_line("----------------");
-	
-	// 恢复原音频驱动和清理Web录制器
-	if (realtime_mode) {
-#ifdef WEB_ENABLED
-		// 清理Web音频录制器
-		cleanup_web_audio_recorder();
-#else
-		// 恢复PC端音频驱动
-		restore_original_audio_driver();
-#endif
-	}
 }
 
 void MovieWriter::set_realtime_mode(bool p_enable) {
@@ -483,3 +519,52 @@ bool MovieWriter::process_web_audio_data() {
 HybridAudioDriver *MovieWriter::get_hybrid_audio_driver() {
 	return MovieWriter::hybrid_driver;
 }
+
+#ifdef WEB_ENABLED
+
+void MovieWriter::setup_web_video_recorder(uint32_t p_fps) {
+	if (godot_video_recorder_init(p_fps) == 1) {
+		web_video_recorder_initialized = true;
+		print_line("MovieWriter: Canvas video recorder initialized successfully");
+	} else {
+		web_video_recorder_initialized = false;
+		ERR_PRINT("MovieWriter: Failed to initialize Canvas video recorder");
+	}
+}
+
+void MovieWriter::cleanup_web_video_recorder() {
+	if (web_video_recording_active) {
+		godot_video_recorder_stop();
+		web_video_recording_active = false;
+		
+		// 检查是否有录制数据可供下载
+		if (godot_video_recorder_has_data() == 1) {
+			int data_size = godot_video_recorder_get_data_size();
+			print_line(String("MovieWriter: Canvas video recording completed. Data size: ") + String::humanize_size(data_size));
+			
+			// 自动下载录制的视频文件
+			String filename = String("godot_recording_") + Time::get_singleton()->get_datetime_string_from_system(false, true) + ".webm";
+			godot_video_recorder_download_data(filename.utf8().get_data());
+			print_line("MovieWriter: Canvas video file download initiated: " + filename);
+		} else {
+			print_line("MovieWriter: No Canvas video data to download");
+		}
+	}
+	
+	if (web_video_recorder_initialized) {
+		godot_video_recorder_cleanup();
+		web_video_recorder_initialized = false;
+		print_line("MovieWriter: Canvas video recorder cleaned up");
+	}
+}
+
+bool MovieWriter::process_web_video_data() {
+	if (!web_video_recording_active) {
+		return false;
+	}
+	
+	// 检查是否有新的录制数据
+	return godot_video_recorder_has_new_data() == 1;
+}
+
+#endif // WEB_ENABLED

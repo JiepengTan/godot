@@ -2345,6 +2345,15 @@ const GodotAudioRecorder = {
 		isRecording: false,
 		selectedMimeType: '',
 		
+		// 视频录制相关
+		videoRecorderInitialized: false,
+		videoMediaRecorder: null,
+		videoStream: null,
+		combinedStream: null,
+		videoRecordedChunks: [],
+		gameCanvas: null,
+		videoFPS: 30,
+		
 		// 性能优化缓存
 		cachedDataSize: 0,
 		lastChunkCount: 0,
@@ -2591,6 +2600,298 @@ const GodotAudioRecorder = {
 		hasRecordingData: function() {
 			return this.recordedChunks.length > 0;
 		},
+		
+		/**
+		 * 初始化Canvas视频录制器（音视频合并录制）
+		 * @param {number} fps 视频帧率，默认30
+		 * @returns {boolean} 是否成功
+		 */
+		initVideoRecorder: function(fps = 30) {
+			if (!GodotAudio.ctx) {
+				GodotRuntime.error('AudioContext not initialized for video recording');
+				return false;
+			}
+			
+			try {
+				// 设置视频帧率
+				this.videoFPS = fps;
+				
+				// 1. 获取游戏Canvas
+				this.gameCanvas = this.findGameCanvas();
+				if (!this.gameCanvas) {
+					GodotRuntime.error('GodotVideoRecorder: Game canvas not found');
+					return false;
+				}
+				
+				// 2. 获取Canvas视频流
+				this.videoStream = this.gameCanvas.captureStream(fps);
+				GodotRuntime.print(`GodotVideoRecorder: Canvas stream created with ${fps} FPS`);
+				
+				// 3. 创建音频录制目标（如果尚未创建）
+				if (!this.mediaStreamDestination) {
+					this.mediaStreamDestination = GodotAudio.ctx.createMediaStreamDestination();
+					
+					// 连接主音频总线到录制目标
+					const masterBus = GodotAudio.buses[0];
+					if (masterBus) {
+						masterBus.getOutputNode().connect(this.mediaStreamDestination);
+					}
+				}
+				
+				// 4. 合并音视频流
+				this.combinedStream = new MediaStream();
+				
+				// 添加视频轨道
+				this.videoStream.getVideoTracks().forEach(track => {
+					this.combinedStream.addTrack(track);
+					GodotRuntime.print('GodotVideoRecorder: Added video track');
+				});
+				
+				// 添加音频轨道
+				this.mediaStreamDestination.stream.getAudioTracks().forEach(track => {
+					this.combinedStream.addTrack(track);
+					GodotRuntime.print('GodotVideoRecorder: Added audio track');
+				});
+				
+				// 5. 选择支持的视频MIME类型
+				this.selectedMimeType = this.getSupportedVideoMimeType();
+				
+				this.videoRecorderInitialized = true;
+				GodotRuntime.print('GodotVideoRecorder: Initialized successfully for combined audio+video recording');
+				GodotRuntime.print('  Video source: Canvas stream (' + fps + ' FPS)');
+				GodotRuntime.print('  Audio source: Godot audio bus');
+				GodotRuntime.print('  Output format: ' + this.selectedMimeType);
+				
+				return true;
+				
+			} catch (error) {
+				GodotRuntime.error('GodotVideoRecorder: Failed to initialize - ' + error.message);
+				return false;
+			}
+		},
+		
+		/**
+		 * 查找游戏Canvas元素
+		 * @returns {HTMLCanvasElement|null}
+		 */
+		findGameCanvas: function() {
+			// 方法1：通过全局变量（如用户提到的windows.gameCanvas）
+			if (typeof window !== 'undefined' && window.gameCanvas) {
+				return window.gameCanvas;
+			}
+			
+			// 方法2：查找Godot的Canvas（通常是第一个Canvas或ID为canvas的Canvas）
+			let canvas = document.getElementById('canvas');
+			if (canvas && canvas.tagName === 'CANVAS') {
+				return canvas;
+			}
+			
+			// 方法3：查找第一个Canvas元素
+			const canvases = document.getElementsByTagName('canvas');
+			if (canvases.length > 0) {
+				return canvases[0];
+			}
+			
+			// 方法4：通过Module对象查找（Emscripten常用方式）
+			if (typeof Module !== 'undefined' && Module.canvas) {
+				return Module.canvas;
+			}
+			
+			return null;
+		},
+		
+		/**
+		 * 获取支持的视频MIME类型
+		 * @returns {string}
+		 */
+		getSupportedVideoMimeType: function() {
+			// 优先选择高质量的视频格式
+			const videoTypes = [
+				'video/webm;codecs=vp9,opus',     // VP9视频 + Opus音频
+				'video/webm;codecs=vp8,opus',     // VP8视频 + Opus音频  
+				'video/webm;codecs=h264,opus',    // H.264视频 + Opus音频
+				'video/webm',                     // WebM默认编解码器
+				'video/mp4;codecs=h264,aac',      // H.264视频 + AAC音频
+				'video/mp4'                       // MP4默认编解码器
+			];
+			
+			for (const type of videoTypes) {
+				if (MediaRecorder.isTypeSupported(type)) {
+					GodotRuntime.print('GodotVideoRecorder: Selected video format: ' + type);
+					return type;
+				}
+			}
+			
+			// 保险起见，fallback到webm
+			GodotRuntime.print('GodotVideoRecorder: Using fallback video format: video/webm');
+			return 'video/webm';
+		},
+		
+		/**
+		 * 开始视频录制（音视频合并）
+		 * @returns {boolean}
+		 */
+		startVideoRecording: function() {
+			if (!this.videoRecorderInitialized) {
+				GodotRuntime.error('GodotVideoRecorder: Not initialized');
+				return false;
+			}
+			
+			if (this.isRecording) {
+				GodotRuntime.print('GodotVideoRecorder: Already recording');
+				return true;
+			}
+			
+			try {
+				// 创建视频MediaRecorder（包含音视频）
+				this.videoMediaRecorder = new MediaRecorder(this.combinedStream, {
+					mimeType: this.selectedMimeType,
+					videoBitsPerSecond: 2500000, // 2.5 Mbps
+					audioBitsPerSecond: 128000   // 128 kbps
+				});
+				
+				this.videoRecordedChunks = [];
+				
+				// 设置事件处理
+				this.videoMediaRecorder.ondataavailable = (event) => {
+					if (event.data.size > 0) {
+						this.videoRecordedChunks.push(event.data);
+						
+						// 清除缓存，强制重新计算
+						this.cachedBlob = null;
+						this.hasNewData = true;
+						
+						// 减少日志频率
+						if (event.data.size > 10000) { // 大于10KB时才输出
+							GodotRuntime.print('GodotVideoRecorder: Video+Audio chunk recorded: ' + event.data.size + ' bytes');
+						}
+					}
+				};
+				
+				this.videoMediaRecorder.onerror = (event) => {
+					GodotRuntime.error('GodotVideoRecorder: MediaRecorder error - ' + event.error);
+				};
+				
+				this.videoMediaRecorder.onstop = () => {
+					GodotRuntime.print('GodotVideoRecorder: Recording stopped, ' + this.videoRecordedChunks.length + ' video chunks collected');
+				};
+				
+				// 开始录制（每100ms一个chunk）
+				this.videoMediaRecorder.start(100);
+				this.isRecording = true;
+				
+				GodotRuntime.print('GodotVideoRecorder: Combined AUDIO+VIDEO recording started');
+				GodotRuntime.print('  Format: ' + this.selectedMimeType);
+				GodotRuntime.print('  Video bitrate: 2.5 Mbps');
+				GodotRuntime.print('  Audio bitrate: 128 kbps');
+				GodotRuntime.print('  Video FPS: ' + this.videoFPS);
+				
+				return true;
+				
+			} catch (error) {
+				GodotRuntime.error('GodotVideoRecorder: Failed to start recording - ' + error.message);
+				return false;
+			}
+		},
+		
+		/**
+		 * 停止视频录制
+		 * @returns {boolean}
+		 */
+		stopVideoRecording: function() {
+			if (this.videoMediaRecorder && this.isRecording) {
+				this.videoMediaRecorder.stop();
+				this.isRecording = false;
+				GodotRuntime.print('GodotVideoRecorder: Recording stopped');
+				return true;
+			}
+			return false;
+		},
+		
+		/**
+		 * 获取录制的视频数据作为Blob（包含音视频）
+		 * @returns {Blob|null}
+		 */
+		getRecordedVideoBlob: function() {
+			if (this.videoRecordedChunks.length === 0) {
+				return null;
+			}
+			
+			// 检查是否需要重新创建blob
+			if (this.cachedBlob && this.lastChunkCount === this.videoRecordedChunks.length) {
+				return this.cachedBlob;
+			}
+			
+			// 创建新的blob并缓存
+			this.cachedBlob = new Blob(this.videoRecordedChunks, {
+				type: this.selectedMimeType
+			});
+			this.lastChunkCount = this.videoRecordedChunks.length;
+			this.cachedDataSize = this.cachedBlob.size;
+			
+			// 输出验证信息
+			const currentTime = Date.now();
+			if (!this.lastBlobCreationTime || (currentTime - this.lastBlobCreationTime) > 1000) {
+				GodotRuntime.print('GodotVideoRecorder: Generated video blob:');
+				GodotRuntime.print('  Type: ' + this.cachedBlob.type);
+				GodotRuntime.print('  Size: ' + this.cachedBlob.size + ' bytes');
+				GodotRuntime.print('  Contains: Video + Audio');
+				this.lastBlobCreationTime = currentTime;
+			}
+			
+			return this.cachedBlob;
+		},
+		
+		/**
+		 * 清理视频录制资源
+		 */
+		cleanupVideoRecorder: function() {
+			this.stopVideoRecording();
+			
+			this.videoRecordedChunks = [];
+			this.videoMediaRecorder = null;
+			
+			if (this.videoStream) {
+				this.videoStream.getTracks().forEach(track => track.stop());
+				this.videoStream = null;
+			}
+			
+			if (this.combinedStream) {
+				this.combinedStream.getTracks().forEach(track => track.stop());
+				this.combinedStream = null;
+			}
+			
+			this.videoRecorderInitialized = false;
+			GodotRuntime.print('GodotVideoRecorder: Cleaned up');
+		},
+		
+		/**
+		 * 检查是否有新的视频录制数据
+		 * @returns {boolean}
+		 */
+		hasNewVideoData: function() {
+			const currentChunkCount = this.videoRecordedChunks.length;
+			if (currentChunkCount !== this.lastCheckedChunkCount) {
+				this.lastCheckedChunkCount = currentChunkCount;
+				this.hasNewData = true;
+				return true;
+			}
+			
+			if (this.hasNewData) {
+				this.hasNewData = false;
+				return true;
+			}
+			
+			return false;
+		},
+		
+		/**
+		 * 检查是否有视频录制数据
+		 * @returns {boolean}
+		 */
+		hasVideoData: function() {
+			return this.videoRecordedChunks.length > 0;
+		},
 	},
 	
 	// C++接口函数
@@ -2715,6 +3016,125 @@ const GodotAudioRecorder = {
 	 */
 	godot_audio_recorder_has_data: function() {
 		return GodotAudioRecorder.hasRecordingData() ? 1 : 0;
+	},
+	
+	// ========== 新增视频录制C++接口函数 ==========
+	
+	godot_video_recorder_init__proxy: 'sync',
+	godot_video_recorder_init__sig: 'ii',
+	/**
+	 * 初始化Canvas视频录制器（音视频合并录制）
+	 * @param {number} fps 视频帧率
+	 * @returns {number} 成功返回1，失败返回0
+	 */
+	godot_video_recorder_init: function(fps) {
+		return GodotAudioRecorder.initVideoRecorder(fps) ? 1 : 0;
+	},
+	
+	godot_video_recorder_start__proxy: 'sync',
+	godot_video_recorder_start__sig: 'i',
+	/**
+	 * 开始视频录制（音视频合并）
+	 * @returns {number} 成功返回1，失败返回0
+	 */
+	godot_video_recorder_start: function() {
+		return GodotAudioRecorder.startVideoRecording() ? 1 : 0;
+	},
+	
+	godot_video_recorder_stop__proxy: 'sync',
+	godot_video_recorder_stop__sig: 'v',
+	/**
+	 * 停止视频录制
+	 */
+	godot_video_recorder_stop: function() {
+		GodotAudioRecorder.stopVideoRecording();
+	},
+	
+	godot_video_recorder_is_recording__proxy: 'sync',
+	godot_video_recorder_is_recording__sig: 'i',
+	/**
+	 * 检查是否正在录制视频
+	 * @returns {number} 正在录制返回1，否则返回0
+	 */
+	godot_video_recorder_is_recording: function() {
+		return GodotAudioRecorder.isRecording ? 1 : 0;
+	},
+	
+	godot_video_recorder_get_data_size__proxy: 'sync',
+	godot_video_recorder_get_data_size__sig: 'i',
+	/**
+	 * 获取录制视频数据的大小
+	 * @returns {number} 数据大小（字节）
+	 */
+	godot_video_recorder_get_data_size: function() {
+		const blob = GodotAudioRecorder.getRecordedVideoBlob();
+		return blob ? blob.size : 0;
+	},
+	
+	godot_video_recorder_get_mime_type__proxy: 'sync',
+	godot_video_recorder_get_mime_type__sig: 'i',
+	/**
+	 * 获取录制视频的MIME类型字符串指针
+	 * @returns {number} 字符串指针
+	 */
+	godot_video_recorder_get_mime_type: function() {
+		const mimeType = GodotAudioRecorder.selectedMimeType || 'video/webm';
+		return GodotRuntime.allocString(mimeType);
+	},
+	
+	godot_video_recorder_download_data__proxy: 'sync',
+	godot_video_recorder_download_data__sig: 'vi',
+	/**
+	 * 下载录制的视频数据
+	 * @param {number} filenamePtr 文件名字符串指针
+	 */
+	godot_video_recorder_download_data: function(filenamePtr) {
+		const blob = GodotAudioRecorder.getRecordedVideoBlob();
+		if (!blob) {
+			GodotRuntime.error('GodotVideoRecorder: No recorded video data to download');
+			return;
+		}
+		
+		const filename = GodotRuntime.parseString(filenamePtr);
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = filename || 'recorded_video.' + blob.type.split('/')[1].split(';')[0];
+		document.body.appendChild(a);
+		a.click();
+		document.body.removeChild(a);
+		URL.revokeObjectURL(url);
+		
+		GodotRuntime.print('GodotVideoRecorder: Downloaded recorded video as ' + a.download);
+	},
+	
+	godot_video_recorder_cleanup__proxy: 'sync',
+	godot_video_recorder_cleanup__sig: 'v',
+	/**
+	 * 清理视频录制器资源
+	 */
+	godot_video_recorder_cleanup: function() {
+		GodotAudioRecorder.cleanupVideoRecorder();
+	},
+	
+	godot_video_recorder_has_new_data__proxy: 'sync',
+	godot_video_recorder_has_new_data__sig: 'i',
+	/**
+	 * 检查是否有新的视频录制数据
+	 * @returns {number} 有新数据返回1，无新数据返回0
+	 */
+	godot_video_recorder_has_new_data: function() {
+		return GodotAudioRecorder.hasNewVideoData() ? 1 : 0;
+	},
+	
+	godot_video_recorder_has_data__proxy: 'sync',
+	godot_video_recorder_has_data__sig: 'i',
+	/**
+	 * 检查是否有视频录制数据
+	 * @returns {number} 有数据返回1，无数据返回0
+	 */
+	godot_video_recorder_has_data: function() {
+		return GodotAudioRecorder.hasVideoData() ? 1 : 0;
 	},
 };
 

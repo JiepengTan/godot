@@ -83,6 +83,9 @@ extern int godot_audio_script_create(int *p_buffer_size, int p_channels);
 extern void godot_audio_script_start(float *p_in_buf, int p_in_size, float *p_out_buf, int p_out_size, void (*p_cb)());
 
 // Web Audio Recorder - MediaRecorder API integration for Web端音频录制
+// Web Audio Recorder functions
+
+// 现有音频录制函数
 extern int godot_audio_recorder_init();
 extern int godot_audio_recorder_start();
 extern void godot_audio_recorder_stop();
@@ -90,9 +93,21 @@ extern int godot_audio_recorder_is_recording();
 extern int godot_audio_recorder_get_data_size();
 extern int godot_audio_recorder_has_new_data();
 extern int godot_audio_recorder_has_data();
+
 extern int godot_audio_recorder_get_mime_type();
 extern void godot_audio_recorder_download_data(const char *p_filename);
 extern void godot_audio_recorder_cleanup();
+// 新增视频录制函数
+extern int godot_video_recorder_init(int fps);
+extern int godot_video_recorder_start();
+extern void godot_video_recorder_stop();
+extern int godot_video_recorder_is_recording();
+extern int godot_video_recorder_get_data_size();
+extern int godot_video_recorder_get_mime_type();
+extern void godot_video_recorder_download_data(const char *p_filename);
+extern void godot_video_recorder_cleanup();
+extern int godot_video_recorder_has_new_data();
+extern int godot_video_recorder_has_data();
 
 // Web File Download - 文件下载功能
 extern int godot_web_download_recorded_audio(const char *p_filename);
