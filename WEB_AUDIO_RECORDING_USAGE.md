@@ -63,6 +63,41 @@ open simple_audio_test.html
 
 测试结果会显示详细的验证信息，证明MediaRecorder完全可以只录制音频。
 
+## 🔧 问题解决方案
+
+### 解决的关键问题
+
+1. **"Combined frame recording write failed"错误**:
+   - **问题**: Web端ThreadSafeFrameBuffer没有接收视频帧数据
+   - **解决**: Web端直接从RenderingServer获取视频帧，绕过ThreadSafeFrameBuffer
+   - **结果**: 视频录制正常工作
+
+2. **"ObsStyleMovieWriter: MovieWriter's HybridAudioDriver not available"错误**:
+   - **问题**: Web端没有HybridAudioDriver
+   - **解决**: 自动启用合并录制模式，使用MediaRecorder API
+   - **结果**: 音频录制无错误
+
+3. **录制完成后没有自动下载文件**:
+   - **问题**: Web端无法直接保存到本地文件系统
+   - **解决**: 添加自动文件下载功能，录制结束后自动触发下载
+   - **结果**: 自动下载视频文件(.avi)和音频文件(.webm)
+
+### 修复后的预期日志
+
+```
+ObsStyleMovieWriter: Web platform detected, auto-enabling combined recording mode
+ObsStyleMovieWriter: Combined recording mode (Web): using MediaRecorder API audio from MovieWriter
+GodotAudioRecorder: AUDIO-ONLY recording started with audio/webm;codecs=opus
+```
+
+录制结束时：
+```
+ObsStyleMovieWriter: Web platform detected, starting automatic file downloads...
+ObsStyleMovieWriter: Video file download initiated: movie.avi
+ObsStyleMovieWriter: Web audio recording download initiated: web_recorded_audio.webm
+ObsStyleMovieWriter: Web端文件下载完成
+```
+
 ## 📝 概述
 
 本实现基于**方案1：MediaRecorder API**，为Godot Engine的Web平台提供了完整的音频录制功能，解决了原有Web端音频录制失效的问题。
@@ -87,6 +122,14 @@ open simple_audio_test.html
 - **Web平台检测**: 自动识别Web平台并使用MediaRecorder
 - **统一接口**: 与PC端HybridAudioDriver保持相同的使用方式
 - **错误处理**: 完善的初始化和清理流程
+- **ObsStyleMovieWriter支持**: 自动启用Web端兼容模式
+
+### 4. ObsStyleMovieWriter Web端支持
+- **自动模式切换**: Web端自动启用合并录制模式
+- **MediaRecorder集成**: 使用Web端音频录制功能
+- **透明兼容**: 无需修改现有OBS录制代码
+- **视频录制修复**: Web端直接从RenderingServer获取视频帧
+- **自动文件下载**: 录制完成后自动下载视频和音频文件
 
 ## 🚀 使用方法
 

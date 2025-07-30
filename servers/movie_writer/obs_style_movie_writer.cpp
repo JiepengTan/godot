@@ -13,6 +13,10 @@
 #include "servers/rendering_server.h"
 #include "servers/display_server.h"
 
+#ifdef WEB_ENABLED
+#include "platform/web/godot_audio.h"
+#endif
+
 ObsStyleMovieWriter::ObsStyleMovieWriter() :
     current_state(STATE_UNINITIALIZED),
     game_frame_sequence(0),
@@ -257,6 +261,64 @@ void ObsStyleMovieWriter::write_end() {
     
     update_recording_state(STATE_UNINITIALIZED);
     
+    print_line("obs output_file_path===>" + output_file_path);
+#ifdef WEB_ENABLED
+    // Web端自动下载录制的文件
+    if (obs_config.enable_debug_output) {
+        print_line("ObsStyleMovieWriter: Web platform detected, starting automatic file downloads...");
+    }
+    
+    // 下载视频文件
+    if (!output_file_path.is_empty()) {
+        String video_file = output_file_path;
+        if (obs_config.enable_combined_recording) {
+            // 合并录制模式：单个AVI文件
+            video_file += ".avi";
+        } else {
+            // 分离录制模式：视频文件
+            video_file += "_video.avi";
+        }
+        
+        // 调用Web端文件下载接口
+        CharString video_path_utf8 = video_file.utf8();
+        CharString download_name_utf8 = video_file.get_file().utf8();
+        int download_result = godot_web_download_file(video_path_utf8.get_data(), download_name_utf8.get_data());
+        
+        if (download_result == 1) {
+            print_line("ObsStyleMovieWriter: Video file download initiated: " + video_file.get_file());
+        } else {
+            print_line("ObsStyleMovieWriter: Failed to download video file: " + video_file);
+        }
+    }
+    
+    // 下载音频文件（分离录制模式）
+    if (!obs_config.enable_combined_recording && !output_file_path.is_empty()) {
+        String audio_file = output_file_path + "_audio.avi";
+        
+        CharString audio_path_utf8 = audio_file.utf8();
+        CharString audio_name_utf8 = audio_file.get_file().utf8();
+        int audio_download_result = godot_web_download_file(audio_path_utf8.get_data(), audio_name_utf8.get_data());
+        
+        if (audio_download_result == 1) {
+            print_line("ObsStyleMovieWriter: Audio file download initiated: " + audio_file.get_file());
+        } else {
+            print_line("ObsStyleMovieWriter: Failed to download audio file: " + audio_file);
+        }
+    }
+    
+    // 下载原始Web音频录制（MediaRecorder数据）
+    CharString web_audio_name = String("web_recorded_audio.webm").utf8();
+    int web_audio_result = godot_web_download_recorded_audio(web_audio_name.get_data());
+    
+    if (web_audio_result == 1) {
+        print_line("ObsStyleMovieWriter: Web audio recording download initiated: web_recorded_audio.webm");
+    } else {
+        print_line("ObsStyleMovieWriter: No web audio recording data to download");
+    }
+    
+    print_line("ObsStyleMovieWriter: Web端文件下载完成");
+#endif
+    
     print_line("=== OBS-style Recording Completed ===");
 }
 
@@ -348,15 +410,31 @@ void ObsStyleMovieWriter::cleanup_components() {
 }
 
 Error ObsStyleMovieWriter::setup_audio_capture() {
+#ifdef WEB_ENABLED
+    // Web端自动启用合并录制模式，使用MovieWriter的Web音频录制功能
+    if (!obs_config.enable_combined_recording) {
+        print_line("ObsStyleMovieWriter: Web platform detected, auto-enabling combined recording mode");
+        obs_config.enable_combined_recording = true;
+    }
+#endif
+
     if (obs_config.enable_combined_recording) {
         // 合并录制模式：音频数据通过write_frame直接传递，无需设置HybridAudioDriver
         if (obs_config.enable_debug_output) {
+#ifdef WEB_ENABLED
+            print_line("ObsStyleMovieWriter: Combined recording mode (Web): using MediaRecorder API audio from MovieWriter");
+#else
             print_line("Combined recording mode: skipping HybridAudioDriver setup, using direct audio transfer");
+#endif
         }
         return OK;
     }
     
-    // 分离录制模式：需要设置HybridAudioDriver
+    // 分离录制模式：需要设置HybridAudioDriver (仅PC端)
+#ifdef WEB_ENABLED
+    ERR_PRINT("ObsStyleMovieWriter: Separate recording mode is not supported on Web platform. Use combined recording mode.");
+    return ERR_UNCONFIGURED;
+#else
     // 重用MovieWriter的HybridAudioDriver，避免冲突
     hybrid_audio_driver = MovieWriter::get_hybrid_audio_driver();
     if (!hybrid_audio_driver) {
@@ -388,6 +466,7 @@ Error ObsStyleMovieWriter::setup_audio_capture() {
     
     // HybridAudioDriver已经由MovieWriter启动和注册了，无需重复操作
     print_line("ObsStyleMovieWriter: Using existing HybridAudioDriver from MovieWriter");
+#endif
     
     return OK;
 }
@@ -748,12 +827,36 @@ Error ObsStyleMovieWriter::write_combined_frame_and_audio() {
     uint64_t current_time = OS::get_singleton()->get_ticks_usec();
     
     // 1. 获取当前视频帧
+#ifdef WEB_ENABLED
+    // Web端直接从RenderingServer获取帧数据
+    RID main_vp_rid = RenderingServer::get_singleton()->viewport_find_from_screen_attachment(DisplayServer::MAIN_WINDOW_ID);
+    RID main_vp_texture = RenderingServer::get_singleton()->viewport_get_texture(main_vp_rid);
+    Ref<Image> vp_tex = RenderingServer::get_singleton()->texture_2d_get(main_vp_texture);
+    if (RenderingServer::get_singleton()->viewport_is_using_hdr_2d(main_vp_rid)) {
+        vp_tex->convert(Image::FORMAT_RGBA8);
+        vp_tex->linear_to_srgb();
+    }
+    
+    if (vp_tex.is_null()) {
+        // 没有视频帧，跳过此次录制
+        return OK;
+    }
+    
+    // 创建帧数据结构（Web端不需要ThreadSafeFrameBuffer的复杂逻辑）
+    ThreadSafeFrameBuffer::FrameData frame_data;
+    frame_data.image = vp_tex;
+    frame_data.game_timestamp = current_time;
+    frame_data.frame_sequence = frames_added_count;
+    frame_data.is_new_frame = true;
+#else
+    // PC端使用ThreadSafeFrameBuffer
     ThreadSafeFrameBuffer::FrameData frame_data = frame_buffer->get_current_frame();
     
     if (frame_data.image.is_null()) {
         // 没有视频帧，跳过此次录制
         return OK;
     }
+#endif
     
     // 2. 准备视频帧标志
     uint8_t frame_flags = EnhancedAviWriter::FRAME_FLAG_NEW;
@@ -782,8 +885,9 @@ Error ObsStyleMovieWriter::write_combined_frame_and_audio() {
         if (pending_audio_samples.size() >= samples_needed) {
             // 有足够的音频数据
             audio_to_write.resize(samples_needed);
+            int32_t *write_ptr = audio_to_write.ptrw();
             for (uint32_t i = 0; i < samples_needed; i++) {
-                audio_to_write.write[i] = pending_audio_samples[i];
+                write_ptr[i] = pending_audio_samples[i];
             }
             
             // 从缓冲区移除已使用的样本
@@ -796,21 +900,23 @@ Error ObsStyleMovieWriter::write_combined_frame_and_audio() {
             
             // 复制现有数据
             uint32_t available_samples = pending_audio_samples.size();
+            int32_t *write_ptr = audio_to_write.ptrw();
             for (uint32_t i = 0; i < available_samples; i++) {
-                audio_to_write.write[i] = pending_audio_samples[i];
+                write_ptr[i] = pending_audio_samples[i];
             }
             
             // 用静音填充剩余部分
             for (uint32_t i = available_samples; i < samples_needed; i++) {
-                audio_to_write.write[i] = 0;
+                write_ptr[i] = 0;
             }
             
             pending_audio_samples.clear();
         } else {
             // 没有音频数据，写入静音
             audio_to_write.resize(samples_needed);
+            int32_t *write_ptr = audio_to_write.ptrw();
             for (uint32_t i = 0; i < samples_needed; i++) {
-                audio_to_write.write[i] = 0;
+                write_ptr[i] = 0;
             }
         }
     }

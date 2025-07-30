@@ -2666,3 +2666,103 @@ if (typeof GodotAudio !== 'undefined') {
 
 autoAddDeps(GodotAudioRecorder, '$GodotAudioRecorder');
 mergeInto(LibraryManager.library, GodotAudioRecorder);
+
+/**
+ * Web端文件下载工具函数
+ */
+const GodotWebDownload = {
+	$GodotWebDownload: {
+		/**
+		 * 下载录制的音频数据
+		 * @param {string} filename 文件名
+		 */
+		downloadRecordedAudio: function(filename) {
+			const blob = GodotAudioRecorder.getRecordedAudioBlob();
+			if (!blob) {
+				GodotRuntime.error('GodotWebDownload: No recorded audio data to download');
+				return false;
+			}
+			
+			this.downloadBlob(blob, filename || 'recorded_audio.webm');
+			return true;
+		},
+		
+		/**
+		 * 通用文件下载函数
+		 * @param {Blob} blob 要下载的数据
+		 * @param {string} filename 文件名
+		 */
+		downloadBlob: function(blob, filename) {
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = filename;
+			a.style.display = 'none';
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			URL.revokeObjectURL(url);
+			
+			GodotRuntime.print('GodotWebDownload: Downloaded file: ' + filename + ' (' + blob.size + ' bytes)');
+		},
+		
+		/**
+		 * 从文件路径读取数据并下载（Web端的虚拟文件系统）
+		 * @param {string} filePath 文件路径
+		 * @param {string} downloadName 下载时的文件名
+		 */
+		downloadFile: function(filePath, downloadName) {
+			try {
+				// 在Web端，文件通常存储在Emscripten的虚拟文件系统中
+				// 我们需要读取文件内容并创建下载
+				const fs = FS;
+				if (!fs.analyzePath(filePath).exists) {
+					GodotRuntime.error('GodotWebDownload: File does not exist: ' + filePath);
+					return false;
+				}
+				
+				const data = fs.readFile(filePath);
+				const blob = new Blob([data], { type: 'application/octet-stream' });
+				
+				// 使用原文件名如果没有指定下载名
+				const filename = downloadName || filePath.split('/').pop();
+				this.downloadBlob(blob, filename);
+				
+				return true;
+			} catch (error) {
+				GodotRuntime.error('GodotWebDownload: Failed to download file: ' + error.message);
+				return false;
+			}
+		}
+	},
+	
+	// C++接口函数
+	godot_web_download_recorded_audio__proxy: 'sync',
+	godot_web_download_recorded_audio__sig: 'ii',
+	/**
+	 * 下载录制的音频数据
+	 * @param {number} filenamePtr 文件名字符串指针
+	 * @returns {number} 成功返回1，失败返回0
+	 */
+	godot_web_download_recorded_audio: function(filenamePtr) {
+		const filename = GodotRuntime.parseString(filenamePtr);
+		return GodotWebDownload.downloadRecordedAudio(filename) ? 1 : 0;
+	},
+	
+	godot_web_download_file__proxy: 'sync',
+	godot_web_download_file__sig: 'iii',
+	/**
+	 * 下载指定路径的文件
+	 * @param {number} filePathPtr 文件路径字符串指针
+	 * @param {number} downloadNamePtr 下载文件名字符串指针（可为0）
+	 * @returns {number} 成功返回1，失败返回0
+	 */
+	godot_web_download_file: function(filePathPtr, downloadNamePtr) {
+		const filePath = GodotRuntime.parseString(filePathPtr);
+		const downloadName = downloadNamePtr ? GodotRuntime.parseString(downloadNamePtr) : null;
+		return GodotWebDownload.downloadFile(filePath, downloadName) ? 1 : 0;
+	}
+};
+
+autoAddDeps(GodotWebDownload, '$GodotWebDownload');
+mergeInto(LibraryManager.library, GodotWebDownload);

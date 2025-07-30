@@ -285,21 +285,21 @@ void MovieWriter::add_frame() {
 #else
 		// PC端实时录制模式：从HybridAudioDriver获取捕获的音频数据
 		if (MovieWriter::hybrid_driver) {
-			int requested_frames = mix_rate / fps;
-			int available_frames = MovieWriter::hybrid_driver->get_available_frames();
-			
-			// 获取音频数据
-			MovieWriter::hybrid_driver->get_captured_audio_data(audio_mix_buffer.ptr(), requested_frames);
-			
-			// 检查音频质量
-			if (available_frames < requested_frames / 2) {
-				static int low_buffer_warnings = 0;
-				if (low_buffer_warnings < 5) { // 限制警告次数
-					WARN_PRINT(vformat("MovieWriter: Low audio buffer (%d frames available, %d requested)", 
-							   available_frames, requested_frames));
-					low_buffer_warnings++;
-				}
+		int requested_frames = mix_rate / fps;
+		int available_frames = MovieWriter::hybrid_driver->get_available_frames();
+		
+		// 获取音频数据
+		MovieWriter::hybrid_driver->get_captured_audio_data(audio_mix_buffer.ptr(), requested_frames);
+		
+		// 检查音频质量
+		if (available_frames < requested_frames / 2) {
+			static int low_buffer_warnings = 0;
+			if (low_buffer_warnings < 5) { // 限制警告次数
+				WARN_PRINT(vformat("MovieWriter: Low audio buffer (%d frames available, %d requested)", 
+						   available_frames, requested_frames));
+				low_buffer_warnings++;
 			}
+		}
 		} else {
 			// PC端fallback到离线模式
 			AudioDriverDummy::get_dummy_singleton()->mix_audio(mix_rate / fps, audio_mix_buffer.ptr());

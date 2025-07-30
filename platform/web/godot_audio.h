@@ -92,6 +92,10 @@ extern int godot_audio_recorder_get_mime_type();
 extern void godot_audio_recorder_download_data(const char *p_filename);
 extern void godot_audio_recorder_cleanup();
 
+// Web File Download - 文件下载功能
+extern int godot_web_download_recorded_audio(const char *p_filename);
+extern int godot_web_download_file(const char *p_file_path, const char *p_download_name);
+
 #ifdef __cplusplus
 }
 #endif
