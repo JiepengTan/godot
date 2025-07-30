@@ -62,6 +62,7 @@ class MovieWriter : public Object {
 	bool web_audio_recorder_initialized = false;
 	bool web_audio_recording_active = false;
 	Vector<uint8_t> web_audio_buffer; // 存储Web端录制的音频数据
+	
 #endif
 
 	enum {

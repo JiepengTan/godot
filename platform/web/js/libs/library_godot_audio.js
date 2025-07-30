@@ -2337,14 +2337,26 @@ mergeInto(LibraryManager.library, GodotAudioScript);
 const GodotAudioRecorder = {
 	$GodotAudioRecorder__deps: ['$GodotAudio'],
 	$GodotAudioRecorder: {
+		// 私有状态
+		initialized: false,
 		mediaRecorder: null,
+		mediaStreamDestination: null,
 		recordedChunks: [],
 		isRecording: false,
-		recordingStream: null,
-		destination: null,
+		selectedMimeType: '',
+		
+		// 性能优化缓存
+		cachedDataSize: 0,
+		lastChunkCount: 0,
+		cachedBlob: null,
+		lastBlobCreationTime: 0,
+		
+		// 新数据状态跟踪（用于快速检查）
+		hasNewData: false,
+		lastCheckedChunkCount: 0,
 		
 		/**
-		 * 初始化录制器
+		 * 初始化录制器（不自动开始录制）
 		 */
 		init: function() {
 			if (!GodotAudio.ctx) {
@@ -2354,39 +2366,25 @@ const GodotAudioRecorder = {
 			
 			try {
 				// 创建录制目标 - MediaStreamDestination
-				this.destination = GodotAudio.ctx.createMediaStreamDestination();
+				this.mediaStreamDestination = GodotAudio.ctx.createMediaStreamDestination();
 				
-				// 验证：MediaStreamDestination只创建音频流
-				this.recordingStream = this.destination.stream;
-				const audioTracks = this.recordingStream.getAudioTracks().length;
-				const videoTracks = this.recordingStream.getVideoTracks().length;
+				// 选择支持的MIME类型
+				this.selectedMimeType = this.getSupportedMimeType();
 				
-				GodotRuntime.print('GodotAudioRecorder stream verification:');
-				GodotRuntime.print('  Audio tracks: ' + audioTracks);
-				GodotRuntime.print('  Video tracks: ' + videoTracks);
-				
-				if (audioTracks === 0) {
-					GodotRuntime.error('GodotAudioRecorder: No audio tracks in MediaStream!');
-					return false;
-				}
-				
-				if (videoTracks > 0) {
-					GodotRuntime.error('GodotAudioRecorder: Unexpected video tracks found!');
-					return false;
-				}
-				
-				// 将主音频总线（索引0）连接到录制目标（不影响正常播放）
+				// 将主音频总线连接到录制目标
 				const masterBus = GodotAudio.buses[0];
 				if (masterBus) {
-					masterBus.getOutputNode().connect(this.destination);
+					masterBus.getOutputNode().connect(this.mediaStreamDestination);
 					GodotRuntime.print('GodotAudioRecorder: Connected master bus to recording destination');
 				} else {
 					GodotRuntime.error('GodotAudioRecorder: Master bus not found');
 					return false;
 				}
 				
-				GodotRuntime.print('GodotAudioRecorder initialized successfully - AUDIO ONLY recording ready');
+				this.initialized = true;
+				GodotRuntime.print('GodotAudioRecorder initialized successfully - ready for AUDIO ONLY recording');
 				return true;
+				
 			} catch (error) {
 				GodotRuntime.error('GodotAudioRecorder init failed: ' + error.message);
 				return false;
@@ -2397,8 +2395,8 @@ const GodotAudioRecorder = {
 		 * 开始录制
 		 */
 		startRecording: function() {
-			if (!this.recordingStream) {
-				GodotRuntime.error('GodotAudioRecorder: Recorder not initialized');
+			if (!this.initialized) {
+				GodotRuntime.error('GodotAudioRecorder: Not initialized');
 				return false;
 			}
 			
@@ -2408,17 +2406,9 @@ const GodotAudioRecorder = {
 			}
 			
 			try {
-				// 创建MediaRecorder - 明确指定为音频录制
-				const mimeType = this.getSupportedMimeType();
-				
-				// 验证MIME类型确实是音频
-				if (!mimeType.startsWith('audio/')) {
-					GodotRuntime.error('GodotAudioRecorder: Selected MIME type is not audio: ' + mimeType);
-					return false;
-				}
-				
-				this.mediaRecorder = new MediaRecorder(this.recordingStream, {
-					mimeType: mimeType,
+				// 创建MediaRecorder
+				this.mediaRecorder = new MediaRecorder(this.mediaStreamDestination.stream, {
+					mimeType: this.selectedMimeType,
 					audioBitsPerSecond: 128000
 				});
 				
@@ -2427,14 +2417,18 @@ const GodotAudioRecorder = {
 				// 处理录制数据
 				this.mediaRecorder.ondataavailable = (event) => {
 					if (event.data.size > 0) {
-						// 验证每个chunk确实是音频
-						const chunkType = event.data.type;
-						if (!chunkType.startsWith('audio/')) {
-							GodotRuntime.error('GodotAudioRecorder: Recorded chunk is not audio type: ' + chunkType);
-						} else {
-							GodotRuntime.print('GodotAudioRecorder: Audio chunk recorded: ' + event.data.size + ' bytes (' + chunkType + ')');
-						}
 						this.recordedChunks.push(event.data);
+						
+						// 清除缓存，强制重新计算
+						this.cachedBlob = null;
+						
+						// 标记有新数据（用于快速检查）
+						this.hasNewData = true;
+						
+						// 大幅减少日志频率：只在数据块较大时输出（避免频繁的小块日志）
+						if (event.data.size > 1000) { // 提高阈值到1KB
+							GodotRuntime.print('GodotAudioRecorder: Audio chunk recorded: ' + event.data.size + ' bytes (' + event.data.type + ')');
+						}
 					}
 				};
 				
@@ -2452,7 +2446,7 @@ const GodotAudioRecorder = {
 				this.mediaRecorder.start(100);
 				this.isRecording = true;
 				
-				GodotRuntime.print('GodotAudioRecorder: AUDIO-ONLY recording started with ' + mimeType);
+				GodotRuntime.print('GodotAudioRecorder: AUDIO-ONLY recording started with ' + this.selectedMimeType);
 				return true;
 				
 			} catch (error) {
@@ -2475,29 +2469,36 @@ const GodotAudioRecorder = {
 		},
 		
 		/**
-		 * 获取录制的音频数据作为Blob
+		 * 获取录制的音频数据作为Blob（优化版本，使用缓存）
 		 */
 		getRecordedAudioBlob: function() {
 			if (this.recordedChunks.length === 0) {
 				return null;
 			}
 			
-			const blob = new Blob(this.recordedChunks, {
-				type: this.getSupportedMimeType()
-			});
-			
-			// 最终验证：确保生成的blob确实是音频
-			const isAudioBlob = blob.type.startsWith('audio/');
-			GodotRuntime.print('GodotAudioRecorder: Generated blob verification:');
-			GodotRuntime.print('  Type: ' + blob.type);
-			GodotRuntime.print('  Size: ' + blob.size + ' bytes');
-			GodotRuntime.print('  Is audio only: ' + isAudioBlob);
-			
-			if (!isAudioBlob) {
-				GodotRuntime.error('GodotAudioRecorder: Generated blob is not audio type!');
+			// 检查是否需要重新创建blob（只有在有新数据时才重新创建）
+			if (this.cachedBlob && this.lastChunkCount === this.recordedChunks.length) {
+				return this.cachedBlob;
 			}
 			
-			return blob;
+			// 创建新的blob并缓存
+			this.cachedBlob = new Blob(this.recordedChunks, {
+				type: this.selectedMimeType
+			});
+			this.lastChunkCount = this.recordedChunks.length;
+			this.cachedDataSize = this.cachedBlob.size;
+			
+			// 只在第一次创建或大小显著变化时输出验证信息（减少日志频率）
+			const currentTime = Date.now();
+			if (!this.lastBlobCreationTime || (currentTime - this.lastBlobCreationTime) > 1000) {
+				GodotRuntime.print('GodotAudioRecorder: Generated blob verification:');
+				GodotRuntime.print('  Type: ' + this.cachedBlob.type);
+				GodotRuntime.print('  Size: ' + this.cachedBlob.size + ' bytes');
+				GodotRuntime.print('  Is audio only: ' + this.cachedBlob.type.startsWith('audio/'));
+				this.lastBlobCreationTime = currentTime;
+			}
+			
+			return this.cachedBlob;
 		},
 		
 		/**
@@ -2551,14 +2552,45 @@ const GodotAudioRecorder = {
 			this.recordedChunks = [];
 			this.mediaRecorder = null;
 			
-			if (this.destination) {
-				this.destination.disconnect();
-				this.destination = null;
+			if (this.mediaStreamDestination) {
+				this.mediaStreamDestination.disconnect();
+				this.mediaStreamDestination = null;
 			}
 			
-			this.recordingStream = null;
 			GodotRuntime.print('GodotAudioRecorder: Cleaned up');
-		}
+		},
+		
+		/**
+		 * 快速检查是否有新的录制数据（轻量级API）
+		 * 比getRecordedAudioBlob()快得多，因为不需要创建Blob对象
+		 * @returns {boolean} 是否有新数据
+		 */
+		hasNewRecordingData: function() {
+			// 快速检查：chunk数量是否变化
+			const currentChunkCount = this.recordedChunks.length;
+			if (currentChunkCount !== this.lastCheckedChunkCount) {
+				this.lastCheckedChunkCount = currentChunkCount;
+				this.hasNewData = true;
+				return true;
+			}
+			
+			// 检查之前是否有未确认的新数据
+			if (this.hasNewData) {
+				this.hasNewData = false; // 重置标志
+				return true;
+			}
+			
+			return false;
+		},
+		
+		/**
+		 * 快速检查是否有录制数据（任何数据，不仅仅是新数据）
+		 * 比getRecordedAudioBlob()快得多，因为不需要创建Blob对象
+		 * @returns {boolean} 是否有录制数据
+		 */
+		hasRecordingData: function() {
+			return this.recordedChunks.length > 0;
+		},
 	},
 	
 	// C++接口函数
@@ -2604,10 +2636,16 @@ const GodotAudioRecorder = {
 	godot_audio_recorder_get_data_size__proxy: 'sync',
 	godot_audio_recorder_get_data_size__sig: 'i',
 	/**
-	 * 获取录制数据的大小
+	 * 获取录制数据的大小（优化版本）
 	 * @returns {number} 数据大小（字节）
 	 */
 	godot_audio_recorder_get_data_size: function() {
+		// 快速路径：如果chunk数量没有变化，直接返回缓存的大小
+		if (GodotAudioRecorder.lastChunkCount === GodotAudioRecorder.recordedChunks.length) {
+			return GodotAudioRecorder.cachedDataSize;
+		}
+		
+		// 只有在有新数据时才重新计算
 		const blob = GodotAudioRecorder.getRecordedAudioBlob();
 		return blob ? blob.size : 0;
 	},
@@ -2656,7 +2694,28 @@ const GodotAudioRecorder = {
 	 */
 	godot_audio_recorder_cleanup: function() {
 		GodotAudioRecorder.cleanup();
-	}
+	},
+	
+	godot_audio_recorder_has_new_data__proxy: 'sync',
+	godot_audio_recorder_has_new_data__sig: 'i',
+	/**
+	 * 轻量级检查是否有新的录制数据
+	 * 比get_data_size快得多，因为不需要创建Blob对象
+	 * @returns {number} 有新数据返回1，无新数据返回0
+	 */
+	godot_audio_recorder_has_new_data: function() {
+		return GodotAudioRecorder.hasNewRecordingData() ? 1 : 0;
+	},
+	
+	godot_audio_recorder_has_data__proxy: 'sync',
+	godot_audio_recorder_has_data__sig: 'i',
+	/**
+	 * 快速检查是否有录制数据（轻量级，不创建Blob）
+	 * @returns {number} 有数据返回1，无数据返回0
+	 */
+	godot_audio_recorder_has_data: function() {
+		return GodotAudioRecorder.hasRecordingData() ? 1 : 0;
+	},
 };
 
 // 将GodotAudioRecorder添加到GodotAudio对象中

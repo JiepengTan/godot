@@ -88,6 +88,8 @@ extern int godot_audio_recorder_start();
 extern void godot_audio_recorder_stop();
 extern int godot_audio_recorder_is_recording();
 extern int godot_audio_recorder_get_data_size();
+extern int godot_audio_recorder_has_new_data();
+extern int godot_audio_recorder_has_data();
 extern int godot_audio_recorder_get_mime_type();
 extern void godot_audio_recorder_download_data(const char *p_filename);
 extern void godot_audio_recorder_cleanup();

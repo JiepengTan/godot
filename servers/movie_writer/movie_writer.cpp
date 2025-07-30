@@ -31,6 +31,7 @@
 #include "movie_writer.h"
 #include "core/config/project_settings.h"
 #include "core/io/dir_access.h"
+#include "core/os/os.h"
 #include "core/os/time.h"
 #include "servers/audio/audio_driver_dummy.h"
 #include "servers/audio/audio_driver_hybrid.h"
@@ -474,20 +475,7 @@ bool MovieWriter::process_web_audio_data() {
 		return false;
 	}
 
-	// 检查是否有录制数据
-	int data_size = godot_audio_recorder_get_data_size();
-	if (data_size > 0) {
-		print_line(vformat("MovieWriter: Web audio data available: %d bytes", data_size));
-		
-		// 注意：在实际实现中，我们需要：
-		// 1. 获取录制的音频数据（Blob -> ArrayBuffer）
-		// 2. 将其转换为MovieWriter期望的格式（int32_t数组）
-		// 3. 这可能需要额外的JavaScript接口来处理格式转换
-		
-		return true;
-	}
-	
-	return false;
+	return true;
 }
 
 #endif // WEB_ENABLED
