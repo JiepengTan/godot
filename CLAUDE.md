@@ -8,42 +8,18 @@ This is a customized fork of Godot Engine 4.4 with a custom SPX (Sprite eXtensio
 
 ## Build Commands
 
-**Primary build system: SCons**
+**Primary build system:**
 
 ```bash
-# Development builds
-scons platform=macos target=editor dev_build=yes spx=yes tests=yes debug_symbols=yes
-scons platform=web target=template_release spx=yes
-scons platform=windows target=editor spx=yes
-
-
-# Production builds  
-scons platform=macos target=template_release production=yes lto=auto spx=yes
-
-# Fast incremental builds
-scons platform=macos target=editor fast_unsafe=yes spx=yes
+./build.sh
 ```
 
-**Testing:**
+**Test :**
+
 ```bash
-scons tests=yes          # Build with tests enabled
-./bin/godot.*.* --test   # Run unit tests
+./build.sh -t
 ```
 
-**Web development:**
-```bash
-cd platform/web/
-npm ci                   # Install JavaScript dependencies
-npm run lint            # Lint JavaScript code
-npm run format          # Format JavaScript code
-```
-
-**Code quality:**
-```bash
-ruff check .            # Python code linting
-mypy .                  # Type checking
-codespell              # Spell checking
-```
 
 ## Architecture
 

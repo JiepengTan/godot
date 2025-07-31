@@ -125,6 +125,11 @@ public:
 	 */
 	bool is_recording() const { return recording_active.load(); }
 	bool is_thread_running() const { return thread_started.load(); }
+	
+	/**
+	 * Mark recording as inactive (for external cleanup)
+	 */
+	void mark_inactive() { recording_active.store(false); }
 
 	/**
 	 * Audio data input interface (called by HybridAudioDriver)

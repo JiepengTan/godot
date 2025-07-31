@@ -14,6 +14,7 @@
 #include "enhanced_avi_writer.h"
 #include "independent_video_recorder.h"
 #include "independent_audio_recorder.h"
+#include "post_merge_processor.h"
 #include "servers/audio/audio_driver_hybrid.h"
 #include "core/os/os.h"
 #include "core/os/thread.h"
@@ -51,7 +52,11 @@ public:
         bool enable_repeat_frame_marking = true;  // Enable repeat frame marking
         bool enable_audio_monitoring = false;     // Enable audio monitoring
         bool enable_debug_output = true;          // Enable debug output
-        bool enable_combined_recording = false;    // Enable combined recording (video+audio to a single file)
+        
+        // Post-merge configuration
+        bool enable_post_merge = true;            // Enable post-recording file merge
+        bool keep_intermediate_files = false;    // Keep separate video/audio files after merge
+        String ffmpeg_path = "ffmpeg";           // FFmpeg executable path
         
         // Performance parameters
         uint32_t max_frame_buffer_size = 4;       // Maximum frame buffer size
@@ -73,6 +78,7 @@ private:
     IndependentVideoRecorder *video_recorder = nullptr;
     IndependentAudioRecorder *audio_recorder = nullptr;
     HybridAudioDriver *hybrid_audio_driver = nullptr;
+    PostMergeProcessor *post_merge_processor = nullptr;
     
     // Recording configuration
     ObsRecordingConfig obs_config;
@@ -91,27 +97,17 @@ private:
     uint64_t last_add_frame_time = 0;
     uint32_t frames_added_count = 0;
     
-    // Combined recording support
-    Thread *combined_recording_thread = nullptr;
-    std::atomic<bool> combined_recording_active{false};
-    Mutex audio_buffer_mutex;
-    Vector<int32_t> pending_audio_samples;
-    uint64_t last_video_frame_time = 0;
-    uint64_t last_audio_chunk_time = 0;
     
     // Internal methods
     Error setup_components();
-    void cleanup_components();
+    void cleanup_components(IndependentAudioRecorder* temp_audio_recorder = nullptr);
     Error setup_audio_capture();
     void restore_audio_driver();
     void update_recording_state(RecordingState new_state);
     
-    // Combined recording methods
-    Error setup_combined_recording();
-    void cleanup_combined_recording();
-    static void combined_recording_thread_function(void *p_userdata);
-    void combined_recording_loop();
-    Error write_combined_frame_and_audio();
+    // Post-merge processing
+    void perform_post_merge();
+    
     
     // Config validation
     Error validate_config() const;

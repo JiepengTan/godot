@@ -50,9 +50,18 @@ ObsStyleMovieWriter::ObsStyleMovieWriter() :
     if (ProjectSettings::get_singleton()->has_setting("movie_writer/obs_enable_debug_output")) {
         obs_config.enable_debug_output = GLOBAL_GET("movie_writer/obs_enable_debug_output");
     }
-    if (ProjectSettings::get_singleton()->has_setting("movie_writer/obs_enable_combined_recording")) {
-        obs_config.enable_combined_recording = (bool)ProjectSettings::get_singleton()->get_setting("movie_writer/obs_enable_combined_recording");
+    if (ProjectSettings::get_singleton()->has_setting("movie_writer/obs_enable_post_merge")) {
+        obs_config.enable_post_merge = GLOBAL_GET("movie_writer/obs_enable_post_merge");
     }
+    if (ProjectSettings::get_singleton()->has_setting("movie_writer/obs_keep_intermediate_files")) {
+        obs_config.keep_intermediate_files = GLOBAL_GET("movie_writer/obs_keep_intermediate_files");
+    }
+    if (ProjectSettings::get_singleton()->has_setting("movie_writer/obs_ffmpeg_path")) {
+        obs_config.ffmpeg_path = GLOBAL_GET("movie_writer/obs_ffmpeg_path");
+    }
+    
+    // Initialize post-merge processor
+    post_merge_processor = new PostMergeProcessor();
     
 }
 
@@ -122,33 +131,20 @@ Error ObsStyleMovieWriter::write_begin(const Size2i &p_movie_size, uint32_t p_fp
         cleanup_components();
         return audio_error;
     }
-    print_line("obs_config.enable_combined_recording = ",obs_config.enable_combined_recording);
-    // Start recording thread
-    if (obs_config.enable_combined_recording) {
-        // Start combined recording thread
-        combined_recording_active = true;
-        combined_recording_thread = memnew(Thread);
-        combined_recording_thread->start(combined_recording_thread_function, this);
-        
-        if (obs_config.enable_debug_output) {
-            print_line("Combined recording thread started");
-        }
-    } else {
-        // Start separate recording thread
-        Error video_start_error = video_recorder->start_recording();
-        if (video_start_error != OK) {
-            ERR_PRINT("ObsStyleMovieWriter: Failed to start video recording");
-            cleanup_components();
-            return video_start_error;
-        }
-        
-        Error audio_start_error = audio_recorder->start_recording();
-        if (audio_start_error != OK) {
-            ERR_PRINT("ObsStyleMovieWriter: Failed to start audio recording");
-            video_recorder->stop_recording();
-            cleanup_components();
-            return audio_start_error;
-        }
+    // Start independent recording threads
+    Error video_start_error = video_recorder->start_recording();
+    if (video_start_error != OK) {
+        ERR_PRINT("ObsStyleMovieWriter: Failed to start video recording");
+        cleanup_components();
+        return video_start_error;
+    }
+    
+    Error audio_start_error = audio_recorder->start_recording();
+    if (audio_start_error != OK) {
+        ERR_PRINT("ObsStyleMovieWriter: Failed to start audio recording");
+        video_recorder->stop_recording();
+        cleanup_components();
+        return audio_start_error;
     }
     
     // Update state
@@ -180,41 +176,16 @@ Error ObsStyleMovieWriter::write_frame(const Ref<Image> &p_image, const int32_t 
     
     last_add_frame_time = current_time;
     
-    // Process audio data
-    if (obs_config.enable_combined_recording && p_audio_data) {
-        // Combined recording mode: add audio data to buffer
-        uint32_t audio_mix_rate = get_audio_mix_rate();
-        uint32_t audio_channels = obs_config.audio_channels;
-        uint32_t samples_per_frame = audio_mix_rate / 60; // Assume game runs at 60fps
-        
-        {
-            MutexLock lock(audio_buffer_mutex);
-            
-            // Add audio samples to buffer
-            for (uint32_t i = 0; i < samples_per_frame * audio_channels; i++) {
-                pending_audio_samples.push_back(p_audio_data[i]);
-            }
-            
-            // Limit buffer size to avoid infinite growth
-            uint32_t max_buffer_samples = audio_mix_rate * audio_channels * 5; // 5 seconds buffer
-            if (pending_audio_samples.size() > max_buffer_samples) {
-                uint32_t excess = pending_audio_samples.size() - max_buffer_samples;
-                // Remove excess samples from the beginning
-                for (uint32_t i = 0; i < excess; i++) {
-                    pending_audio_samples.remove_at(0);
-                }
-            }
-        }
-    } else {
-        // Separate recording mode: audio captured by HybridAudioDriver
-        // p_audio_data parameter is not used in separate recording mode
-    }
+    // Independent recording mode: audio captured by HybridAudioDriver
+    // p_audio_data parameter is not used in independent recording mode
     
     return OK;
 }
 
 void ObsStyleMovieWriter::write_end() {
+    print_line("ObsStyleMovieWriter::write_end() called");
     if (current_state != STATE_RECORDING) {
+        print_line("ObsStyleMovieWriter: Not in recording state, returning");
         return;
     }
     
@@ -222,44 +193,64 @@ void ObsStyleMovieWriter::write_end() {
         print_line("ObsStyleMovieWriter: Stopping recording...");
     }
     
+    print_line("ObsStyleMovieWriter: Updating state to STOPPING");
     update_recording_state(STATE_STOPPING);
     
-    if (obs_config.enable_combined_recording) {
-        // Stop combined recording
-        cleanup_combined_recording();
-        
-        // Close AVI file
-        if (avi_writer) {
-            avi_writer->close();
-        }
-    } else {
-        // Stop separate recording thread
-        if (video_recorder) {
-            video_recorder->stop_recording();
-        }
-        
-        if (audio_recorder) {
-            audio_recorder->stop_recording();
-        }
-        
-        // Close AVI file (if used)
-        if (avi_writer) {
-            avi_writer->close();
-        }
+    // Stop independent recording threads
+    print_line("ObsStyleMovieWriter: Stopping video recorder...");
+    if (video_recorder) {
+        video_recorder->stop_recording();
     }
+    print_line("ObsStyleMovieWriter: Video recorder stopped");
+    
+    print_line("ObsStyleMovieWriter: Stopping audio recorder...");
+    if (audio_recorder) {
+        audio_recorder->stop_recording();
+    }
+    print_line("ObsStyleMovieWriter: Audio recorder stopped");
+    
+    // Store audio_recorder reference before restore (to prevent double cleanup)
+    IndependentAudioRecorder* temp_audio_recorder = audio_recorder;
     
     // Restore audio driver
+    print_line("ObsStyleMovieWriter: Restoring audio driver...");
     restore_audio_driver();
+    print_line("ObsStyleMovieWriter: Audio driver restored");
+    
+    // Clear audio_recorder reference to prevent double cleanup in destructor
+    audio_recorder = nullptr;
     
     // Print recording summary
+    print_line("ObsStyleMovieWriter: Printing recording summary...");
     if (obs_config.enable_debug_output) {
         print_recording_summary();
     }
+    print_line("ObsStyleMovieWriter: Recording summary completed");
+    
+    // Post-merge processing (only for desktop platforms)
+#ifndef WEB_ENABLED
+    print_line("ObsStyleMovieWriter: Checking post-merge conditions...");
+    print_line(String("  enable_post_merge: ") + (obs_config.enable_post_merge ? "true" : "false"));
+    print_line("  post_merge_processor: " + String(post_merge_processor ? "valid" : "null"));
+    if (obs_config.enable_post_merge && post_merge_processor) {
+        perform_post_merge();
+    } else {
+        print_line("ObsStyleMovieWriter: Post-merge skipped");
+    }
+#else
+    print_line("ObsStyleMovieWriter: Web platform - post-merge disabled");
+#endif
     
     // Clean up components
-    cleanup_components();
+    print_line("ObsStyleMovieWriter: Cleaning up components...");
+    print_line("ObsStyleMovieWriter: About to call cleanup_components()...");
+    cleanup_components(temp_audio_recorder);  // Pass temp_audio_recorder for proper cleanup
+    print_line("ObsStyleMovieWriter: cleanup_components() returned");
+    print_line("ObsStyleMovieWriter: Components cleaned up");
     
+    print_line("ObsStyleMovieWriter: Setting state to UNINITIALIZED");
     update_recording_state(STATE_UNINITIALIZED);
+    print_line("ObsStyleMovieWriter: State updated to UNINITIALIZED");
     
     print_line("obs output_file_path===>" + output_file_path);
 #ifdef WEB_ENABLED
@@ -270,14 +261,7 @@ void ObsStyleMovieWriter::write_end() {
     
     // Download video file
     if (!output_file_path.is_empty()) {
-        String video_file = output_file_path;
-        if (obs_config.enable_combined_recording) {
-            // Combined recording mode: single AVI file
-            video_file += ".avi";
-        } else {
-            // Separate recording mode: video file
-            video_file += "_video.avi";
-        }
+        String video_file = output_file_path + "_video.avi";
         
         // Call Web platform file download interface
         CharString video_path_utf8 = video_file.utf8();
@@ -291,8 +275,8 @@ void ObsStyleMovieWriter::write_end() {
         }
     }
     
-    // Download audio file (separate recording mode)
-    if (!obs_config.enable_combined_recording && !output_file_path.is_empty()) {
+    // Download audio file
+    if (!output_file_path.is_empty()) {
         String audio_file = output_file_path + "_audio.avi";
         
         CharString audio_path_utf8 = audio_file.utf8();
@@ -323,11 +307,7 @@ void ObsStyleMovieWriter::write_end() {
 }
 
 Error ObsStyleMovieWriter::setup_components() {
-    if (obs_config.enable_combined_recording) {
-        return setup_combined_recording();
-    }
-    
-    // Original separate recording mode
+    // Independent recording mode
     // Create double buffer
     frame_buffer = new ThreadSafeFrameBuffer();
     if (!frame_buffer) {
@@ -379,62 +359,72 @@ Error ObsStyleMovieWriter::setup_components() {
     return OK;
 }
 
-void ObsStyleMovieWriter::cleanup_components() {
-    // Clean up combined recording related components
-    if (obs_config.enable_combined_recording) {
-        cleanup_combined_recording();
-    }
+void ObsStyleMovieWriter::cleanup_components(IndependentAudioRecorder* temp_audio_recorder) {
+    print_line("ObsStyleMovieWriter::cleanup_components() entry");
     
-    // Clean up separate recording components
+    // Clean up independent recording components
+    print_line("ObsStyleMovieWriter: Cleaning up video_recorder...");
     if (video_recorder) {
+        print_line("ObsStyleMovieWriter: Deleting video_recorder...");
         delete video_recorder;
         video_recorder = nullptr;
+        print_line("ObsStyleMovieWriter: video_recorder deleted");
+    } else {
+        print_line("ObsStyleMovieWriter: video_recorder is null, skipping");
     }
     
-    if (audio_recorder) {
-        delete audio_recorder;
+    print_line("ObsStyleMovieWriter: Cleaning up audio_recorder...");
+    if (temp_audio_recorder) {
+        print_line("ObsStyleMovieWriter: About to delete temp_audio_recorder...");
+        delete temp_audio_recorder;  // This calls ~IndependentAudioRecorder()
+        print_line("ObsStyleMovieWriter: temp_audio_recorder deleted");
+    } else if (audio_recorder) {
+        print_line("ObsStyleMovieWriter: About to delete audio_recorder...");
+        delete audio_recorder;  // This calls ~IndependentAudioRecorder()
         audio_recorder = nullptr;
+        print_line("ObsStyleMovieWriter: audio_recorder deleted");
+    } else {
+        print_line("ObsStyleMovieWriter: No audio_recorder to delete, skipping");
     }
     
+    // Ensure audio_recorder is null
+    audio_recorder = nullptr;
+    
+    print_line("ObsStyleMovieWriter: Cleaning up avi_writer...");
     if (avi_writer) {
         delete avi_writer;
         avi_writer = nullptr;
+        print_line("ObsStyleMovieWriter: avi_writer deleted");
     }
     
+    print_line("ObsStyleMovieWriter: Cleaning up frame_buffer...");
     if (frame_buffer) {
         delete frame_buffer;
         frame_buffer = nullptr;
+        print_line("ObsStyleMovieWriter: frame_buffer deleted");
     }
     
+    print_line("ObsStyleMovieWriter: Cleaning up post_merge_processor...");
+    if (post_merge_processor) {
+        delete post_merge_processor;
+        post_merge_processor = nullptr;
+        print_line("ObsStyleMovieWriter: post_merge_processor deleted");
+    }
+    
+    print_line("ObsStyleMovieWriter: Clearing hybrid_audio_driver reference...");
     hybrid_audio_driver = nullptr; // Managed by MovieWriter, only clear reference
+    print_line("ObsStyleMovieWriter::cleanup_components() exit");
 }
 
 Error ObsStyleMovieWriter::setup_audio_capture() {
 #ifdef WEB_ENABLED
-    // Web platform automatically enables combined recording mode, using MovieWriter's Web audio recording functionality
-    if (!obs_config.enable_combined_recording) {
-        print_line("ObsStyleMovieWriter: Web platform detected, auto-enabling combined recording mode");
-        obs_config.enable_combined_recording = true;
+    // Web platform uses MediaRecorder API audio from MovieWriter
+    if (obs_config.enable_debug_output) {
+        print_line("ObsStyleMovieWriter: Web platform detected, using MediaRecorder API audio from MovieWriter");
     }
-#endif
-
-    if (obs_config.enable_combined_recording) {
-        // Combined recording mode: audio data passed directly via write_frame, no need to set up HybridAudioDriver
-        if (obs_config.enable_debug_output) {
-#ifdef WEB_ENABLED
-            print_line("ObsStyleMovieWriter: Combined recording mode (Web): using MediaRecorder API audio from MovieWriter");
+    return OK;
 #else
-            print_line("Combined recording mode: skipping HybridAudioDriver setup, using direct audio transfer");
-#endif
-        }
-        return OK;
-    }
-    
-    // Separate recording mode: requires setting up HybridAudioDriver (only for PC)
-#ifdef WEB_ENABLED
-    ERR_PRINT("ObsStyleMovieWriter: Separate recording mode is not supported on Web platform. Use combined recording mode.");
-    return ERR_UNCONFIGURED;
-#else
+    // Desktop platform: setup HybridAudioDriver for independent audio recording
     // Reuse MovieWriter's HybridAudioDriver to avoid conflicts
     hybrid_audio_driver = MovieWriter::get_hybrid_audio_driver();
     if (!hybrid_audio_driver) {
@@ -472,15 +462,24 @@ Error ObsStyleMovieWriter::setup_audio_capture() {
 }
 
 void ObsStyleMovieWriter::restore_audio_driver() {
+    print_line("ObsStyleMovieWriter: restore_audio_driver() entry");
+    print_line(String("  hybrid_audio_driver: ") + (hybrid_audio_driver ? "valid" : "null"));
+    print_line(String("  audio_recorder: ") + (audio_recorder ? "valid" : "null"));
+    
     if (hybrid_audio_driver && audio_recorder) {
+        print_line("ObsStyleMovieWriter: About to call unregister_audio_recorder...");
         // Unregister audio recorder (but do not delete or stop HybridAudioDriver, it's managed by MovieWriter)
         hybrid_audio_driver->unregister_audio_recorder(audio_recorder);
         print_line("ObsStyleMovieWriter: Audio recorder unregistered from HybridAudioDriver");
+    } else {
+        print_line("ObsStyleMovieWriter: Skipping audio recorder unregistration");
     }
     
+    print_line("ObsStyleMovieWriter: Clearing driver references...");
     // Only clear reference, do not delete object (HybridAudioDriver is managed by MovieWriter)
     hybrid_audio_driver = nullptr;
     original_audio_driver = nullptr;
+    print_line("ObsStyleMovieWriter: restore_audio_driver() exit");
 }
 
 void ObsStyleMovieWriter::update_recording_state(RecordingState new_state) {
@@ -687,251 +686,64 @@ bool ObsStyleMovieWriter::is_paused() const {
     return false; // Pause functionality not yet implemented
 }
 
-// ========== Combined Recording Mode Implementation ==========
-
-Error ObsStyleMovieWriter::setup_combined_recording() {
-	if (obs_config.enable_debug_output) {
-		print_line("ObsStyleMovieWriter: Setting up combined recording mode (video+audio merged to single file)");
-	}
-	
-	// Create double buffer (for video frames only)
-	frame_buffer = new ThreadSafeFrameBuffer();
-	if (!frame_buffer) {
-		ERR_PRINT("ObsStyleMovieWriter: Failed to create frame buffer");
-		return ERR_OUT_OF_MEMORY;
-	}
-	
-	// Create enhanced AVI writer
-	avi_writer = new EnhancedAviWriter();
-	if (!avi_writer) {
-		ERR_PRINT("ObsStyleMovieWriter: Failed to create EnhancedAviWriter");
-		return ERR_OUT_OF_MEMORY;
-	}
-	
-	// Initialize AVI writer (output file for combined mode)
-	String combined_file_path = output_file_path + "_combined.avi";
-	Error avi_error = avi_writer->open(
-		combined_file_path,
-		obs_config.video_width,
-		obs_config.video_height,
-		obs_config.video_fps,
-		obs_config.audio_sample_rate,
-		obs_config.audio_channels,
-		obs_config.jpeg_quality
-	);
-	
-	if (avi_error != OK) {
-		ERR_PRINT("ObsStyleMovieWriter: Failed to initialize combined AVI file");
-		return avi_error;
-	}
-	
-	// Initialize audio buffer
-	pending_audio_samples.clear();
-	last_video_frame_time = 0;
-	last_audio_chunk_time = 0;
-	combined_recording_active = false;
-	
-	if (obs_config.enable_debug_output) {
-		print_line(String("Combined recording file: ") + combined_file_path);
-		print_line("Frame buffer and AVI writer initialized successfully");
-	}
-	
-	update_recording_state(STATE_INITIALIZED);
-	return OK;
+void ObsStyleMovieWriter::perform_post_merge() {
+    print_line("ObsStyleMovieWriter::perform_post_merge() called");
+    print_line("  post_merge_processor: " + String(post_merge_processor ? "valid" : "null"));
+    print_line("  output_file_path: " + output_file_path);
+    print_line(String("  enable_post_merge: ") + (obs_config.enable_post_merge ? "true" : "false"));
+    
+    if (!post_merge_processor || output_file_path.is_empty()) {
+        print_line("PostMergeProcessor: Skipping merge - missing processor or output path");
+        return;
+    }
+    
+    // Configure post-merge processor
+    PostMergeProcessor::MergeConfig merge_config;
+    merge_config.method = PostMergeProcessor::METHOD_FFMPEG_SYSTEM;
+    merge_config.keep_intermediate_files = obs_config.keep_intermediate_files;
+    merge_config.enable_debug_output = obs_config.enable_debug_output;
+    merge_config.ffmpeg_path = obs_config.ffmpeg_path;
+    
+    // Try to use recommended method if FFmpeg is not available
+    PostMergeProcessor::MergeMethod recommended = post_merge_processor->get_recommended_method();
+    if (recommended != PostMergeProcessor::METHOD_FFMPEG_SYSTEM) {
+        merge_config.method = recommended;
+        if (obs_config.enable_debug_output) {
+            print_line("PostMergeProcessor: FFmpeg not available, using method: " + post_merge_processor->get_method_name(recommended));
+        }
+    }
+    
+    post_merge_processor->set_config(merge_config);
+    
+    // Construct file paths
+    String video_path = output_file_path + "_video.avi";
+    String audio_path = output_file_path + "_audio.avi";
+    String merged_path = output_file_path + "_merged.avi";
+    
+    if (obs_config.enable_debug_output) {
+        print_line("PostMergeProcessor: Starting post-merge operation");
+        print_line("  Video: " + video_path);
+        print_line("  Audio: " + audio_path);
+        print_line("  Output: " + merged_path);
+    }
+    
+    // Execute merge
+    PostMergeProcessor::MergeResult result = post_merge_processor->merge_files(video_path, audio_path, merged_path);
+    
+    if (result.error_code == OK) {
+        if (obs_config.enable_debug_output) {
+            print_line(String("PostMergeProcessor: Merge completed successfully in ") + String::num(result.merge_duration_seconds, 2) + " seconds");
+            print_line("PostMergeProcessor: Output file: " + result.output_file_path);
+            if (result.intermediate_files_cleaned) {
+                print_line("PostMergeProcessor: Intermediate files cleaned up");
+            }
+        }
+    } else {
+        ERR_PRINT("PostMergeProcessor: Merge failed - " + result.error_message);
+        if (obs_config.enable_debug_output) {
+            print_line("PostMergeProcessor: Keeping separate video and audio files");
+        }
+    }
 }
 
-void ObsStyleMovieWriter::cleanup_combined_recording() {
-	// Stop combined recording thread
-	if (combined_recording_thread && combined_recording_active) {
-		combined_recording_active = false;
-		combined_recording_thread->wait_to_finish();
-		memdelete(combined_recording_thread);
-		combined_recording_thread = nullptr;
-	}
-	
-	// Clean up audio buffer
-	{
-		MutexLock lock(audio_buffer_mutex);
-		pending_audio_samples.clear();
-	}
-	
-	if (obs_config.enable_debug_output) {
-		print_line("Combined recording thread stopped, buffers cleared");
-	}
-}
-
-void ObsStyleMovieWriter::combined_recording_thread_function(void *p_userdata) {
-    ObsStyleMovieWriter *writer = static_cast<ObsStyleMovieWriter *>(p_userdata);
-    writer->combined_recording_loop();
-}
-
-void ObsStyleMovieWriter::combined_recording_loop() {
-	if (obs_config.enable_debug_output) {
-		print_line("Combined recording thread started");
-	}
-	
-	uint64_t frame_interval_us = 1000000 / obs_config.video_fps; // microseconds
-	uint64_t next_frame_time = OS::get_singleton()->get_ticks_usec();
-	
-	uint32_t recorded_frames = 0;
-	uint64_t loop_start_time = OS::get_singleton()->get_ticks_usec();
-	
-	while (combined_recording_active) {
-		uint64_t current_time = OS::get_singleton()->get_ticks_usec();
-		
-		// Check if it's time to record the next frame
-		if (current_time >= next_frame_time) {
-			Error write_error = write_combined_frame_and_audio();
-			if (write_error != OK) {
-				ERR_PRINT("Combined frame recording write failed");
-				break;
-			}
-			
-			recorded_frames++;
-			next_frame_time += frame_interval_us;
-			
-			// Debug output
-			if (recorded_frames % 300 == 0 && obs_config.enable_debug_output) { // Output every 10 seconds
-				uint64_t elapsed_us = current_time - loop_start_time;
-				float elapsed_sec = elapsed_us / 1000000.0f;
-				float actual_fps = recorded_frames / elapsed_sec;
-				print_line(String("Combined recording progress: ") + String::num_int64(recorded_frames) + 
-						  " frames, actual FPS: " + String::num(actual_fps, 1));
-			}
-		}
-		
-		// Precise sleep time control
-		uint64_t sleep_time_us = next_frame_time - current_time;
-		if (sleep_time_us > 0 && sleep_time_us < frame_interval_us) {
-			OS::get_singleton()->delay_usec(MIN(sleep_time_us, 5000)); // Sleep for at most 5ms
-		} else {
-			// Avoid high CPU usage
-			OS::get_singleton()->delay_usec(1000); // 1ms
-		}
-	}
-	
-	if (obs_config.enable_debug_output) {
-		uint64_t total_elapsed_us = OS::get_singleton()->get_ticks_usec() - loop_start_time;
-		float total_elapsed_sec = total_elapsed_us / 1000000.0f;
-		float average_fps = recorded_frames / total_elapsed_sec;
-		print_line(String("Combined recording thread ended: total frames ") + String::num_int64(recorded_frames) + 
-				  ", average FPS: " + String::num(average_fps, 2));
-	}
-}
-
-Error ObsStyleMovieWriter::write_combined_frame_and_audio() {
-	if (!avi_writer || !frame_buffer) {
-		return ERR_UNCONFIGURED;
-	}
-	
-	uint64_t current_time = OS::get_singleton()->get_ticks_usec();
-	
-	// 1. Get current video frame
-#ifdef WEB_ENABLED
-	// On web, get frame data directly from RenderingServer
-	RID main_vp_rid = RenderingServer::get_singleton()->viewport_find_from_screen_attachment(DisplayServer::MAIN_WINDOW_ID);
-	RID main_vp_texture = RenderingServer::get_singleton()->viewport_get_texture(main_vp_rid);
-	Ref<Image> vp_tex = RenderingServer::get_singleton()->texture_2d_get(main_vp_texture);
-	if (RenderingServer::get_singleton()->viewport_is_using_hdr_2d(main_vp_rid)) {
-		vp_tex->convert(Image::FORMAT_RGBA8);
-		vp_tex->linear_to_srgb();
-	}
-	
-	if (vp_tex.is_null()) {
-		// No video frame, skip this recording
-		return OK;
-	}
-	
-	// Create frame data structure (no need for complex logic of ThreadSafeFrameBuffer on web)
-	ThreadSafeFrameBuffer::FrameData frame_data;
-	frame_data.image = vp_tex;
-	frame_data.game_timestamp = current_time;
-	frame_data.frame_sequence = frames_added_count;
-	frame_data.is_new_frame = true;
-#else
-	// Use ThreadSafeFrameBuffer on PC
-	ThreadSafeFrameBuffer::FrameData frame_data = frame_buffer->get_current_frame();
-	
-	if (frame_data.image.is_null()) {
-		// No video frame, skip this recording
-		return OK;
-	}
-#endif
-	
-	// 2. Prepare video frame flags
-	uint8_t frame_flags = EnhancedAviWriter::FRAME_FLAG_NEW;
-	if (!frame_data.is_new_frame && last_video_frame_time > 0) {
-		frame_flags = EnhancedAviWriter::FRAME_FLAG_REPEATED;
-	}
-	
-	// 3. Write video frame
-	Error video_error = avi_writer->write_video_frame(frame_data.image, current_time, frame_data.game_timestamp, frame_data.frame_sequence, frame_flags);
-	if (video_error != OK) {
-		ERR_PRINT("Failed to write video frame");
-		return video_error;
-	}
-	
-	last_video_frame_time = current_time;
-	
-	// 4. Process audio data
-	Vector<int32_t> audio_to_write;
-	{
-		MutexLock lock(audio_buffer_mutex);
-		
-		// Calculate the number of audio samples to write (synchronized with video frame rate)
-		uint32_t samples_per_frame = obs_config.audio_sample_rate / obs_config.video_fps;
-		uint32_t samples_needed = samples_per_frame * obs_config.audio_channels;
-		
-		if (pending_audio_samples.size() >= samples_needed) {
-			// Enough audio data
-			audio_to_write.resize(samples_needed);
-			int32_t *write_ptr = audio_to_write.ptrw();
-			for (uint32_t i = 0; i < samples_needed; i++) {
-				write_ptr[i] = pending_audio_samples[i];
-			}
-			
-			// Remove used samples from the buffer
-			for (uint32_t i = 0; i < samples_needed; i++) {
-				pending_audio_samples.remove_at(0);
-			}
-		} else if (!pending_audio_samples.is_empty()) {
-			// Not enough audio data, pad with existing data and silence
-			audio_to_write.resize(samples_needed);
-			
-			// Copy existing data
-			uint32_t available_samples = pending_audio_samples.size();
-			int32_t *write_ptr = audio_to_write.ptrw();
-			for (uint32_t i = 0; i < available_samples; i++) {
-				write_ptr[i] = pending_audio_samples[i];
-			}
-			
-			// Fill the rest with silence
-			for (uint32_t i = available_samples; i < samples_needed; i++) {
-				write_ptr[i] = 0;
-			}
-			
-			pending_audio_samples.clear();
-		} else {
-			// No audio data, write silence
-			audio_to_write.resize(samples_needed);
-			int32_t *write_ptr = audio_to_write.ptrw();
-			for (uint32_t i = 0; i < samples_needed; i++) {
-				write_ptr[i] = 0;
-			}
-		}
-	}
-	
-	// 5. Write audio data
-	if (!audio_to_write.is_empty()) {
-		uint32_t audio_frames = audio_to_write.size() / obs_config.audio_channels;
-		Error audio_error = avi_writer->write_audio_chunk(audio_to_write.ptr(), audio_frames, current_time);
-		if (audio_error != OK) {
-			ERR_PRINT("Failed to write audio chunk");
-			return audio_error;
-		}
-		
-		last_audio_chunk_time = current_time;
-	}
-	
-	return OK;
-} 
+ 

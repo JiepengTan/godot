@@ -83,14 +83,14 @@ Error IndependentVideoRecorder::start_recording() {
 }
 
 void IndependentVideoRecorder::stop_recording() {
-    if (!recording_active.load()) {
+    // Atomic check-and-set to prevent double cleanup
+    bool expected = true;
+    if (!recording_active.compare_exchange_strong(expected, false)) {
+        // Already stopped or stopping
         return;
     }
     
     print_line("IndependentVideoRecorder: Stop recording...");
-    
-    // stop recording loop
-    recording_active.store(false);
     
     // wait for thread to finish
     if (thread_started.load()) {

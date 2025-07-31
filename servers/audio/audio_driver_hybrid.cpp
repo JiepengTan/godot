@@ -184,7 +184,7 @@ void HybridAudioDriver::capture_audio_data(const int32_t *p_buffer, int p_frames
     {
         MutexLock lock(recorders_mutex);
         for (IndependentAudioRecorder* recorder : registered_recorders) {
-            if (recorder) {
+            if (recorder && recorder->is_recording()) {
                 recorder->on_audio_output(p_buffer, p_frames);
             }
         }
@@ -282,19 +282,53 @@ void HybridAudioDriver::register_audio_recorder(IndependentAudioRecorder* record
 }
 
 void HybridAudioDriver::unregister_audio_recorder(IndependentAudioRecorder* recorder) {
+    print_line("HybridAudioDriver::unregister_audio_recorder() entry");
     if (!recorder) {
+        print_line("HybridAudioDriver: recorder is null, returning");
         return;
     }
     
-    MutexLock lock(recorders_mutex);
+    print_line("HybridAudioDriver: About to try acquiring recorders_mutex...");
     
+    // Try to acquire the mutex with a timeout to avoid blocking indefinitely
+    bool mutex_acquired = false;
+    const int max_attempts = 10;
+    
+    for (int attempt = 0; attempt < max_attempts; attempt++) {
+        if (recorders_mutex.try_lock()) {
+            mutex_acquired = true;
+            print_line("HybridAudioDriver: Mutex acquired successfully");
+            break;
+        } else {
+            print_line(vformat("HybridAudioDriver: Mutex busy, attempt %d/%d, waiting 10ms...", attempt + 1, max_attempts));
+            OS::get_singleton()->delay_usec(10000); // Wait 10ms
+        }
+    }
+    
+    if (!mutex_acquired) {
+        print_line("HybridAudioDriver: Could not acquire mutex after multiple attempts, audio output thread may be active");
+        print_line("HybridAudioDriver: Marking recorder for deferred removal");
+        // Mark the recorder as inactive immediately to prevent new audio data from being sent
+        recorder->mark_inactive();
+        print_line("HybridAudioDriver::unregister_audio_recorder() exit (deferred)");
+        return;
+    }
+    
+    print_line(vformat("HybridAudioDriver: Searching for recorder in %d registered recorders", registered_recorders.size()));
     for (int i = 0; i < registered_recorders.size(); i++) {
         if (registered_recorders[i] == recorder) {
+            print_line(vformat("HybridAudioDriver: Found recorder at index %d, removing...", i));
             registered_recorders.remove_at(i);
-            print_line(vformat("HybridAudioDriver: unregister audio recorder, current total: %d", registered_recorders.size()));
+            print_line(vformat("HybridAudioDriver: unregister audio recorder completed, current total: %d", registered_recorders.size()));
+            recorders_mutex.unlock();
+            print_line("HybridAudioDriver::unregister_audio_recorder() exit (found and removed)");
             return;
         }
     }
+    
+    recorders_mutex.unlock();
+    print_line("HybridAudioDriver: Recorder not found in registered list");
+    print_line("HybridAudioDriver::unregister_audio_recorder() exit (not found)");
 }
 
 int HybridAudioDriver::get_registered_recorder_count() const {

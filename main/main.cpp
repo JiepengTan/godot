@@ -2651,7 +2651,7 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 		if (ProjectSettings::get_singleton()->has_setting("movie_writer/realtime_mode")) {
 			realtime_recording = (bool)ProjectSettings::get_singleton()->get_setting("movie_writer/realtime_mode");
 		}
-		print_line("realtime_recording = ", realtime_recording);
+		print_line("====>realtime_recording = ", realtime_recording);
 		if (realtime_recording) {
 			// Real-time recording mode: keep the original audio driver, the hybrid driver will be set later
 			print_line("MovieWriter: Realtime recording mode enabled");

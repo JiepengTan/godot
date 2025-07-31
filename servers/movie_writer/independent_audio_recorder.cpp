@@ -21,9 +21,15 @@ IndependentAudioRecorder::IndependentAudioRecorder() {
 }
 
 IndependentAudioRecorder::~IndependentAudioRecorder() {
+    print_line("IndependentAudioRecorder::~IndependentAudioRecorder() entry");
     if (is_recording()) {
+        print_line("IndependentAudioRecorder: Still recording, calling stop_recording()...");
         stop_recording();
+        print_line("IndependentAudioRecorder: stop_recording() completed in destructor");
+    } else {
+        print_line("IndependentAudioRecorder: Not recording, skipping stop_recording()");
     }
+    print_line("IndependentAudioRecorder::~IndependentAudioRecorder() exit");
 }
 
 Error IndependentAudioRecorder::initialize(HybridAudioDriver *p_audio_driver, 
@@ -108,19 +114,20 @@ Error IndependentAudioRecorder::start_recording() {
 }
 
 void IndependentAudioRecorder::stop_recording() {
-    if (!recording_active.load()) {
+    // Atomic check-and-set to prevent double cleanup
+    bool expected = true;
+    if (!recording_active.compare_exchange_strong(expected, false)) {
+        // Already stopped or stopping
         return;
     }
     
     print_line("IndependentAudioRecorder: Stop recording...");
     
-    // Stop the recording loop
-    recording_active.store(false);
-    
     // Wait for the thread to finish
     if (thread_started.load()) {
         recording_thread.wait_to_finish();
         thread_started.store(false);
+        print_line("IndependentAudioRecorder: Audio recording thread ended");
     }
     
     // Close the audio writer
