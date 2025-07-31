@@ -51,9 +51,9 @@ ObsStyleMovieWriter::ObsStyleMovieWriter() :
         obs_config.enable_debug_output = GLOBAL_GET("movie_writer/obs_enable_debug_output");
     }
     if (ProjectSettings::get_singleton()->has_setting("movie_writer/obs_enable_combined_recording")) {
-        obs_config.enable_combined_recording = GLOBAL_GET("movie_writer/obs_enable_combined_recording");
+        obs_config.enable_combined_recording = (bool)ProjectSettings::get_singleton()->get_setting("movie_writer/obs_enable_combined_recording");
     }
-    obs_config.enable_combined_recording = false;
+    
 }
 
 ObsStyleMovieWriter::~ObsStyleMovieWriter() {

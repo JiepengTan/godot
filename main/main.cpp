@@ -2644,9 +2644,13 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 		audio_driver_idx = 0;
 	}
 
+
 	if (Engine::get_singleton()->get_write_movie_path() != String()) {
 		// Check if real-time recording mode is enabled
-		bool realtime_recording = true;
+		bool realtime_recording = false;
+		if (ProjectSettings::get_singleton()->has_setting("movie_writer/realtime_mode")) {
+			realtime_recording = (bool)ProjectSettings::get_singleton()->get_setting("movie_writer/realtime_mode");
+		}
 		print_line("realtime_recording = ", realtime_recording);
 		if (realtime_recording) {
 			// Real-time recording mode: keep the original audio driver, the hybrid driver will be set later
@@ -3229,20 +3233,22 @@ Error Main::setup2(bool p_show_boot_logo) {
 			rendering_server->set_print_gpu_profile(true);
 		}
 
-			if (Engine::get_singleton()->get_write_movie_path() != String()) {
-		movie_writer = MovieWriter::find_writer_for_file(Engine::get_singleton()->get_write_movie_path());
-		if (movie_writer == nullptr) {
-			ERR_PRINT("Can't find movie writer for file type, aborting: " + Engine::get_singleton()->get_write_movie_path());
-			Engine::get_singleton()->set_write_movie_path(String());
-		} else {
-			// Check if real-time recording mode is enabled
-			bool realtime_recording = true;
-			print_line("realtime_recording = ", realtime_recording);
-			if (realtime_recording) {
-				movie_writer->set_realtime_mode(true);
+		if (Engine::get_singleton()->get_write_movie_path() != String()) {
+			movie_writer = MovieWriter::find_writer_for_file(Engine::get_singleton()->get_write_movie_path());
+			if (movie_writer == nullptr) {
+				ERR_PRINT("Can't find movie writer for file type, aborting: " + Engine::get_singleton()->get_write_movie_path());
+				Engine::get_singleton()->set_write_movie_path(String());
+			} else {
+				// Check if real-time recording mode is enabled
+				bool realtime_recording = false;
+				if (ProjectSettings::get_singleton()->has_setting("movie_writer/realtime_mode")) {
+					realtime_recording = (bool)ProjectSettings::get_singleton()->get_setting("movie_writer/realtime_mode");
+				}
+				if (realtime_recording) {
+					movie_writer->set_realtime_mode(true);
+				}
 			}
 		}
-	}
 
 		OS::get_singleton()->benchmark_end_measure("Servers", "Rendering");
 	}
