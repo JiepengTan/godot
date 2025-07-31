@@ -11,6 +11,7 @@
 
 #include "core/string/ustring.h"
 #include "core/error/error_macros.h"
+#include "core/io/file_access.h"
 
 /**
  * Post-processing video/audio file merger
@@ -56,11 +57,72 @@ private:
     // Custom AVI merge implementation (Phase 2)
     Error custom_avi_merge(const String &video_path, const String &audio_path, const String &output_path, MergeResult &result);
     
+    // AVI file parsing structures
+    struct AviFileInfo {
+        // Main AVI header
+        uint32_t microsec_per_frame;
+        uint32_t max_bytes_per_sec;
+        uint32_t total_frames;
+        uint32_t streams;
+        uint32_t width;
+        uint32_t height;
+        
+        // Stream information
+        struct StreamInfo {
+            char fourcc_type[4];    // 'vids' or 'auds'
+            char fourcc_handler[4]; // 'MJPG' or 'PCM '
+            uint32_t scale;
+            uint32_t rate;          // fps = rate/scale
+            uint32_t length;        // frames/samples count
+            uint32_t sample_size;
+        };
+        
+        Vector<StreamInfo> streams_info;
+        
+        // File offsets
+        uint64_t movi_list_offset;
+        uint64_t movi_data_offset;
+        uint64_t movi_data_size;
+        
+        // Index information
+        struct IndexEntry {
+            char fourcc[4];
+            uint32_t flags;
+            uint32_t chunk_offset;  // Relative to movi data start
+            uint32_t chunk_size;
+        };
+        Vector<IndexEntry> index_entries;
+        
+        AviFileInfo() {
+            microsec_per_frame = 0;
+            max_bytes_per_sec = 0;
+            total_frames = 0;
+            streams = 0;
+            width = 0;
+            height = 0;
+            movi_list_offset = 0;
+            movi_data_offset = 0;
+            movi_data_size = 0;
+        }
+    };
+    
+    // AVI parsing and merging helper methods
+    Error parse_avi_file(const String &file_path, AviFileInfo &avi_info);
+    Error parse_hdrl_chunk(Ref<FileAccess> file, AviFileInfo &avi_info, uint32_t chunk_size);
+    Error parse_stream_header(Ref<FileAccess> file, AviFileInfo::StreamInfo &stream_info, uint32_t chunk_size);
+    Error parse_idx1_chunk(Ref<FileAccess> file, AviFileInfo &avi_info, uint32_t chunk_size);
+    Error write_merged_avi_header(Ref<FileAccess> output_file, const AviFileInfo &video_info, const AviFileInfo &audio_info);
+    Error write_video_stream_header(Ref<FileAccess> output_file, const AviFileInfo &video_info);
+    Error write_audio_stream_header(Ref<FileAccess> output_file, const AviFileInfo &audio_info);
+    Error interleave_avi_data(const String &video_path, const String &audio_path, Ref<FileAccess> output_file, const AviFileInfo &video_info, const AviFileInfo &audio_info);
+    Error write_merged_avi_index(Ref<FileAccess> output_file, const Vector<AviFileInfo::IndexEntry> &merged_index);
+    
     // Utility methods
     bool check_ffmpeg_availability();
     bool file_exists(const String &path);
     Error cleanup_intermediate_files(const String &video_path, const String &audio_path);
     uint64_t get_file_size(const String &path);
+    void scan_movi_chunks(Ref<FileAccess> file, uint64_t movi_offset, uint32_t movi_size, Vector<AviFileInfo::IndexEntry> &chunks);
 
 public:
     PostMergeProcessor();
