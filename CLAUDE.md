@@ -10,15 +10,7 @@ This is a customized fork of Godot Engine 4.4 with a custom SPX (Sprite eXtensio
 
 **Primary build system:**
 
-```bash
-./build.sh
-```
-
-**Test :**
-
-```bash
-./build.sh -t
-```
+不要尝试自己编译，如果需要编译或执行，通知用户自己手动编译
 
 
 ## Architecture

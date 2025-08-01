@@ -11,7 +11,6 @@
 
 #include "movie_writer.h"
 #include "thread_safe_frame_buffer.h"
-#include "enhanced_avi_writer.h"
 #include "independent_video_recorder.h"
 #include "independent_audio_recorder.h"
 #include "post_merge_processor.h"
@@ -74,7 +73,6 @@ public:
 private:
     // Recording components
     ThreadSafeFrameBuffer *frame_buffer = nullptr;
-    EnhancedAviWriter *avi_writer = nullptr;
     IndependentVideoRecorder *video_recorder = nullptr;
     IndependentAudioRecorder *audio_recorder = nullptr;
     HybridAudioDriver *hybrid_audio_driver = nullptr;

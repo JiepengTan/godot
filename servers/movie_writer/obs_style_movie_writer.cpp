@@ -390,13 +390,6 @@ void ObsStyleMovieWriter::cleanup_components(IndependentAudioRecorder* temp_audi
     // Ensure audio_recorder is null
     audio_recorder = nullptr;
     
-    print_line("ObsStyleMovieWriter: Cleaning up avi_writer...");
-    if (avi_writer) {
-        delete avi_writer;
-        avi_writer = nullptr;
-        print_line("ObsStyleMovieWriter: avi_writer deleted");
-    }
-    
     print_line("ObsStyleMovieWriter: Cleaning up frame_buffer...");
     if (frame_buffer) {
         delete frame_buffer;
@@ -650,11 +643,6 @@ void ObsStyleMovieWriter::print_recording_summary() const {
     print_line(String("Audio samples: ") + String::num_int64(stats.audio_stats.total_samples_recorded));
     print_line(String("Audio buffer overruns: ") + String::num_int64(stats.audio_stats.buffer_overruns));
     print_line(String("Audio buffer underruns: ") + String::num_int64(stats.audio_stats.buffer_underruns));
-    
-    if (avi_writer) {
-        print_line(String("AVI file video frames: ") + String::num_int64(avi_writer->get_video_frame_count()));
-        print_line(String("AVI file audio chunks: ") + String::num_int64(avi_writer->get_audio_chunk_count()));
-    }
     
     print_line("==================");
 }
