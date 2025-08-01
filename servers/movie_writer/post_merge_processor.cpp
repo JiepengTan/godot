@@ -211,8 +211,22 @@ Error PostMergeProcessor::custom_avi_merge(const String &video_path, const Strin
     // Interleave video and audio data
     if (config.enable_debug_output) {
         print_line("PostMergeProcessor: Interleaving video and audio data...");
+        String strategy_name = "Unknown";
+        switch (config.interleave_strategy) {
+            case MergeConfig::INTERLEAVE_SIMPLE_ALTERNATE: strategy_name = "Simple Alternate"; break;
+            case MergeConfig::INTERLEAVE_TIMESTAMP_BASED: strategy_name = "Timestamp Based"; break;
+            case MergeConfig::INTERLEAVE_BUFFERED_TIMESTAMP: strategy_name = "Buffered Timestamp"; break;
+        }
+        print_line("  Strategy: " + strategy_name);
     }
-    Error interleave_error = interleave_avi_data(video_path, audio_path, output_file, video_info, audio_info);
+    
+    Error interleave_error;
+    if (config.interleave_strategy == MergeConfig::INTERLEAVE_SIMPLE_ALTERNATE) {
+        interleave_error = interleave_avi_data(video_path, audio_path, output_file, video_info, audio_info);
+    } else {
+        interleave_error = interleave_avi_data_timestamped(video_path, audio_path, output_file, video_info, audio_info);
+    }
+    
     if (interleave_error != OK) {
         result.error_message = "Failed to interleave video and audio data";
         output_file->close();
@@ -1020,12 +1034,9 @@ Error PostMergeProcessor::interleave_avi_data(const String &video_path, const St
         return index_error;
     }
     
-    if (config.enable_debug_output) {
         print_line("PostMergeProcessor: Data interleaving completed");
         print_line("  Merged chunks: " + String::num_int64(merged_index.size()));
         print_line("  Movi size: " + String::num_int64(movi_size) + " bytes");
-    }
-    
     return OK;
 }
 
@@ -1082,6 +1093,321 @@ Error PostMergeProcessor::write_merged_avi_index(Ref<FileAccess> output_file, co
         output_file->store_32(entry.flags);
         output_file->store_32(entry.chunk_offset);
         output_file->store_32(entry.chunk_size);
+    }
+    
+    return OK;
+}
+
+// Timestamp-based interleaving implementation
+Error PostMergeProcessor::interleave_avi_data_timestamped(const String &video_path, const String &audio_path, Ref<FileAccess> output_file, const AviFileInfo &video_info, const AviFileInfo &audio_info) {
+    if (config.enable_debug_output || true) {
+        print_line("==>PostMergeProcessor: Starting timestamp-based interleaving");
+        print_line("  Video movi offset: " + String::num_int64(video_info.movi_data_offset) + ", size: " + String::num_int64(video_info.movi_data_size));
+        print_line("  Audio movi offset: " + String::num_int64(audio_info.movi_data_offset) + ", size: " + String::num_int64(audio_info.movi_data_size));
+        print_line("  Video FPS: " + String::num_real(1000000.0 / video_info.microsec_per_frame));
+    }
+    
+    // Open input files
+    Ref<FileAccess> video_file = FileAccess::open(video_path, FileAccess::READ);
+    Ref<FileAccess> audio_file = FileAccess::open(audio_path, FileAccess::READ);
+    
+    if (video_file.is_null() || audio_file.is_null()) {
+        return ERR_FILE_CANT_OPEN;
+    }
+    
+    // Get chunks with fallback to scanning if no index
+    Vector<AviFileInfo::IndexEntry> video_chunks;
+    Vector<AviFileInfo::IndexEntry> audio_chunks;
+    
+    if (video_info.index_entries.size() == 0 && video_info.movi_data_offset > 0) {
+        scan_movi_chunks(video_file, video_info.movi_data_offset, video_info.movi_data_size, video_chunks);
+        if (config.enable_debug_output) {
+            print_line("PostMergeProcessor: Found " + String::num_int64(video_chunks.size()) + " video chunks by scanning");
+        }
+    } else {
+        video_chunks = video_info.index_entries;
+    }
+    
+    if (audio_info.index_entries.size() == 0 && audio_info.movi_data_offset > 0) {
+        scan_movi_chunks(audio_file, audio_info.movi_data_offset, audio_info.movi_data_size, audio_chunks);
+        if (config.enable_debug_output) {
+            print_line("PostMergeProcessor: Found " + String::num_int64(audio_chunks.size()) + " audio chunks by scanning");
+        }
+    } else {
+        audio_chunks = audio_info.index_entries;
+    }
+    
+    // Calculate timestamps for all chunks
+    Vector<TimestampedChunk> all_chunks;
+    calculate_chunk_timestamps(video_chunks, video_info, true, all_chunks);
+    calculate_chunk_timestamps(audio_chunks, audio_info, false, all_chunks);
+    
+    if (config.enable_debug_output) {
+        print_line("PostMergeProcessor: Total chunks to interleave: " + String::num_int64(all_chunks.size()));
+    }
+    
+    // Sort by timestamp
+    all_chunks.sort();
+    
+    // Write movi list header
+    output_file->store_buffer((const uint8_t*)"LIST", 4);
+    uint64_t movi_size_pos = output_file->get_position();
+    output_file->store_32(0); // Placeholder
+    output_file->store_buffer((const uint8_t*)"movi", 4);
+    uint64_t movi_start = output_file->get_position();
+    
+    Vector<AviFileInfo::IndexEntry> merged_index;
+    uint32_t chunk_offset = 4; // Relative to movi data start
+    
+    // Process chunks in timestamp order
+    for (int i = 0; i < all_chunks.size(); i++) {
+        const TimestampedChunk &chunk = all_chunks[i];
+        
+        if (config.enable_debug_output && config.validate_sync && i % 100 == 0) {
+            // Log progress and sync status
+            print_line("PostMergeProcessor: Processing chunk " + String::num_int64(i) + "/" + String::num_int64(all_chunks.size()) + 
+                      " at " + String::num_real(chunk.timestamp_us / 1000000.0) + "s");
+        }
+        
+        Error write_error = write_timestamped_chunk(
+            chunk.type == TimestampedChunk::VIDEO_CHUNK ? video_file : audio_file,
+            output_file,
+            chunk,
+            chunk.type == TimestampedChunk::VIDEO_CHUNK,
+            chunk_offset,
+            merged_index
+        );
+        
+        if (write_error != OK) {
+            return write_error;
+        }
+        
+        // Validate A/V sync periodically
+        if (config.validate_sync && i > 0 && i % 30 == 0) {
+            // Find nearest video and audio chunks
+            uint64_t nearest_video_ts = 0;
+            uint64_t nearest_audio_ts = 0;
+            bool found_video = false;
+            bool found_audio = false;
+            
+            for (int j = i - 30; j <= i; j++) {
+                if (all_chunks[j].type == TimestampedChunk::VIDEO_CHUNK && !found_video) {
+                    nearest_video_ts = all_chunks[j].timestamp_us;
+                    found_video = true;
+                }
+                if (all_chunks[j].type == TimestampedChunk::AUDIO_CHUNK && !found_audio) {
+                    nearest_audio_ts = all_chunks[j].timestamp_us;
+                    found_audio = true;
+                }
+                if (found_video && found_audio) break;
+            }
+            
+            if (found_video && found_audio) {
+                if (!validate_av_sync(nearest_video_ts, nearest_audio_ts)) {
+                    if (config.enable_debug_output) {
+                        print_line("PostMergeProcessor: Warning - A/V sync drift detected at " + 
+                                 String::num_real(chunk.timestamp_us / 1000000.0) + "s");
+                    }
+                }
+            }
+        }
+    }
+    
+    // Update movi size
+    uint64_t movi_end = output_file->get_position();
+    uint32_t movi_size = movi_end - movi_start;
+    output_file->seek(movi_size_pos);
+    output_file->store_32(movi_size + 4); // +4 for 'movi' fourcc
+    output_file->seek(movi_end);
+    
+    // Write index
+    Error index_error = write_merged_avi_index(output_file, merged_index);
+    if (index_error != OK) {
+        return index_error;
+    }
+    
+    if (config.enable_debug_output || true) {
+        print_line("==>PostMergeProcessor: Timestamp-based interleaving completed");
+        print_line("  Merged chunks: " + String::num_int64(merged_index.size()));
+        print_line("  Movi size: " + String::num_int64(movi_size) + " bytes");
+    }
+    
+    return OK;
+}
+
+void PostMergeProcessor::calculate_chunk_timestamps(const Vector<AviFileInfo::IndexEntry> &chunks, const AviFileInfo &info, bool is_video, Vector<TimestampedChunk> &timestamped_chunks) {
+    if (is_video) {
+        // Video timestamp calculation
+        uint64_t frame_duration_us = info.microsec_per_frame;
+        
+        for (int i = 0; i < chunks.size(); i++) {
+            TimestampedChunk tc;
+            tc.type = TimestampedChunk::VIDEO_CHUNK;
+            tc.timestamp_us = i * frame_duration_us;
+            tc.file_offset = info.movi_data_offset + chunks[i].chunk_offset;
+            tc.chunk_size = chunks[i].chunk_size;
+            tc.index = i;
+            timestamped_chunks.push_back(tc);
+        }
+        
+        if (config.enable_debug_output) {
+            print_line("PostMergeProcessor: Video chunks: " + String::num_int64(chunks.size()) + 
+                      ", frame duration: " + String::num_real(frame_duration_us / 1000.0) + "ms");
+            if (chunks.size() > 0) {
+                uint64_t total_duration_us = (chunks.size() - 1) * frame_duration_us;
+                print_line("  Total video duration: " + String::num_real(total_duration_us / 1000000.0) + "s");
+                print_line("  First chunk timestamp: 0.000s");
+                print_line("  Last chunk timestamp: " + String::num_real(((chunks.size() - 1) * frame_duration_us) / 1000000.0) + "s");
+            }
+        }
+    } else {
+        // Audio timestamp calculation
+        uint32_t sample_rate = 44100; // Default
+        uint32_t channels = 2; // Default stereo
+        uint32_t bytes_per_sample = 4; // Original 32-bit
+        
+        // Get actual values from stream info if available
+        if (info.streams_info.size() > 0) {
+            const AviFileInfo::StreamInfo &audio_stream = info.streams_info[0];
+            if (audio_stream.rate > 0 && audio_stream.scale > 0) {
+                sample_rate = audio_stream.rate / audio_stream.scale;
+                channels = audio_stream.sample_size / 4; // 32-bit per channel
+            }
+        }
+        
+        // Calculate timestamp for each audio chunk
+        uint64_t cumulative_samples = 0;
+        
+        for (int i = 0; i < chunks.size(); i++) {
+            TimestampedChunk tc;
+            tc.type = TimestampedChunk::AUDIO_CHUNK;
+            
+            // Calculate timestamp based on cumulative samples
+            tc.timestamp_us = (cumulative_samples * 1000000) / sample_rate;
+            tc.file_offset = info.movi_data_offset + chunks[i].chunk_offset;
+            tc.chunk_size = chunks[i].chunk_size;
+            tc.index = i;
+            timestamped_chunks.push_back(tc);
+            
+            // Update cumulative samples
+            uint32_t samples_in_chunk = chunks[i].chunk_size / (channels * bytes_per_sample);
+            cumulative_samples += samples_in_chunk;
+        }
+        
+        if (config.enable_debug_output) {
+            print_line("PostMergeProcessor: Audio chunks: " + String::num_int64(chunks.size()) + 
+                      ", sample rate: " + String::num_int64(sample_rate) + "Hz");
+            if (chunks.size() > 0) {
+                uint64_t total_duration_us = (cumulative_samples * 1000000) / sample_rate;
+                print_line("  Total audio duration: " + String::num_real(total_duration_us / 1000000.0) + "s");
+                print_line("  Total samples: " + String::num_int64(cumulative_samples));
+                print_line("  Avg samples per chunk: " + String::num_int64(cumulative_samples / chunks.size()));
+                
+                // Calculate average chunk duration
+                double avg_chunk_duration_ms = (total_duration_us / 1000.0) / chunks.size();
+                print_line("  Avg chunk duration: " + String::num_real(avg_chunk_duration_ms) + "ms");
+            }
+        }
+    }
+}
+
+uint32_t PostMergeProcessor::calculate_optimal_audio_chunk_size(uint32_t video_fps, uint32_t sample_rate) {
+    // Calculate optimal audio chunk size to match video frame duration
+    double frame_duration_s = 1.0 / video_fps;
+    uint32_t samples_per_frame = sample_rate * frame_duration_s;
+    
+    // Align to 256 sample boundary for efficiency
+    return ((samples_per_frame + 255) / 256) * 256;
+}
+
+bool PostMergeProcessor::validate_av_sync(uint64_t video_ts, uint64_t audio_ts) {
+    uint64_t drift = video_ts > audio_ts ? video_ts - audio_ts : audio_ts - video_ts;
+    
+    if (drift > config.max_av_drift_us) {
+        if (config.enable_debug_output) {
+            print_line("PostMergeProcessor: A/V sync drift: " + String::num_real(drift / 1000.0) + "ms");
+        }
+        return false;
+    }
+    
+    return true;
+}
+
+Error PostMergeProcessor::write_timestamped_chunk(Ref<FileAccess> input_file, Ref<FileAccess> output_file, 
+                                                 const TimestampedChunk &chunk, bool is_video, 
+                                                 uint32_t &chunk_offset, Vector<AviFileInfo::IndexEntry> &merged_index) {
+    // Seek to chunk location
+    input_file->seek(chunk.file_offset);
+    
+    // Read chunk header
+    char fourcc[4];
+    input_file->get_buffer((uint8_t*)fourcc, 4);
+    uint32_t original_size = input_file->get_32();
+    
+    if (is_video) {
+        // Write video chunk (keep original format)
+        output_file->store_buffer((const uint8_t*)"00db", 4); // Stream 0, video
+        output_file->store_32(original_size);
+        
+        // Copy data
+        Vector<uint8_t> chunk_data;
+        chunk_data.resize(original_size);
+        input_file->get_buffer(chunk_data.ptrw(), original_size);
+        output_file->store_buffer(chunk_data.ptr(), original_size);
+        
+        // Pad to even boundary
+        if (original_size % 2 != 0) {
+            output_file->store_8(0);
+            original_size++;
+        }
+        
+        // Add to index
+        AviFileInfo::IndexEntry entry;
+        memcpy(entry.fourcc, "00db", 4);
+        entry.flags = 0x10; // AVIIF_KEYFRAME
+        entry.chunk_offset = chunk_offset;
+        entry.chunk_size = original_size;
+        merged_index.push_back(entry);
+        
+        chunk_offset += 8 + original_size;
+    } else {
+        // Audio chunk - convert 32-bit to 16-bit
+        Vector<int32_t> audio_data_32;
+        audio_data_32.resize(original_size / 4);
+        input_file->get_buffer((uint8_t*)audio_data_32.ptrw(), original_size);
+        
+        // Convert to 16-bit
+        Vector<int16_t> audio_data_16;
+        audio_data_16.resize(audio_data_32.size());
+        
+        for (int i = 0; i < audio_data_32.size(); i++) {
+            int32_t sample_32 = audio_data_32[i];
+            int16_t sample_16 = (int16_t)CLAMP(sample_32 >> 16, -32768, 32767);
+            audio_data_16.write[i] = sample_16;
+        }
+        
+        uint32_t converted_size = audio_data_16.size() * 2;
+        
+        // Write audio chunk
+        output_file->store_buffer((const uint8_t*)"01wb", 4); // Stream 1, audio
+        output_file->store_32(converted_size);
+        output_file->store_buffer((const uint8_t*)audio_data_16.ptr(), converted_size);
+        
+        // Pad to even boundary
+        if (converted_size % 2 != 0) {
+            output_file->store_8(0);
+            converted_size++;
+        }
+        
+        // Add to index
+        AviFileInfo::IndexEntry entry;
+        memcpy(entry.fourcc, "01wb", 4);
+        entry.flags = 0;
+        entry.chunk_offset = chunk_offset;
+        entry.chunk_size = converted_size;
+        merged_index.push_back(entry);
+        
+        chunk_offset += 8 + converted_size;
     }
     
     return OK;

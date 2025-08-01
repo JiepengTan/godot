@@ -34,6 +34,17 @@ public:
         bool enable_debug_output = true;        // Enable debug logging
         String ffmpeg_path = "ffmpeg";          // FFmpeg executable path
         
+        // Interleaving strategy
+        enum InterleaveStrategy {
+            INTERLEAVE_SIMPLE_ALTERNATE,    // Simple alternating (legacy)
+            INTERLEAVE_TIMESTAMP_BASED,     // Sort by timestamp
+            INTERLEAVE_BUFFERED_TIMESTAMP   // Timestamp with I/O buffering
+        };
+        InterleaveStrategy interleave_strategy = INTERLEAVE_TIMESTAMP_BASED;
+        uint32_t buffer_duration_ms = 500;      // Buffer window for buffered strategy
+        bool validate_sync = true;              // Enable A/V sync validation
+        uint64_t max_av_drift_us = 40000;     // Max allowed A/V drift (40ms)
+        
         MergeConfig() {}
     };
     
@@ -56,6 +67,25 @@ private:
     
     // Custom AVI merge implementation (Phase 2)
     Error custom_avi_merge(const String &video_path, const String &audio_path, const String &output_path, MergeResult &result);
+    
+    // Timestamped chunk for interleaving
+    struct TimestampedChunk {
+        enum ChunkType {
+            VIDEO_CHUNK,
+            AUDIO_CHUNK
+        };
+        
+        ChunkType type;
+        uint64_t timestamp_us;      // Timestamp in microseconds
+        uint64_t file_offset;       // Offset in source file
+        uint32_t chunk_size;        // Size of chunk data
+        uint32_t index;             // Original index for debugging
+        
+        // For sorting by timestamp
+        bool operator<(const TimestampedChunk &other) const {
+            return timestamp_us < other.timestamp_us;
+        }
+    };
     
     // AVI file parsing structures
     struct AviFileInfo {
@@ -115,7 +145,14 @@ private:
     Error write_video_stream_header(Ref<FileAccess> output_file, const AviFileInfo &video_info);
     Error write_audio_stream_header(Ref<FileAccess> output_file, const AviFileInfo &audio_info);
     Error interleave_avi_data(const String &video_path, const String &audio_path, Ref<FileAccess> output_file, const AviFileInfo &video_info, const AviFileInfo &audio_info);
+    Error interleave_avi_data_timestamped(const String &video_path, const String &audio_path, Ref<FileAccess> output_file, const AviFileInfo &video_info, const AviFileInfo &audio_info);
     Error write_merged_avi_index(Ref<FileAccess> output_file, const Vector<AviFileInfo::IndexEntry> &merged_index);
+    
+    // Helper methods for timestamp-based interleaving
+    void calculate_chunk_timestamps(const Vector<AviFileInfo::IndexEntry> &chunks, const AviFileInfo &info, bool is_video, Vector<TimestampedChunk> &timestamped_chunks);
+    uint32_t calculate_optimal_audio_chunk_size(uint32_t video_fps, uint32_t sample_rate);
+    bool validate_av_sync(uint64_t video_ts, uint64_t audio_ts);
+    Error write_timestamped_chunk(Ref<FileAccess> input_file, Ref<FileAccess> output_file, const TimestampedChunk &chunk, bool is_video, uint32_t &chunk_offset, Vector<AviFileInfo::IndexEntry> &merged_index);
     
     // Utility methods
     bool check_ffmpeg_availability();
