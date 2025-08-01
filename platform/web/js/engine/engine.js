@@ -149,6 +149,31 @@ const Engine = (function () {
 				}
 				this.rtenv['updateGameDatas'](dir, files);
 			},
+
+			downloadRecordedVideo: function (fileName) {
+				if (this.rtenv == null) {
+					throw new Error('Engine must be inited before downloading web recorder');
+				}
+				if (this.rtenv['downloadRecordedVideo']) {
+					return this.rtenv['downloadRecordedVideo'](fileName);
+				} else {
+					return Promise.reject(new Error('Web recorder is not supported by this engine version. '
+						+ 'Enable "Web Recorder" for your export preset and/or build your custom template with "web_recorder_enabled=yes".'));
+				}
+			},
+			
+			getRecordedVideoBlob: function () {
+				if (this.rtenv == null) {
+					throw new Error('Engine must be inited before getting web recorder');
+				}			
+				if (this.rtenv['getRecordedVideoBlob']) {
+					return this.rtenv['getRecordedVideoBlob']();
+				} else {
+					return Promise.reject(new Error('Web recorder is not supported by this engine version. '
+						+ 'Enable "Web Recorder" for your export preset and/or build your custom template with "web_recorder_enabled=yes".'));
+				}
+			},
+
 			/**
 			 * Start the engine instance using the given override configuration (if any).
 			 * :js:meth:`startGame <Engine.prototype.startGame>` can be used in typical cases instead.

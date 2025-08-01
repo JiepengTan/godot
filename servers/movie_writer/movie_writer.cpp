@@ -550,17 +550,18 @@ void MovieWriter::setup_web_video_recorder(uint32_t p_fps) {
 }
 
 void MovieWriter::cleanup_web_video_recorder() {
+	
 	if (web_video_recording_active) {
 		godot_video_recorder_stop();
 		web_video_recording_active = false;
 		
 		// Check if there is recorded data to download
-		if (godot_video_recorder_has_data() == 1) {
+		if (godot_video_recorder_has_data() == 1 && enable_web_auto_download) {
 			int data_size = godot_video_recorder_get_data_size();
 			print_line(String("MovieWriter: Canvas video recording completed. Data size: ") + String::humanize_size(data_size));
 			
 			// Automatically download the recorded video file
-			String filename = String("godot_recording_") + Time::get_singleton()->get_datetime_string_from_system(false, true) + ".webm";
+			String filename = String("spx_recording_") + Time::get_singleton()->get_datetime_string_from_system(false, true) + ".webm";
 			godot_video_recorder_download_data(filename.utf8().get_data());
 			print_line("MovieWriter: Canvas video file download initiated: " + filename);
 		} else {
@@ -568,8 +569,11 @@ void MovieWriter::cleanup_web_video_recorder() {
 		}
 	}
 	
-	if (web_video_recorder_initialized) {
+	if (web_video_recorder_initialized && enable_web_auto_download) {
 		godot_video_recorder_cleanup();
+	}
+	
+	if (web_video_recorder_initialized){
 		web_video_recorder_initialized = false;
 		print_line("MovieWriter: Canvas video recorder cleaned up");
 	}

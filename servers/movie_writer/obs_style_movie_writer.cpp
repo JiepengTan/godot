@@ -59,6 +59,9 @@ ObsStyleMovieWriter::ObsStyleMovieWriter() :
     if (ProjectSettings::get_singleton()->has_setting("movie_writer/obs_ffmpeg_path")) {
         obs_config.ffmpeg_path = GLOBAL_GET("movie_writer/obs_ffmpeg_path");
     }
+    if (ProjectSettings::get_singleton()->has_setting("movie_writer/obs_enable_web_auto_download")) {
+        enable_web_auto_download = GLOBAL_GET("movie_writer/obs_enable_web_auto_download");
+    }
     
     // Initialize post-merge processor
     post_merge_processor = new PostMergeProcessor();
@@ -254,53 +257,7 @@ void ObsStyleMovieWriter::write_end() {
     
     print_line("obs output_file_path===>" + output_file_path);
 #ifdef WEB_ENABLED
-    // Web platform automatically downloads recorded files
-    if (obs_config.enable_debug_output) {
-        print_line("ObsStyleMovieWriter: Web platform detected, starting automatic file downloads...");
-    }
     
-    // Download video file
-    if (!output_file_path.is_empty()) {
-        String video_file = output_file_path + "_video.avi";
-        
-        // Call Web platform file download interface
-        CharString video_path_utf8 = video_file.utf8();
-        CharString download_name_utf8 = video_file.get_file().utf8();
-        int download_result = godot_web_download_file(video_path_utf8.get_data(), download_name_utf8.get_data());
-        
-        if (download_result == 1) {
-            print_line("ObsStyleMovieWriter: Video file download initiated: " + video_file.get_file());
-        } else {
-            print_line("ObsStyleMovieWriter: Failed to download video file: " + video_file);
-        }
-    }
-    
-    // Download audio file
-    if (!output_file_path.is_empty()) {
-        String audio_file = output_file_path + "_audio.avi";
-        
-        CharString audio_path_utf8 = audio_file.utf8();
-        CharString audio_name_utf8 = audio_file.get_file().utf8();
-        int audio_download_result = godot_web_download_file(audio_path_utf8.get_data(), audio_name_utf8.get_data());
-        
-        if (audio_download_result == 1) {
-            print_line("ObsStyleMovieWriter: Audio file download initiated: " + audio_file.get_file());
-        } else {
-            print_line("ObsStyleMovieWriter: Failed to download audio file: " + audio_file);
-        }
-    }
-    
-    // Download original Web audio recording (MediaRecorder data)
-    CharString web_audio_name = String("web_recorded_audio.webm").utf8();
-    int web_audio_result = godot_web_download_recorded_audio(web_audio_name.get_data());
-    
-    if (web_audio_result == 1) {
-        print_line("ObsStyleMovieWriter: Web audio recording download initiated: web_recorded_audio.webm");
-    } else {
-        print_line("ObsStyleMovieWriter: No web audio recording data to download");
-    }
-    
-    print_line("ObsStyleMovieWriter: Web platform file downloads completed");
 #endif
     
     print_line("=== OBS-style Recording Completed ===");

@@ -56,7 +56,6 @@ class MovieWriter : public Object {
 	bool realtime_mode = false;
 	static class HybridAudioDriver *hybrid_driver;
 	class AudioDriver *original_driver = nullptr;
-
 #ifdef WEB_ENABLED
 	// Web platform audio recording support (Option 1: MediaRecorder API)
 	bool web_audio_recorder_initialized = false;
@@ -74,8 +73,10 @@ class MovieWriter : public Object {
 	};
 	static MovieWriter *writers[];
 	static uint32_t writer_count;
-
 protected:
+	// Web platform configuration
+	bool enable_web_auto_download = false;    // Enable automatic file download on web platform
+	
 	virtual uint32_t get_audio_mix_rate() const;
 	virtual AudioServer::SpeakerMode get_audio_speaker_mode() const;
 
