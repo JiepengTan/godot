@@ -27,7 +27,7 @@ PostMergeProcessor::MergeResult PostMergeProcessor::merge_files(const String &vi
     MergeResult result;
     uint64_t start_time = OS::get_singleton()->get_ticks_usec();
     
-    if (config.enable_debug_output) {
+    if (config.enable_debug_output && OS::get_singleton()->is_stdout_verbose()) {
         print_line("PostMergeProcessor: Starting merge operation");
         print_line("  Video file: " + video_path);
         print_line("  Audio file: " + audio_path);
@@ -54,9 +54,6 @@ PostMergeProcessor::MergeResult PostMergeProcessor::merge_files(const String &vi
             break;
             
         case METHOD_NONE:
-            if (config.enable_debug_output) {
-                print_line("PostMergeProcessor: No merge requested, keeping separate files");
-            }
             result.error_code = OK;
             result.output_file_path = video_path; // Return video file as primary output
             break;
@@ -76,7 +73,7 @@ PostMergeProcessor::MergeResult PostMergeProcessor::merge_files(const String &vi
         Error cleanup_error = cleanup_intermediate_files(video_path, audio_path);
         result.intermediate_files_cleaned = (cleanup_error == OK);
         
-        if (config.enable_debug_output) {
+        if (config.enable_debug_output && OS::get_singleton()->is_stdout_verbose()) {
             if (result.intermediate_files_cleaned) {
                 print_line("PostMergeProcessor: Intermediate files cleaned up successfully");
             } else {
@@ -91,7 +88,9 @@ PostMergeProcessor::MergeResult PostMergeProcessor::merge_files(const String &vi
     }
     
     if (config.enable_debug_output) {
-        print_line(String("PostMergeProcessor: Merge completed in ") + String::num(result.merge_duration_seconds, 2) + " seconds");
+        if (OS::get_singleton()->is_stdout_verbose()) {
+            print_line(String("PostMergeProcessor: Merge completed in ") + String::num(result.merge_duration_seconds, 2) + " seconds");
+        }
         if (result.error_code != OK) {
             print_line("PostMergeProcessor: Merge failed - " + result.error_message);
         }
@@ -122,21 +121,11 @@ Error PostMergeProcessor::ffmpeg_system_merge(const String &video_path, const St
     args.push_back(output_path);
     args.push_back("-y");    // Overwrite output file if exists
     
-    if (config.enable_debug_output) {
-        String command_line = config.ffmpeg_path;
-        for (const String &arg : args) {
-            command_line += " \"" + arg + "\"";
-        }
-        print_line("PostMergeProcessor: Executing - " + command_line);
-    }
     
     // Execute FFmpeg command
     String stdout_output;
     int exit_code = OS::get_singleton()->execute(config.ffmpeg_path, args, &stdout_output);
     
-    if (config.enable_debug_output && !stdout_output.is_empty()) {
-        print_line("PostMergeProcessor: FFmpeg output - " + stdout_output);
-    }
     
     if (exit_code != 0) {
         result.error_message = String("FFmpeg failed with exit code ") + String::num_int64(exit_code);
@@ -157,30 +146,18 @@ Error PostMergeProcessor::ffmpeg_system_merge(const String &video_path, const St
 }
 
 Error PostMergeProcessor::custom_avi_merge(const String &video_path, const String &audio_path, const String &output_path, MergeResult &result) {
-    if (config.enable_debug_output) {
-        print_line("PostMergeProcessor: Starting custom AVI merge");
-        print_line("  Video: " + video_path);
-        print_line("  Audio: " + audio_path);
-        print_line("  Output: " + output_path);
-    }
     
     uint64_t merge_start_time = OS::get_singleton()->get_ticks_usec();
     
     // Parse input AVI files
     AviFileInfo video_info, audio_info;
     
-    if (config.enable_debug_output) {
-        print_line("PostMergeProcessor: Parsing video file...");
-    }
     Error video_parse_error = parse_avi_file(video_path, video_info);
     if (video_parse_error != OK) {
         result.error_message = "Failed to parse video AVI file: " + video_path;
         return video_parse_error;
     }
     
-    if (config.enable_debug_output) {
-        print_line("PostMergeProcessor: Parsing audio file...");
-    }
     Error audio_parse_error = parse_avi_file(audio_path, audio_info);
     if (audio_parse_error != OK) {
         result.error_message = "Failed to parse audio AVI file: " + audio_path;
@@ -188,9 +165,6 @@ Error PostMergeProcessor::custom_avi_merge(const String &video_path, const Strin
     }
     
     // Create output file
-    if (config.enable_debug_output) {
-        print_line("PostMergeProcessor: Creating output file...");
-    }
     Ref<FileAccess> output_file = FileAccess::open(output_path, FileAccess::WRITE);
     if (output_file.is_null()) {
         result.error_message = "Cannot create output file: " + output_path;
@@ -198,9 +172,6 @@ Error PostMergeProcessor::custom_avi_merge(const String &video_path, const Strin
     }
     
     // Write merged AVI header
-    if (config.enable_debug_output) {
-        print_line("PostMergeProcessor: Writing merged header...");
-    }
     Error header_error = write_merged_avi_header(output_file, video_info, audio_info);
     if (header_error != OK) {
         result.error_message = "Failed to write merged AVI header";
@@ -209,16 +180,6 @@ Error PostMergeProcessor::custom_avi_merge(const String &video_path, const Strin
     }
     
     // Interleave video and audio data
-    if (config.enable_debug_output) {
-        print_line("PostMergeProcessor: Interleaving video and audio data...");
-        String strategy_name = "Unknown";
-        switch (config.interleave_strategy) {
-            case MergeConfig::INTERLEAVE_SIMPLE_ALTERNATE: strategy_name = "Simple Alternate"; break;
-            case MergeConfig::INTERLEAVE_TIMESTAMP_BASED: strategy_name = "Timestamp Based"; break;
-            case MergeConfig::INTERLEAVE_BUFFERED_TIMESTAMP: strategy_name = "Buffered Timestamp"; break;
-        }
-        print_line("  Strategy: " + strategy_name);
-    }
     
     Error interleave_error;
     if (config.interleave_strategy == MergeConfig::INTERLEAVE_SIMPLE_ALTERNATE) {
@@ -245,7 +206,7 @@ Error PostMergeProcessor::custom_avi_merge(const String &video_path, const Strin
     result.merge_duration_seconds = (merge_end_time - merge_start_time) / 1000000.0f;
     result.output_file_path = output_path;
     
-    if (config.enable_debug_output) {
+    if (config.enable_debug_output && OS::get_singleton()->is_stdout_verbose()) {
         print_line("PostMergeProcessor: Custom AVI merge completed successfully");
         print_line("  Output size: " + String::num_int64(get_file_size(output_path)) + " bytes");
         print_line("  Merge time: " + String::num_real(result.merge_duration_seconds) + " seconds");
@@ -320,18 +281,11 @@ Error PostMergeProcessor::parse_avi_file(const String &file_path, AviFileInfo &a
         return ERR_FILE_CANT_OPEN;
     }
     
-    if (config.enable_debug_output) {
-        print_line("PostMergeProcessor: Parsing AVI file: " + file_path);
-        print_line("PostMergeProcessor: File size: " + String::num_int64(file->get_length()) + " bytes");
-    }
     
     // Read RIFF header
     char riff_header[4];
     file->get_buffer((uint8_t*)riff_header, 4);
     if (memcmp(riff_header, "RIFF", 4) != 0) {
-        if (config.enable_debug_output) {
-            print_line("PostMergeProcessor: Invalid RIFF header");
-        }
         return ERR_FILE_CORRUPT;
     }
     
@@ -340,9 +294,6 @@ Error PostMergeProcessor::parse_avi_file(const String &file_path, AviFileInfo &a
     char avi_header[4];
     file->get_buffer((uint8_t*)avi_header, 4);
     if (memcmp(avi_header, "AVI ", 4) != 0) {
-        if (config.enable_debug_output) {
-            print_line("PostMergeProcessor: Invalid AVI header");
-        }
         return ERR_FILE_CORRUPT;
     }
     
@@ -364,9 +315,6 @@ Error PostMergeProcessor::parse_avi_file(const String &file_path, AviFileInfo &a
             file->get_buffer((uint8_t*)list_type, 4);
             
             if (memcmp(list_type, "hdrl", 4) == 0) {
-                if (config.enable_debug_output) {
-                    print_line("PostMergeProcessor: Found hdrl LIST at offset " + String::num_int64(pos) + " size=" + String::num_int64(chunk_size));
-                }
                 Error hdrl_error = parse_hdrl_chunk(file, avi_info, chunk_size - 4);
                 if (hdrl_error == OK) {
                     found_hdrl = true;
@@ -400,9 +348,6 @@ Error PostMergeProcessor::parse_avi_file(const String &file_path, AviFileInfo &a
             file->get_buffer((uint8_t*)list_type, 4);
             
             if (memcmp(list_type, "movi", 4) == 0) {
-                if (config.enable_debug_output) {
-                    print_line("PostMergeProcessor: Found movi LIST at offset " + String::num_int64(pos) + " size=" + String::num_int64(chunk_size));
-                }
                 avi_info.movi_list_offset = pos;
                 avi_info.movi_data_offset = pos + 12; // LIST+size+movi = 12
                 avi_info.movi_data_size = chunk_size - 4;
@@ -421,33 +366,16 @@ Error PostMergeProcessor::parse_avi_file(const String &file_path, AviFileInfo &a
         uint32_t chunk_size = file->get_32();
         
         if (memcmp(chunk_fourcc, "idx1", 4) == 0) {
-            if (config.enable_debug_output) {
-                print_line("PostMergeProcessor: Found idx1 chunk at offset " + String::num_int64(pos) + " size=" + String::num_int64(chunk_size));
-            }
             Error idx_error = parse_idx1_chunk(file, avi_info, chunk_size);
             if (idx_error != OK) {
-                if (config.enable_debug_output) {
-                    print_line("PostMergeProcessor: Failed to parse idx1");
-                }
             }
         }
     }
     
     if (!found_hdrl || !found_movi) {
-        if (config.enable_debug_output) {
-            print_line("PostMergeProcessor: Missing required chunks - hdrl: " + String(found_hdrl ? "yes" : "no") + ", movi: " + String(found_movi ? "yes" : "no"));
-        }
         return ERR_FILE_CORRUPT;
     }
     
-    if (config.enable_debug_output) {
-        print_line("PostMergeProcessor: AVI parsing completed");
-        print_line("  Dimensions: " + String::num_int64(avi_info.width) + "x" + String::num_int64(avi_info.height));
-        print_line("  Total frames: " + String::num_int64(avi_info.total_frames));
-        print_line("  Streams: " + String::num_int64(avi_info.streams));
-        print_line("  μs/frame: " + String::num_int64(avi_info.microsec_per_frame));
-        print_line("  Index entries: " + String::num_int64(avi_info.index_entries.size()));
-    }
     
     return OK;
 }
@@ -456,9 +384,6 @@ Error PostMergeProcessor::parse_hdrl_chunk(Ref<FileAccess> file, AviFileInfo &av
     uint64_t hdrl_start = file->get_position();
     uint64_t chunk_end = hdrl_start + chunk_size;
     
-    if (config.enable_debug_output) {
-        print_line("PostMergeProcessor: Parsing hdrl from " + String::num_int64(hdrl_start) + " to " + String::num_int64(chunk_end));
-    }
     
     // First, look for avih chunk
     char chunk_fourcc[4];
@@ -466,9 +391,6 @@ Error PostMergeProcessor::parse_hdrl_chunk(Ref<FileAccess> file, AviFileInfo &av
     uint32_t sub_chunk_size = file->get_32();
     
     if (memcmp(chunk_fourcc, "avih", 4) == 0) {
-        if (config.enable_debug_output) {
-            print_line("PostMergeProcessor: Found avih chunk, size=" + String::num_int64(sub_chunk_size));
-        }
         // Parse main AVI header
         avi_info.microsec_per_frame = file->get_32();
         avi_info.max_bytes_per_sec = file->get_32();
@@ -483,9 +405,6 @@ Error PostMergeProcessor::parse_hdrl_chunk(Ref<FileAccess> file, AviFileInfo &av
         // Skip reserved fields (4 * 4 = 16 bytes)
         file->seek(file->get_position() + 16);
     } else {
-        if (config.enable_debug_output) {
-            print_line("PostMergeProcessor: Expected avih chunk but found something else");
-        }
         return ERR_FILE_CORRUPT;
     }
     
@@ -505,9 +424,6 @@ Error PostMergeProcessor::parse_hdrl_chunk(Ref<FileAccess> file, AviFileInfo &av
             file->get_buffer((uint8_t*)list_type, 4);
             
             if (memcmp(list_type, "strl", 4) == 0) {
-                if (config.enable_debug_output) {
-                    print_line("PostMergeProcessor: Found strl LIST at " + String::num_int64(chunk_start) + ", size=" + String::num_int64(sub_chunk_size));
-                }
                 // Parse stream header
                 AviFileInfo::StreamInfo stream_info;
                 Error stream_error = parse_stream_header(file, stream_info, sub_chunk_size - 4);
@@ -515,9 +431,6 @@ Error PostMergeProcessor::parse_hdrl_chunk(Ref<FileAccess> file, AviFileInfo &av
                     avi_info.streams_info.push_back(stream_info);
                 }
             } else if (memcmp(list_type, "odml", 4) == 0) {
-                if (config.enable_debug_output) {
-                    print_line("PostMergeProcessor: Found odml LIST at " + String::num_int64(chunk_start) + ", size=" + String::num_int64(sub_chunk_size));
-                }
                 // Skip odml content
                 file->seek(chunk_start + 8 + sub_chunk_size);
             } else {
@@ -542,9 +455,6 @@ Error PostMergeProcessor::parse_stream_header(Ref<FileAccess> file, AviFileInfo:
     uint64_t strl_start = file->get_position();
     uint64_t chunk_end = strl_start + chunk_size;
     
-    if (config.enable_debug_output) {
-        print_line("PostMergeProcessor: Parsing strl from " + String::num_int64(strl_start) + " to " + String::num_int64(chunk_end));
-    }
     
     // Look for strh chunk first
     char chunk_fourcc[4];
@@ -552,9 +462,6 @@ Error PostMergeProcessor::parse_stream_header(Ref<FileAccess> file, AviFileInfo:
     uint32_t sub_chunk_size = file->get_32();
     
     if (memcmp(chunk_fourcc, "strh", 4) == 0) {
-        if (config.enable_debug_output) {
-            print_line("PostMergeProcessor: Found strh chunk, size=" + String::num_int64(sub_chunk_size));
-        }
         // Parse stream header
         file->get_buffer((uint8_t*)stream_info.fourcc_type, 4);
         file->get_buffer((uint8_t*)stream_info.fourcc_handler, 4);
@@ -706,11 +613,6 @@ Error PostMergeProcessor::validate_merge_request(const String &video_path, const
 
 // AVI header merging implementation
 Error PostMergeProcessor::write_merged_avi_header(Ref<FileAccess> output_file, const AviFileInfo &video_info, const AviFileInfo &audio_info) {
-    if (config.enable_debug_output) {
-        print_line("PostMergeProcessor: Writing merged AVI header");
-        print_line("  Video frames: " + String::num_int64(video_info.total_frames));
-        print_line("  Audio chunks: " + String::num_int64(audio_info.index_entries.size()));
-    }
     
     // Write RIFF header
     output_file->store_buffer((const uint8_t*)"RIFF", 4);
@@ -757,9 +659,6 @@ Error PostMergeProcessor::write_merged_avi_header(Ref<FileAccess> output_file, c
     output_file->store_32(hdrl_size + 4); // +4 for 'hdrl' fourcc
     output_file->seek(hdrl_end);
     
-    if (config.enable_debug_output) {
-        print_line("PostMergeProcessor: Header written, hdrl size: " + String::num_int64(hdrl_size));
-    }
     
     return OK;
 }
@@ -1080,9 +979,6 @@ void PostMergeProcessor::scan_movi_chunks(Ref<FileAccess> file, uint64_t movi_of
 }
 
 Error PostMergeProcessor::write_merged_avi_index(Ref<FileAccess> output_file, const Vector<AviFileInfo::IndexEntry> &merged_index) {
-    if (config.enable_debug_output) {
-        print_line("PostMergeProcessor: Writing index with " + String::num_int64(merged_index.size()) + " entries");
-    }
     
     // Write idx1 chunk
     output_file->store_buffer((const uint8_t*)"idx1", 4);
@@ -1100,12 +996,6 @@ Error PostMergeProcessor::write_merged_avi_index(Ref<FileAccess> output_file, co
 
 // Timestamp-based interleaving implementation
 Error PostMergeProcessor::interleave_avi_data_timestamped(const String &video_path, const String &audio_path, Ref<FileAccess> output_file, const AviFileInfo &video_info, const AviFileInfo &audio_info) {
-    if (config.enable_debug_output || true) {
-        print_line("==>PostMergeProcessor: Starting timestamp-based interleaving");
-        print_line("  Video movi offset: " + String::num_int64(video_info.movi_data_offset) + ", size: " + String::num_int64(video_info.movi_data_size));
-        print_line("  Audio movi offset: " + String::num_int64(audio_info.movi_data_offset) + ", size: " + String::num_int64(audio_info.movi_data_size));
-        print_line("  Video FPS: " + String::num_real(1000000.0 / video_info.microsec_per_frame));
-    }
     
     // Open input files
     Ref<FileAccess> video_file = FileAccess::open(video_path, FileAccess::READ);
@@ -1121,18 +1011,12 @@ Error PostMergeProcessor::interleave_avi_data_timestamped(const String &video_pa
     
     if (video_info.index_entries.size() == 0 && video_info.movi_data_offset > 0) {
         scan_movi_chunks(video_file, video_info.movi_data_offset, video_info.movi_data_size, video_chunks);
-        if (config.enable_debug_output) {
-            print_line("PostMergeProcessor: Found " + String::num_int64(video_chunks.size()) + " video chunks by scanning");
-        }
     } else {
         video_chunks = video_info.index_entries;
     }
     
     if (audio_info.index_entries.size() == 0 && audio_info.movi_data_offset > 0) {
         scan_movi_chunks(audio_file, audio_info.movi_data_offset, audio_info.movi_data_size, audio_chunks);
-        if (config.enable_debug_output) {
-            print_line("PostMergeProcessor: Found " + String::num_int64(audio_chunks.size()) + " audio chunks by scanning");
-        }
     } else {
         audio_chunks = audio_info.index_entries;
     }
@@ -1142,9 +1026,6 @@ Error PostMergeProcessor::interleave_avi_data_timestamped(const String &video_pa
     calculate_chunk_timestamps(video_chunks, video_info, true, all_chunks);
     calculate_chunk_timestamps(audio_chunks, audio_info, false, all_chunks);
     
-    if (config.enable_debug_output) {
-        print_line("PostMergeProcessor: Total chunks to interleave: " + String::num_int64(all_chunks.size()));
-    }
     
     // Sort by timestamp
     all_chunks.sort();
@@ -1163,11 +1044,6 @@ Error PostMergeProcessor::interleave_avi_data_timestamped(const String &video_pa
     for (int i = 0; i < all_chunks.size(); i++) {
         const TimestampedChunk &chunk = all_chunks[i];
         
-        if (config.enable_debug_output && config.validate_sync && i % 100 == 0) {
-            // Log progress and sync status
-            print_line("PostMergeProcessor: Processing chunk " + String::num_int64(i) + "/" + String::num_int64(all_chunks.size()) + 
-                      " at " + String::num_real(chunk.timestamp_us / 1000000.0) + "s");
-        }
         
         Error write_error = write_timestamped_chunk(
             chunk.type == TimestampedChunk::VIDEO_CHUNK ? video_file : audio_file,
@@ -1204,10 +1080,6 @@ Error PostMergeProcessor::interleave_avi_data_timestamped(const String &video_pa
             
             if (found_video && found_audio) {
                 if (!validate_av_sync(nearest_video_ts, nearest_audio_ts)) {
-                    if (config.enable_debug_output) {
-                        print_line("PostMergeProcessor: Warning - A/V sync drift detected at " + 
-                                 String::num_real(chunk.timestamp_us / 1000000.0) + "s");
-                    }
                 }
             }
         }
@@ -1226,11 +1098,6 @@ Error PostMergeProcessor::interleave_avi_data_timestamped(const String &video_pa
         return index_error;
     }
     
-    if (config.enable_debug_output || true) {
-        print_line("==>PostMergeProcessor: Timestamp-based interleaving completed");
-        print_line("  Merged chunks: " + String::num_int64(merged_index.size()));
-        print_line("  Movi size: " + String::num_int64(movi_size) + " bytes");
-    }
     
     return OK;
 }
@@ -1250,16 +1117,6 @@ void PostMergeProcessor::calculate_chunk_timestamps(const Vector<AviFileInfo::In
             timestamped_chunks.push_back(tc);
         }
         
-        if (config.enable_debug_output) {
-            print_line("PostMergeProcessor: Video chunks: " + String::num_int64(chunks.size()) + 
-                      ", frame duration: " + String::num_real(frame_duration_us / 1000.0) + "ms");
-            if (chunks.size() > 0) {
-                uint64_t total_duration_us = (chunks.size() - 1) * frame_duration_us;
-                print_line("  Total video duration: " + String::num_real(total_duration_us / 1000000.0) + "s");
-                print_line("  First chunk timestamp: 0.000s");
-                print_line("  Last chunk timestamp: " + String::num_real(((chunks.size() - 1) * frame_duration_us) / 1000000.0) + "s");
-            }
-        }
     } else {
         // Audio timestamp calculation
         uint32_t sample_rate = 44100; // Default
@@ -1294,20 +1151,6 @@ void PostMergeProcessor::calculate_chunk_timestamps(const Vector<AviFileInfo::In
             cumulative_samples += samples_in_chunk;
         }
         
-        if (config.enable_debug_output) {
-            print_line("PostMergeProcessor: Audio chunks: " + String::num_int64(chunks.size()) + 
-                      ", sample rate: " + String::num_int64(sample_rate) + "Hz");
-            if (chunks.size() > 0) {
-                uint64_t total_duration_us = (cumulative_samples * 1000000) / sample_rate;
-                print_line("  Total audio duration: " + String::num_real(total_duration_us / 1000000.0) + "s");
-                print_line("  Total samples: " + String::num_int64(cumulative_samples));
-                print_line("  Avg samples per chunk: " + String::num_int64(cumulative_samples / chunks.size()));
-                
-                // Calculate average chunk duration
-                double avg_chunk_duration_ms = (total_duration_us / 1000.0) / chunks.size();
-                print_line("  Avg chunk duration: " + String::num_real(avg_chunk_duration_ms) + "ms");
-            }
-        }
     }
 }
 
@@ -1324,9 +1167,6 @@ bool PostMergeProcessor::validate_av_sync(uint64_t video_ts, uint64_t audio_ts) 
     uint64_t drift = video_ts > audio_ts ? video_ts - audio_ts : audio_ts - video_ts;
     
     if (drift > config.max_av_drift_us) {
-        if (config.enable_debug_output) {
-            print_line("PostMergeProcessor: A/V sync drift: " + String::num_real(drift / 1000.0) + "ms");
-        }
         return false;
     }
     

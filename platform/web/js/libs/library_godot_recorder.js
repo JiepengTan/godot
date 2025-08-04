@@ -475,7 +475,6 @@ const GodotAudioRecorder = {
 		},
 
 		downloadRecordedVideo: function(filename) {
-			console.log('GodotVideoRecorder: Downloading recorded video...');
 			const blob = GodotAudioRecorder.getRecordedVideoBlob();
 			if (!blob) {
 				GodotRuntime.error('GodotVideoRecorder: No recorded video data to download');
@@ -870,7 +869,6 @@ const GodotWebDownload = {
 	godot_web_download_file: function(filePathPtr, downloadNamePtr) {
 		const filePath = GodotRuntime.parseString(filePathPtr);
 		const downloadName = downloadNamePtr ? GodotRuntime.parseString(downloadNamePtr) : null;
-		console.log('====>GodotWebDownload: Downloading file from path:', filePath, 'as:', downloadName);
 		return GodotWebDownload.downloadFile(filePath, downloadName) ? 1 : 0;
 	}
 };

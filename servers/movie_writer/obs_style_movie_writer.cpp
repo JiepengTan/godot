@@ -569,13 +569,17 @@ bool ObsStyleMovieWriter::is_paused() const {
 }
 
 void ObsStyleMovieWriter::perform_post_merge() {
-    print_line("ObsStyleMovieWriter::perform_post_merge() called");
-    print_line("  post_merge_processor: " + String(post_merge_processor ? "valid" : "null"));
-    print_line("  output_file_path: " + output_file_path);
-    print_line(String("  enable_post_merge: ") + (obs_config.enable_post_merge ? "true" : "false"));
+    if (obs_config.enable_debug_output) {
+        print_line("ObsStyleMovieWriter::perform_post_merge() called");
+        print_line("  post_merge_processor: " + String(post_merge_processor ? "valid" : "null"));
+        print_line("  output_file_path: " + output_file_path);
+        print_line(String("  enable_post_merge: ") + (obs_config.enable_post_merge ? "true" : "false"));
+    }
     
     if (!post_merge_processor || output_file_path.is_empty()) {
-        print_line("PostMergeProcessor: Skipping merge - missing processor or output path");
+        if (obs_config.enable_debug_output) {
+            print_line("PostMergeProcessor: Skipping merge - missing processor or output path");
+        }
         return;
     }
     
