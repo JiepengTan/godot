@@ -9,6 +9,7 @@
 #include "simple_audio_writer.h"
 #include "core/string/print_string.h"
 #include "core/os/os.h"
+#include "movie_utils.h"
 
 SimpleAudioWriter::SimpleAudioWriter() {
 	audio_chunk_count = 0;

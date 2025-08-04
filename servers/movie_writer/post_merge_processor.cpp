@@ -11,6 +11,7 @@
 #include "core/io/file_access.h"
 #include "core/io/dir_access.h"
 #include "core/os/time.h"
+#include "movie_utils.h"
 
 PostMergeProcessor::PostMergeProcessor() {
     // Initialize with default configuration

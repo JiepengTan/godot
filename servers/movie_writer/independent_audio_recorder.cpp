@@ -10,6 +10,7 @@
 #include "servers/audio/audio_driver_hybrid.h"
 #include "core/string/print_string.h"
 #include "core/os/os.h"
+#include "movie_utils.h"
 
 IndependentAudioRecorder::IndependentAudioRecorder() {
     recording_active.store(false);

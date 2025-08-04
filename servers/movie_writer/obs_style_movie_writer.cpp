@@ -12,6 +12,7 @@
 #include "servers/audio_server.h"
 #include "servers/rendering_server.h"
 #include "servers/display_server.h"
+#include "movie_utils.h"
 
 #ifdef WEB_ENABLED
 #include "platform/web/godot_audio.h"

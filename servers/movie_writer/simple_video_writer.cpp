@@ -9,6 +9,7 @@
 #include "simple_video_writer.h"
 #include "core/string/print_string.h"
 #include "core/os/os.h"
+#include "movie_utils.h"
 
 SimpleVideoWriter::SimpleVideoWriter() {
 	frame_count = 0;

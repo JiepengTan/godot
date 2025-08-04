@@ -43,9 +43,7 @@
 #include "core/io/file_access.h"
 #endif
 
-bool MovieDebugUtils::is_stdout_verbose() {
-	return MovieDebugUtils::is_stdout_verbose();
-}
+#include "movie_utils.h"
 
 MovieWriter *MovieWriter::writers[MovieWriter::MAX_WRITERS];
 uint32_t MovieWriter::writer_count = 0;
