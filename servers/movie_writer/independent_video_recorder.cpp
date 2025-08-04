@@ -49,7 +49,7 @@ Error IndependentVideoRecorder::initialize(ThreadSafeFrameBuffer *p_frame_buffer
     // reset statistics
     reset_statistics();
     
-    if (OS::get_singleton()->is_stdout_verbose()) {
+    if (MovieDebugUtils::is_stdout_verbose()) {
         print_line(String("IndependentVideoRecorder initialized"));
         print_line(String("Video path: ") + p_video_path);
         print_line(String("Resolution: ") + String::num_int64(config.video_width) + "x" + String::num_int64(config.video_height));
@@ -79,7 +79,7 @@ Error IndependentVideoRecorder::start_recording() {
     recording_thread.start(recording_thread_func, this);
     thread_started.store(true);
     
-    if (OS::get_singleton()->is_stdout_verbose()) {
+    if (MovieDebugUtils::is_stdout_verbose()) {
         print_line("IndependentVideoRecorder: Start recording");
     }
     
@@ -107,7 +107,7 @@ void IndependentVideoRecorder::stop_recording() {
     }
     
     // output final statistics
-    if (OS::get_singleton()->is_stdout_verbose()) {
+    if (MovieDebugUtils::is_stdout_verbose()) {
         RecordingStats final_stats = get_statistics();
         print_line(String("Recording completed - Total frames: ") + String::num_int64(final_stats.total_recorded_frames));
         print_line(String("New frames: ") + String::num_int64(final_stats.new_frames_count));
@@ -141,7 +141,7 @@ void IndependentVideoRecorder::recording_loop() {
                 update_statistics(frame_process_start);
                 
                 // Output debug information every 30 frames
-                if (OS::get_singleton()->is_stdout_verbose() && frame_count % 30 == 0) {
+                if (MovieDebugUtils::is_stdout_verbose() && frame_count % 30 == 0) {
                     print_line(String("Recording progress: ") + String::num_int64(frame_count) + " frames, " +
                               String("Repeated frame ratio: ") + String::num_real(get_repeat_frame_ratio() * 100.0f) + "%");
                 }

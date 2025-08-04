@@ -94,7 +94,7 @@ Error SimpleAudioWriter::open(const String &p_path, uint32_t p_sample_rate, uint
 	f->store_32(0); // Size (to be updated later)
 	f->store_buffer((const uint8_t *)"movi", 4);
 
-	if (OS::get_singleton()->is_stdout_verbose()) {
+	if (MovieDebugUtils::is_stdout_verbose()) {
 		print_line(String("SimpleAudioWriter: Starting audio recording to ") + base_path);
 		print_line(String("Sample rate: ") + String::num_int64(mix_rate) + "Hz, Channels: " + String::num_int64(channels));
 	}
@@ -161,7 +161,7 @@ void SimpleAudioWriter::close() {
 
 	f.unref();
 	
-	if (OS::get_singleton()->is_stdout_verbose()) {
+	if (MovieDebugUtils::is_stdout_verbose()) {
 		print_line(String("SimpleAudioWriter: Audio recording completed, total chunks: ") + String::num_int64(audio_chunk_count));
 		print_line(String("Total samples: ") + String::num_int64(total_samples));
 	}

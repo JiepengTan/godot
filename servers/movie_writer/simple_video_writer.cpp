@@ -109,7 +109,7 @@ Error SimpleVideoWriter::open(const String &p_path, const Size2i &p_movie_size, 
 	f->store_32(0); // Number of frames (to be updated later)
 	f->store_buffer((const uint8_t *)"movi", 4);
 
-	if (OS::get_singleton()->is_stdout_verbose()) {
+	if (MovieDebugUtils::is_stdout_verbose()) {
 		print_line(String("SimpleVideoWriter: Starting video recording to ") + base_path);
 	}
 	
@@ -179,7 +179,7 @@ void SimpleVideoWriter::close() {
 
 	f.unref();
 	
-	if (OS::get_singleton()->is_stdout_verbose()) {
+	if (MovieDebugUtils::is_stdout_verbose()) {
 		print_line(String("SimpleVideoWriter: Video recording completed, total frames: ") + String::num_int64(frame_count));
 	}
 } 

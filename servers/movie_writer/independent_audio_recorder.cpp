@@ -67,7 +67,7 @@ Error IndependentAudioRecorder::initialize(HybridAudioDriver *p_audio_driver,
     // Reset statistics
     reset_statistics();
     
-    if (OS::get_singleton()->is_stdout_verbose()) {
+    if (MovieDebugUtils::is_stdout_verbose()) {
         print_line("IndependentAudioRecorder initialization completed");
         print_line(String("Audio path: ") + p_audio_path);
         print_line(String("Sample rate: ") + String::num_int64(config.sample_rate) + "Hz");
@@ -104,7 +104,7 @@ Error IndependentAudioRecorder::start_recording() {
     recording_thread.start(recording_thread_func, this);
     thread_started.store(true);
     
-    if (OS::get_singleton()->is_stdout_verbose()) {
+    if (MovieDebugUtils::is_stdout_verbose()) {
         print_line("IndependentAudioRecorder: Start recording");
     }
     
@@ -131,7 +131,7 @@ void IndependentAudioRecorder::stop_recording() {
     }
     
     // Output final statistics
-    if (OS::get_singleton()->is_stdout_verbose()) {
+    if (MovieDebugUtils::is_stdout_verbose()) {
         AudioStats final_stats = get_statistics();
         print_line(String("Audio recording completed - Total chunks: ") + String::num_int64(final_stats.total_chunks_recorded));
         print_line(String("Total samples: ") + String::num_int64(final_stats.total_samples_recorded));
@@ -165,7 +165,7 @@ void IndependentAudioRecorder::recording_loop() {
                 update_statistics(chunk_process_start, config.chunk_size);
                 
                 // Output debug info every 1000 chunks
-                if (OS::get_singleton()->is_stdout_verbose() && chunk_count % 1000 == 0) {
+                if (MovieDebugUtils::is_stdout_verbose() && chunk_count % 1000 == 0) {
                     AudioStats current_stats = get_statistics();
                     print_line(String("Audio recording progress: ") + String::num_int64(chunk_count) + " chunks, " +
                               String("Buffer usage: ") + String::num_int64(current_stats.current_buffer_level) + "%");

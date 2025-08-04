@@ -27,7 +27,7 @@ PostMergeProcessor::MergeResult PostMergeProcessor::merge_files(const String &vi
     MergeResult result;
     uint64_t start_time = OS::get_singleton()->get_ticks_usec();
     
-    if (config.enable_debug_output && OS::get_singleton()->is_stdout_verbose()) {
+    if (config.enable_debug_output && MovieDebugUtils::is_stdout_verbose()) {
         print_line("PostMergeProcessor: Starting merge operation");
         print_line("  Video file: " + video_path);
         print_line("  Audio file: " + audio_path);
@@ -73,7 +73,7 @@ PostMergeProcessor::MergeResult PostMergeProcessor::merge_files(const String &vi
         Error cleanup_error = cleanup_intermediate_files(video_path, audio_path);
         result.intermediate_files_cleaned = (cleanup_error == OK);
         
-        if (config.enable_debug_output && OS::get_singleton()->is_stdout_verbose()) {
+        if (config.enable_debug_output && MovieDebugUtils::is_stdout_verbose()) {
             if (result.intermediate_files_cleaned) {
                 print_line("PostMergeProcessor: Intermediate files cleaned up successfully");
             } else {
@@ -88,7 +88,7 @@ PostMergeProcessor::MergeResult PostMergeProcessor::merge_files(const String &vi
     }
     
     if (config.enable_debug_output) {
-        if (OS::get_singleton()->is_stdout_verbose()) {
+        if (MovieDebugUtils::is_stdout_verbose()) {
             print_line(String("PostMergeProcessor: Merge completed in ") + String::num(result.merge_duration_seconds, 2) + " seconds");
         }
         if (result.error_code != OK) {
@@ -206,7 +206,7 @@ Error PostMergeProcessor::custom_avi_merge(const String &video_path, const Strin
     result.merge_duration_seconds = (merge_end_time - merge_start_time) / 1000000.0f;
     result.output_file_path = output_path;
     
-    if (config.enable_debug_output && OS::get_singleton()->is_stdout_verbose()) {
+    if (config.enable_debug_output && MovieDebugUtils::is_stdout_verbose()) {
         print_line("PostMergeProcessor: Custom AVI merge completed successfully");
         print_line("  Output size: " + String::num_int64(get_file_size(output_path)) + " bytes");
         print_line("  Merge time: " + String::num_real(result.merge_duration_seconds) + " seconds");
