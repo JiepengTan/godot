@@ -38,6 +38,11 @@
 class HybridAudioDriver;
 class AudioDriver;
 
+class MovieDebugUtils {
+public:
+	static bool is_stdout_verbose();
+};
+
 class MovieWriter : public Object {
 	GDCLASS(MovieWriter, Object);
 
