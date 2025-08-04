@@ -57,14 +57,12 @@ const GodotAudioRecorder = {
 				const masterBus = GodotAudio.buses[0];
 				if (masterBus) {
 					masterBus.getOutputNode().connect(this.mediaStreamDestination);
-					GodotRuntime.print('GodotAudioRecorder: Connected master bus to recording destination');
 				} else {
 					GodotRuntime.error('GodotAudioRecorder: Master bus not found');
 					return false;
 				}
 				
 				this.initialized = true;
-				GodotRuntime.print('GodotAudioRecorder initialized successfully - ready for AUDIO ONLY recording');
 				return true;
 				
 			} catch (error) {
@@ -83,7 +81,6 @@ const GodotAudioRecorder = {
 			}
 			
 			if (this.isRecording) {
-				GodotRuntime.print('GodotAudioRecorder: Already recording');
 				return true;
 			}
 			
@@ -109,7 +106,6 @@ const GodotAudioRecorder = {
 						
 						// Significantly reduce log frequency: only output when data chunks are large (to avoid frequent small chunk logs)
 						if (event.data.size > 1000) { // Increase threshold to 1KB
-							GodotRuntime.print('GodotAudioRecorder: Audio chunk recorded: ' + event.data.size + ' bytes (' + event.data.type + ')');
 						}
 					}
 				};
@@ -121,14 +117,12 @@ const GodotAudioRecorder = {
 				
 				// Recording stop handling
 				this.mediaRecorder.onstop = () => {
-					GodotRuntime.print('GodotAudioRecorder: Recording stopped, ' + this.recordedChunks.length + ' audio chunks collected');
 				};
 				
 				// Start recording (one chunk every 100ms)
 				this.mediaRecorder.start(100);
 				this.isRecording = true;
 				
-				GodotRuntime.print('GodotAudioRecorder: AUDIO-ONLY recording started with ' + this.selectedMimeType);
 				return true;
 				
 			} catch (error) {
@@ -144,7 +138,6 @@ const GodotAudioRecorder = {
 			if (this.mediaRecorder && this.isRecording) {
 				this.mediaRecorder.stop();
 				this.isRecording = false;
-				GodotRuntime.print('GodotAudioRecorder: Recording stopped');
 				return true;
 			}
 			return false;
@@ -173,10 +166,6 @@ const GodotAudioRecorder = {
 			// Only output verification info on first creation or significant size change (reduce log frequency)
 			const currentTime = Date.now();
 			if (!this.lastBlobCreationTime || (currentTime - this.lastBlobCreationTime) > 1000) {
-				GodotRuntime.print('GodotAudioRecorder: Generated blob verification:');
-				GodotRuntime.print('  Type: ' + this.cachedBlob.type);
-				GodotRuntime.print('  Size: ' + this.cachedBlob.size + ' bytes');
-				GodotRuntime.print('  Is audio only: ' + this.cachedBlob.type.startsWith('audio/'));
 				this.lastBlobCreationTime = currentTime;
 			}
 			
@@ -209,13 +198,11 @@ const GodotAudioRecorder = {
 			
 			for (const type of types) {
 				if (MediaRecorder.isTypeSupported(type)) {
-					GodotRuntime.print('GodotAudioRecorder: Selected audio format: ' + type);
 					return type;
 				}
 			}
 			
 			// As a fallback, use webm (supported by almost all modern browsers)
-			GodotRuntime.print('GodotAudioRecorder: Using fallback audio format: audio/webm');
 			return 'audio/webm';
 		},
 		
@@ -239,7 +226,6 @@ const GodotAudioRecorder = {
 				this.mediaStreamDestination = null;
 			}
 			
-			GodotRuntime.print('GodotAudioRecorder: Cleaned up');
 		},
 		
 		/**
@@ -298,7 +284,6 @@ const GodotAudioRecorder = {
 				
 				// 2. Get Canvas video stream
 				this.videoStream = this.gameCanvas.captureStream(fps);
-				GodotRuntime.print(`GodotVideoRecorder: Canvas stream created with ${fps} FPS`);
 				
 				// 3. Create audio recording destination (if not already created)
 				if (!this.mediaStreamDestination) {
@@ -317,23 +302,17 @@ const GodotAudioRecorder = {
 				// Add video track
 				this.videoStream.getVideoTracks().forEach(track => {
 					this.combinedStream.addTrack(track);
-					GodotRuntime.print('GodotVideoRecorder: Added video track');
 				});
 				
 				// Add audio track
 				this.mediaStreamDestination.stream.getAudioTracks().forEach(track => {
 					this.combinedStream.addTrack(track);
-					GodotRuntime.print('GodotVideoRecorder: Added audio track');
 				});
 				
 				// 5. Select supported video MIME type
 				this.selectedMimeType = this.getSupportedVideoMimeType();
 				
 				this.videoRecorderInitialized = true;
-				GodotRuntime.print('GodotVideoRecorder: Initialized successfully for combined audio+video recording');
-				GodotRuntime.print('  Video source: Canvas stream (' + fps + ' FPS)');
-				GodotRuntime.print('  Audio source: Godot audio bus');
-				GodotRuntime.print('  Output format: ' + this.selectedMimeType);
 				
 				return true;
 				
@@ -390,13 +369,11 @@ const GodotAudioRecorder = {
 			
 			for (const type of videoTypes) {
 				if (MediaRecorder.isTypeSupported(type)) {
-					GodotRuntime.print('GodotVideoRecorder: Selected video format: ' + type);
 					return type;
 				}
 			}
 			
 			// As a fallback, use webm
-			GodotRuntime.print('GodotVideoRecorder: Using fallback video format: video/webm');
 			return 'video/webm';
 		},
 		
@@ -411,7 +388,6 @@ const GodotAudioRecorder = {
 			}
 			
 			if (this.isRecording) {
-				GodotRuntime.print('GodotVideoRecorder: Already recording');
 				return true;
 			}
 			
@@ -440,18 +416,12 @@ const GodotAudioRecorder = {
 				};
 				
 				this.videoMediaRecorder.onstop = () => {
-					GodotRuntime.print('GodotVideoRecorder: Recording stopped, ' + this.videoRecordedChunks.length + ' video chunks collected');
 				};
 				
 				// Start recording (one chunk every 100ms)
 				this.videoMediaRecorder.start(100);
 				this.isRecording = true;
 				
-				GodotRuntime.print('GodotVideoRecorder: Combined AUDIO+VIDEO recording started');
-				GodotRuntime.print('  Format: ' + this.selectedMimeType);
-				GodotRuntime.print('  Video bitrate: 2.5 Mbps');
-				GodotRuntime.print('  Audio bitrate: 128 kbps');
-				GodotRuntime.print('  Video FPS: ' + this.videoFPS);
 				
 				return true;
 				
@@ -469,7 +439,6 @@ const GodotAudioRecorder = {
 			if (this.videoMediaRecorder && this.isRecording) {
 				this.videoMediaRecorder.stop();
 				this.isRecording = false;
-				GodotRuntime.print('GodotVideoRecorder: Recording stopped');
 				return true;
 			}
 			return false;
@@ -499,10 +468,6 @@ const GodotAudioRecorder = {
 			// Output verification info
 			const currentTime = Date.now();
 			if (!this.lastBlobCreationTime || (currentTime - this.lastBlobCreationTime) > 1000) {
-				GodotRuntime.print('GodotVideoRecorder: Generated video blob:');
-				GodotRuntime.print('  Type: ' + this.cachedBlob.type);
-				GodotRuntime.print('  Size: ' + this.cachedBlob.size + ' bytes');
-				GodotRuntime.print('  Contains: Video + Audio');
 				this.lastBlobCreationTime = currentTime;
 			}
 			
@@ -525,7 +490,6 @@ const GodotAudioRecorder = {
 			a.click();
 			document.body.removeChild(a);
 			URL.revokeObjectURL(url);
-			GodotRuntime.print('===>GodotVideoRecorder: Downloaded recorded video as ' + a.download);
 		},
 		/**
 		 * Clean up video recording resources
@@ -547,7 +511,6 @@ const GodotAudioRecorder = {
 			}
 			
 			this.videoRecorderInitialized = false;
-			GodotRuntime.print('GodotVideoRecorder: Cleaned up');
 		},
 		
 		/**
@@ -670,7 +633,6 @@ const GodotAudioRecorder = {
 		document.body.removeChild(a);
 		URL.revokeObjectURL(url);
 		
-		GodotRuntime.print('GodotAudioRecorder: Downloaded recorded audio as ' + a.download);
 	},
 	
 	godot_audio_recorder_cleanup__proxy: 'sync',
@@ -852,7 +814,6 @@ const GodotWebDownload = {
 			document.body.removeChild(a);
 			URL.revokeObjectURL(url);
 			
-			GodotRuntime.print('GodotWebDownload: Downloaded file: ' + filename + ' (' + blob.size + ' bytes)');
 		},
 		
 		/**

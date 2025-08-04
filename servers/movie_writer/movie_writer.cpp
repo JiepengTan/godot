@@ -105,10 +105,12 @@ void MovieWriter::get_supported_extensions(List<String> *r_extensions) const {
 void MovieWriter::begin(const Size2i &p_movie_size, uint32_t p_fps, const String &p_base_path) {
 	project_name = GLOBAL_GET("application/config/name");
 
-	if (realtime_mode) {
-		print_line(vformat("Movie Maker mode enabled (REALTIME), recording movie at %d FPS...", p_fps));
-	} else {
-		print_line(vformat("Movie Maker mode enabled, recording movie at %d FPS...", p_fps));
+	if (OS::get_singleton()->is_stdout_verbose()) {
+		if (realtime_mode) {
+			print_line(vformat("Movie Maker mode enabled (REALTIME), recording movie at %d FPS...", p_fps));
+		} else {
+			print_line(vformat("Movie Maker mode enabled, recording movie at %d FPS...", p_fps));
+		}
 	}
 
 	// Check for available disk space and warn the user if needed.
@@ -139,10 +141,12 @@ void MovieWriter::begin(const Size2i &p_movie_size, uint32_t p_fps, const String
 			if (start_result == 1) {
 				web_video_recording_active = true;
 				audio_channels = 2; // Web platform default stereo
-				print_line("MovieWriter: Web realtime recording mode - Canvas video + audio recording started");
-				print_line("  Using Canvas.captureStream() for video");
-				print_line("  Using MediaRecorder API for audio+video combined recording");
-				print_line("  Frame rate: " + itos(p_fps) + " FPS");
+				if (OS::get_singleton()->is_stdout_verbose()) {
+					print_line("MovieWriter: Web realtime recording mode - Canvas video + audio recording started");
+					print_line("  Using Canvas.captureStream() for video");
+					print_line("  Using MediaRecorder API for audio+video combined recording");
+					print_line("  Frame rate: " + itos(p_fps) + " FPS");
+				}
 			} else {
 				ERR_PRINT("MovieWriter: Failed to start Canvas video recording, falling back to audio-only");
 				// Fallback to pure audio recording
@@ -152,7 +156,9 @@ void MovieWriter::begin(const Size2i &p_movie_size, uint32_t p_fps, const String
 					if (audio_start_result == 1) {
 						web_audio_recording_active = true;
 						audio_channels = 2;
-						print_line("MovieWriter: Fallback to audio-only recording mode");
+						if (OS::get_singleton()->is_stdout_verbose()) {
+							print_line("MovieWriter: Fallback to audio-only recording mode");
+						}
 					} else {
 						realtime_mode = false;
 					}
@@ -170,7 +176,9 @@ void MovieWriter::begin(const Size2i &p_movie_size, uint32_t p_fps, const String
 				if (start_result == 1) {
 					web_audio_recording_active = true;
 					audio_channels = 2; // Web platform default stereo
-					print_line("MovieWriter: Web realtime recording mode - MediaRecorder started (audio only)");
+					if (OS::get_singleton()->is_stdout_verbose()) {
+						print_line("MovieWriter: Web realtime recording mode - MediaRecorder started (audio only)");
+					}
 				} else {
 					ERR_PRINT("MovieWriter: Failed to start web audio recording, falling back to offline mode");
 					realtime_mode = false;
@@ -191,7 +199,9 @@ void MovieWriter::begin(const Size2i &p_movie_size, uint32_t p_fps, const String
 			// Real-time recording mode: enable audio capture
 			MovieWriter::hybrid_driver->enable_recording(true);
 			audio_channels = MovieWriter::hybrid_driver->get_channels();
-			print_line("MovieWriter: Realtime recording mode - audio capture enabled");
+			if (OS::get_singleton()->is_stdout_verbose()) {
+				print_line("MovieWriter: Realtime recording mode - audio capture enabled");
+			}
 		} else {
 			ERR_PRINT("MovieWriter: Failed to initialize HybridAudioDriver, falling back to offline mode");
 			realtime_mode = false;
@@ -204,7 +214,9 @@ void MovieWriter::begin(const Size2i &p_movie_size, uint32_t p_fps, const String
 		AudioDriverDummy::get_dummy_singleton()->set_mix_rate(mix_rate);
 		AudioDriverDummy::get_dummy_singleton()->set_speaker_mode(AudioDriver::SpeakerMode(get_audio_speaker_mode()));
 		audio_channels = AudioDriverDummy::get_dummy_singleton()->get_channels();
-		print_line("MovieWriter: Offline recording mode - using dummy driver");
+		if (OS::get_singleton()->is_stdout_verbose()) {
+			print_line("MovieWriter: Offline recording mode - using dummy driver");
+		}
 	}
 	
 	if ((mix_rate % fps) != 0) {
@@ -216,7 +228,9 @@ void MovieWriter::begin(const Size2i &p_movie_size, uint32_t p_fps, const String
 #ifdef WEB_ENABLED
 	// Web platform: If canvas recording or audio recording is successful, skip the traditional write_begin process.
 	if (realtime_mode && (web_video_recording_active || web_audio_recording_active)) {
-		print_line("MovieWriter: Using Web native recording, skipping traditional MovieWriter pipeline");
+		if (OS::get_singleton()->is_stdout_verbose()) {
+			print_line("MovieWriter: Using Web native recording, skipping traditional MovieWriter pipeline");
+		}
 		return; // Skip write_begin call
 	}
 #endif
@@ -409,7 +423,6 @@ void MovieWriter::end() {
 }
 
 void MovieWriter::set_realtime_mode(bool p_enable) {
-	print_line("MovieWriter: set_realtime_mode: " + itos(p_enable));
 	realtime_mode = p_enable;
 	if (p_enable) {
 		setup_hybrid_audio_driver();
@@ -421,7 +434,9 @@ void MovieWriter::set_realtime_mode(bool p_enable) {
 void MovieWriter::setup_hybrid_audio_driver() {
 	// Check if AudioServer is initialized
 	if (!AudioServer::get_singleton()) {
-		print_line("MovieWriter: AudioServer not yet initialized, deferring HybridAudioDriver setup");
+		if (OS::get_singleton()->is_stdout_verbose()) {
+			print_line("MovieWriter: AudioServer not yet initialized, deferring HybridAudioDriver setup");
+		}
 		return;
 	}
 	
@@ -432,8 +447,10 @@ void MovieWriter::setup_hybrid_audio_driver() {
 		int current_mix_rate = AudioServer::get_singleton()->get_mix_rate();
 		AudioServer::SpeakerMode current_speaker_mode = AudioServer::get_singleton()->get_speaker_mode();
 		
-		print_line(vformat("MovieWriter: Initializing HybridAudioDriver - Mix rate: %d Hz, Speaker mode: %d", 
-				   current_mix_rate, current_speaker_mode));
+		if (OS::get_singleton()->is_stdout_verbose()) {
+			print_line(vformat("MovieWriter: Initializing HybridAudioDriver - Mix rate: %d Hz, Speaker mode: %d", 
+					   current_mix_rate, current_speaker_mode));
+		}
 		
 		// Initialize mixed driver
 		Error err = MovieWriter::hybrid_driver->init(current_mix_rate, AudioDriver::SpeakerMode(current_speaker_mode));
@@ -456,9 +473,11 @@ void MovieWriter::setup_hybrid_audio_driver() {
 					   current_mix_rate, MovieWriter::hybrid_driver->get_mix_rate()));
 		}
 		
-		print_line(vformat("HybridAudioDriver initialized successfully - %d Hz, %d channels, Buffer: %d frames (%.1fms)", 
-				   MovieWriter::hybrid_driver->get_mix_rate(), MovieWriter::hybrid_driver->get_channels(), 
-				   int(MovieWriter::hybrid_driver->get_mix_rate() * 0.2f), 200.0f)); // 200ms double buffer
+		if (OS::get_singleton()->is_stdout_verbose()) {
+			print_line(vformat("HybridAudioDriver initialized successfully - %d Hz, %d channels, Buffer: %d frames (%.1fms)", 
+					   MovieWriter::hybrid_driver->get_mix_rate(), MovieWriter::hybrid_driver->get_channels(), 
+					   int(MovieWriter::hybrid_driver->get_mix_rate() * 0.2f), 200.0f)); // 200ms double buffer
+		}
 	}
 }
 
@@ -473,7 +492,9 @@ void MovieWriter::restore_original_audio_driver() {
 		MovieWriter::hybrid_driver->finish();
 		memdelete(MovieWriter::hybrid_driver);
 		MovieWriter::hybrid_driver = nullptr;
-		print_line("HybridAudioDriver restored");
+		if (OS::get_singleton()->is_stdout_verbose()) {
+			print_line("HybridAudioDriver restored");
+		}
 	}
 }
 
@@ -482,7 +503,9 @@ void MovieWriter::restore_original_audio_driver() {
 
 void MovieWriter::setup_web_audio_recorder() {
 	if (web_audio_recorder_initialized) {
-		print_line("MovieWriter: Web audio recorder already initialized");
+		if (OS::get_singleton()->is_stdout_verbose()) {
+			print_line("MovieWriter: Web audio recorder already initialized");
+		}
 		return;
 	}
 
@@ -490,13 +513,17 @@ void MovieWriter::setup_web_audio_recorder() {
 	int result = godot_audio_recorder_init();
 	if (result == 1) {
 		web_audio_recorder_initialized = true;
-		print_line("MovieWriter: Web audio recorder initialized successfully");
+		if (OS::get_singleton()->is_stdout_verbose()) {
+			print_line("MovieWriter: Web audio recorder initialized successfully");
+		}
 		
 		// Get supported MIME types
 		int mime_type_ptr = godot_audio_recorder_get_mime_type();
 		if (mime_type_ptr != 0) {
 			// Note: String pointer needs to be handled appropriately in actual use, memory needs to be freed
-			print_line("MovieWriter: Web audio recorder MIME type initialized");
+			if (OS::get_singleton()->is_stdout_verbose()) {
+				print_line("MovieWriter: Web audio recorder MIME type initialized");
+			}
 		}
 	} else {
 		ERR_PRINT("MovieWriter: Failed to initialize web audio recorder");
@@ -520,7 +547,9 @@ void MovieWriter::cleanup_web_audio_recorder() {
 	web_audio_recorder_initialized = false;
 	web_audio_buffer.clear();
 	
-	print_line("MovieWriter: Web audio recorder cleaned up");
+	if (OS::get_singleton()->is_stdout_verbose()) {
+		print_line("MovieWriter: Web audio recorder cleaned up");
+	}
 }
 
 bool MovieWriter::process_web_audio_data() {
@@ -542,7 +571,9 @@ HybridAudioDriver *MovieWriter::get_hybrid_audio_driver() {
 void MovieWriter::setup_web_video_recorder(uint32_t p_fps) {
 	if (godot_video_recorder_init(p_fps) == 1) {
 		web_video_recorder_initialized = true;
-		print_line("MovieWriter: Canvas video recorder initialized successfully");
+		if (OS::get_singleton()->is_stdout_verbose()) {
+			print_line("MovieWriter: Canvas video recorder initialized successfully");
+		}
 	} else {
 		web_video_recorder_initialized = false;
 		ERR_PRINT("MovieWriter: Failed to initialize Canvas video recorder");
@@ -558,14 +589,20 @@ void MovieWriter::cleanup_web_video_recorder() {
 		// Check if there is recorded data to download
 		if (godot_video_recorder_has_data() == 1 && enable_web_auto_download) {
 			int data_size = godot_video_recorder_get_data_size();
-			print_line(String("MovieWriter: Canvas video recording completed. Data size: ") + String::humanize_size(data_size));
+			if (OS::get_singleton()->is_stdout_verbose()) {
+				print_line(String("MovieWriter: Canvas video recording completed. Data size: ") + String::humanize_size(data_size));
+			}
 			
 			// Automatically download the recorded video file
 			String filename = String("spx_recording_") + Time::get_singleton()->get_datetime_string_from_system(false, true) + ".webm";
 			godot_video_recorder_download_data(filename.utf8().get_data());
-			print_line("MovieWriter: Canvas video file download initiated: " + filename);
+			if (OS::get_singleton()->is_stdout_verbose()) {
+				print_line("MovieWriter: Canvas video file download initiated: " + filename);
+			}
 		} else {
-			print_line("MovieWriter: No Canvas video data to download");
+			if (OS::get_singleton()->is_stdout_verbose()) {
+				print_line("MovieWriter: No Canvas video data to download");
+			}
 		}
 	}
 	
@@ -575,7 +612,9 @@ void MovieWriter::cleanup_web_video_recorder() {
 	
 	if (web_video_recorder_initialized){
 		web_video_recorder_initialized = false;
-		print_line("MovieWriter: Canvas video recorder cleaned up");
+		if (OS::get_singleton()->is_stdout_verbose()) {
+			print_line("MovieWriter: Canvas video recorder cleaned up");
+		}
 	}
 }
 

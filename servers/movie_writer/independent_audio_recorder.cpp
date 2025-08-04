@@ -21,15 +21,9 @@ IndependentAudioRecorder::IndependentAudioRecorder() {
 }
 
 IndependentAudioRecorder::~IndependentAudioRecorder() {
-    print_line("IndependentAudioRecorder::~IndependentAudioRecorder() entry");
     if (is_recording()) {
-        print_line("IndependentAudioRecorder: Still recording, calling stop_recording()...");
         stop_recording();
-        print_line("IndependentAudioRecorder: stop_recording() completed in destructor");
-    } else {
-        print_line("IndependentAudioRecorder: Not recording, skipping stop_recording()");
     }
-    print_line("IndependentAudioRecorder::~IndependentAudioRecorder() exit");
 }
 
 Error IndependentAudioRecorder::initialize(HybridAudioDriver *p_audio_driver, 
@@ -73,13 +67,15 @@ Error IndependentAudioRecorder::initialize(HybridAudioDriver *p_audio_driver,
     // Reset statistics
     reset_statistics();
     
-    print_line("IndependentAudioRecorder initialization completed");
-    print_line(String("Audio path: ") + p_audio_path);
-    print_line(String("Sample rate: ") + String::num_int64(config.sample_rate) + "Hz");
-    print_line(String("Channels: ") + String::num_int64(config.channels));
-    print_line(String("Chunk size: ") + String::num_int64(config.chunk_size) + " samples");
-    print_line(String("Buffer size: ") + String::num_int64(buffer_size) + " samples (" + 
-              String::num_real((float)config.buffer_size_seconds) + " seconds)");
+    if (OS::get_singleton()->is_stdout_verbose()) {
+        print_line("IndependentAudioRecorder initialization completed");
+        print_line(String("Audio path: ") + p_audio_path);
+        print_line(String("Sample rate: ") + String::num_int64(config.sample_rate) + "Hz");
+        print_line(String("Channels: ") + String::num_int64(config.channels));
+        print_line(String("Chunk size: ") + String::num_int64(config.chunk_size) + " samples");
+        print_line(String("Buffer size: ") + String::num_int64(buffer_size) + " samples (" + 
+                  String::num_real((float)config.buffer_size_seconds) + " seconds)");
+    }
     
     return OK;
 }
@@ -108,7 +104,9 @@ Error IndependentAudioRecorder::start_recording() {
     recording_thread.start(recording_thread_func, this);
     thread_started.store(true);
     
-    print_line("IndependentAudioRecorder: Start recording");
+    if (OS::get_singleton()->is_stdout_verbose()) {
+        print_line("IndependentAudioRecorder: Start recording");
+    }
     
     return OK;
 }
@@ -121,13 +119,10 @@ void IndependentAudioRecorder::stop_recording() {
         return;
     }
     
-    print_line("IndependentAudioRecorder: Stop recording...");
-    
     // Wait for the thread to finish
     if (thread_started.load()) {
         recording_thread.wait_to_finish();
         thread_started.store(false);
-        print_line("IndependentAudioRecorder: Audio recording thread ended");
     }
     
     // Close the audio writer
@@ -136,12 +131,14 @@ void IndependentAudioRecorder::stop_recording() {
     }
     
     // Output final statistics
-    AudioStats final_stats = get_statistics();
-    print_line(String("Audio recording completed - Total chunks: ") + String::num_int64(final_stats.total_chunks_recorded));
-    print_line(String("Total samples: ") + String::num_int64(final_stats.total_samples_recorded));
-    print_line(String("Recording duration: ") + String::num_real(final_stats.recording_duration_us / 1000000.0) + " seconds");
-    print_line(String("Buffer overruns: ") + String::num_int64(final_stats.buffer_overruns));
-    print_line(String("Buffer underruns: ") + String::num_int64(final_stats.buffer_underruns));
+    if (OS::get_singleton()->is_stdout_verbose()) {
+        AudioStats final_stats = get_statistics();
+        print_line(String("Audio recording completed - Total chunks: ") + String::num_int64(final_stats.total_chunks_recorded));
+        print_line(String("Total samples: ") + String::num_int64(final_stats.total_samples_recorded));
+        print_line(String("Recording duration: ") + String::num_real(final_stats.recording_duration_us / 1000000.0) + " seconds");
+        print_line(String("Buffer overruns: ") + String::num_int64(final_stats.buffer_overruns));
+        print_line(String("Buffer underruns: ") + String::num_int64(final_stats.buffer_underruns));
+    }
 }
 
 void IndependentAudioRecorder::recording_thread_func(void *p_userdata) {
@@ -150,7 +147,6 @@ void IndependentAudioRecorder::recording_thread_func(void *p_userdata) {
 }
 
 void IndependentAudioRecorder::recording_loop() {
-            print_line("IndependentAudioRecorder: Audio recording thread started");
     
     uint64_t next_chunk_time = recording_start_time;
     uint64_t chunk_count = 0;
@@ -169,7 +165,7 @@ void IndependentAudioRecorder::recording_loop() {
                 update_statistics(chunk_process_start, config.chunk_size);
                 
                 // Output debug info every 1000 chunks
-                if (chunk_count % 1000 == 0) {
+                if (OS::get_singleton()->is_stdout_verbose() && chunk_count % 1000 == 0) {
                     AudioStats current_stats = get_statistics();
                     print_line(String("Audio recording progress: ") + String::num_int64(chunk_count) + " chunks, " +
                               String("Buffer usage: ") + String::num_int64(current_stats.current_buffer_level) + "%");
@@ -189,8 +185,6 @@ void IndependentAudioRecorder::recording_loop() {
             }
         }
     }
-    
-    print_line("IndependentAudioRecorder: Audio recording thread ended");
 }
 
 bool IndependentAudioRecorder::process_audio_chunk(uint64_t current_recording_time) {

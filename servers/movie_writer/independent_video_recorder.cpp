@@ -49,11 +49,13 @@ Error IndependentVideoRecorder::initialize(ThreadSafeFrameBuffer *p_frame_buffer
     // reset statistics
     reset_statistics();
     
-    print_line(String("IndependentVideoRecorder initialized"));
-    print_line(String("Video path: ") + p_video_path);
-    print_line(String("Resolution: ") + String::num_int64(config.video_width) + "x" + String::num_int64(config.video_height));
-    print_line(String("Target FPS: ") + String::num_int64(config.target_fps));
-    print_line(String("JPEG quality: ") + String::num_real(config.jpeg_quality));
+    if (OS::get_singleton()->is_stdout_verbose()) {
+        print_line(String("IndependentVideoRecorder initialized"));
+        print_line(String("Video path: ") + p_video_path);
+        print_line(String("Resolution: ") + String::num_int64(config.video_width) + "x" + String::num_int64(config.video_height));
+        print_line(String("Target FPS: ") + String::num_int64(config.target_fps));
+        print_line(String("JPEG quality: ") + String::num_real(config.jpeg_quality));
+    }
     
     return OK;
 }
@@ -77,7 +79,9 @@ Error IndependentVideoRecorder::start_recording() {
     recording_thread.start(recording_thread_func, this);
     thread_started.store(true);
     
-    print_line("IndependentVideoRecorder: Start recording");
+    if (OS::get_singleton()->is_stdout_verbose()) {
+        print_line("IndependentVideoRecorder: Start recording");
+    }
     
     return OK;
 }
@@ -90,7 +94,6 @@ void IndependentVideoRecorder::stop_recording() {
         return;
     }
     
-    print_line("IndependentVideoRecorder: Stop recording...");
     
     // wait for thread to finish
     if (thread_started.load()) {
@@ -104,12 +107,14 @@ void IndependentVideoRecorder::stop_recording() {
     }
     
     // output final statistics
-    RecordingStats final_stats = get_statistics();
-    print_line(String("Recording completed - Total frames: ") + String::num_int64(final_stats.total_recorded_frames));
-    print_line(String("New frames: ") + String::num_int64(final_stats.new_frames_count));
-    print_line(String("Repeated frames: ") + String::num_int64(final_stats.repeated_frames_count));
-    print_line(String("Repeated frame ratio: ") + String::num_real(get_repeat_frame_ratio() * 100.0f) + "%");
-    print_line(String("Recording duration: ") + String::num_real(final_stats.recording_duration_us / 1000000.0) + " seconds");
+    if (OS::get_singleton()->is_stdout_verbose()) {
+        RecordingStats final_stats = get_statistics();
+        print_line(String("Recording completed - Total frames: ") + String::num_int64(final_stats.total_recorded_frames));
+        print_line(String("New frames: ") + String::num_int64(final_stats.new_frames_count));
+        print_line(String("Repeated frames: ") + String::num_int64(final_stats.repeated_frames_count));
+        print_line(String("Repeated frame ratio: ") + String::num_real(get_repeat_frame_ratio() * 100.0f) + "%");
+        print_line(String("Recording duration: ") + String::num_real(final_stats.recording_duration_us / 1000000.0) + " seconds");
+    }
 }
 
 void IndependentVideoRecorder::recording_thread_func(void *p_userdata) {
@@ -118,7 +123,6 @@ void IndependentVideoRecorder::recording_thread_func(void *p_userdata) {
 }
 
 void IndependentVideoRecorder::recording_loop() {
-            print_line("IndependentVideoRecorder: Recording thread started");
     
     uint64_t next_record_time = recording_start_time;
     uint64_t frame_count = 0;
@@ -136,8 +140,8 @@ void IndependentVideoRecorder::recording_loop() {
                 frame_count++;
                 update_statistics(frame_process_start);
                 
-                // Output debug information every 100 frames
-                if (frame_count % 30 == 0) {
+                // Output debug information every 30 frames
+                if (OS::get_singleton()->is_stdout_verbose() && frame_count % 30 == 0) {
                     print_line(String("Recording progress: ") + String::num_int64(frame_count) + " frames, " +
                               String("Repeated frame ratio: ") + String::num_real(get_repeat_frame_ratio() * 100.0f) + "%");
                 }
@@ -156,8 +160,6 @@ void IndependentVideoRecorder::recording_loop() {
             }
         }
     }
-    
-    print_line("IndependentVideoRecorder: Recording thread ended");
 }
 
 bool IndependentVideoRecorder::process_frame(uint64_t current_recording_time) {

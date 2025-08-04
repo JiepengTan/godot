@@ -156,9 +156,6 @@ Error ObsStyleMovieWriter::write_begin(const Size2i &p_movie_size, uint32_t p_fp
     game_frame_sequence = 0;
     frames_added_count = 0;
     
-    if (obs_config.enable_debug_output) {
-        print_line("OBS-style recording initialization completed, starting recording...");
-    }
     
     return OK;
 }
@@ -186,81 +183,50 @@ Error ObsStyleMovieWriter::write_frame(const Ref<Image> &p_image, const int32_t 
 }
 
 void ObsStyleMovieWriter::write_end() {
-    print_line("ObsStyleMovieWriter::write_end() called");
     if (current_state != STATE_RECORDING) {
-        print_line("ObsStyleMovieWriter: Not in recording state, returning");
         return;
     }
     
-    if (obs_config.enable_debug_output) {
-        print_line("ObsStyleMovieWriter: Stopping recording...");
-    }
-    
-    print_line("ObsStyleMovieWriter: Updating state to STOPPING");
     update_recording_state(STATE_STOPPING);
     
     // Stop independent recording threads
-    print_line("ObsStyleMovieWriter: Stopping video recorder...");
     if (video_recorder) {
         video_recorder->stop_recording();
     }
-    print_line("ObsStyleMovieWriter: Video recorder stopped");
     
-    print_line("ObsStyleMovieWriter: Stopping audio recorder...");
     if (audio_recorder) {
         audio_recorder->stop_recording();
     }
-    print_line("ObsStyleMovieWriter: Audio recorder stopped");
     
     // Store audio_recorder reference before restore (to prevent double cleanup)
     IndependentAudioRecorder* temp_audio_recorder = audio_recorder;
     
     // Restore audio driver
-    print_line("ObsStyleMovieWriter: Restoring audio driver...");
     restore_audio_driver();
-    print_line("ObsStyleMovieWriter: Audio driver restored");
     
     // Clear audio_recorder reference to prevent double cleanup in destructor
     audio_recorder = nullptr;
     
     // Print recording summary
-    print_line("ObsStyleMovieWriter: Printing recording summary...");
     if (obs_config.enable_debug_output) {
         print_recording_summary();
     }
-    print_line("ObsStyleMovieWriter: Recording summary completed");
     
     // Post-merge processing (only for desktop platforms)
 #ifndef WEB_ENABLED
-    print_line("ObsStyleMovieWriter: Checking post-merge conditions...");
-    print_line(String("  enable_post_merge: ") + (obs_config.enable_post_merge ? "true" : "false"));
-    print_line("  post_merge_processor: " + String(post_merge_processor ? "valid" : "null"));
     if (obs_config.enable_post_merge && post_merge_processor) {
         perform_post_merge();
-    } else {
-        print_line("ObsStyleMovieWriter: Post-merge skipped");
     }
-#else
-    print_line("ObsStyleMovieWriter: Web platform - post-merge disabled");
 #endif
     
     // Clean up components
-    print_line("ObsStyleMovieWriter: Cleaning up components...");
-    print_line("ObsStyleMovieWriter: About to call cleanup_components()...");
     cleanup_components(temp_audio_recorder);  // Pass temp_audio_recorder for proper cleanup
-    print_line("ObsStyleMovieWriter: cleanup_components() returned");
-    print_line("ObsStyleMovieWriter: Components cleaned up");
     
-    print_line("ObsStyleMovieWriter: Setting state to UNINITIALIZED");
     update_recording_state(STATE_UNINITIALIZED);
-    print_line("ObsStyleMovieWriter: State updated to UNINITIALIZED");
     
-    print_line("obs output_file_path===>" + output_file_path);
-#ifdef WEB_ENABLED
-    
-#endif
-    
-    print_line("=== OBS-style Recording Completed ===");
+    if (obs_config.enable_debug_output) {
+        print_line("=== OBS-style Recording Completed ===");
+    }
 }
 
 Error ObsStyleMovieWriter::setup_components() {
@@ -317,53 +283,33 @@ Error ObsStyleMovieWriter::setup_components() {
 }
 
 void ObsStyleMovieWriter::cleanup_components(IndependentAudioRecorder* temp_audio_recorder) {
-    print_line("ObsStyleMovieWriter::cleanup_components() entry");
-    
     // Clean up independent recording components
-    print_line("ObsStyleMovieWriter: Cleaning up video_recorder...");
     if (video_recorder) {
-        print_line("ObsStyleMovieWriter: Deleting video_recorder...");
         delete video_recorder;
         video_recorder = nullptr;
-        print_line("ObsStyleMovieWriter: video_recorder deleted");
-    } else {
-        print_line("ObsStyleMovieWriter: video_recorder is null, skipping");
     }
     
-    print_line("ObsStyleMovieWriter: Cleaning up audio_recorder...");
     if (temp_audio_recorder) {
-        print_line("ObsStyleMovieWriter: About to delete temp_audio_recorder...");
         delete temp_audio_recorder;  // This calls ~IndependentAudioRecorder()
-        print_line("ObsStyleMovieWriter: temp_audio_recorder deleted");
     } else if (audio_recorder) {
-        print_line("ObsStyleMovieWriter: About to delete audio_recorder...");
         delete audio_recorder;  // This calls ~IndependentAudioRecorder()
         audio_recorder = nullptr;
-        print_line("ObsStyleMovieWriter: audio_recorder deleted");
-    } else {
-        print_line("ObsStyleMovieWriter: No audio_recorder to delete, skipping");
     }
     
     // Ensure audio_recorder is null
     audio_recorder = nullptr;
     
-    print_line("ObsStyleMovieWriter: Cleaning up frame_buffer...");
     if (frame_buffer) {
         delete frame_buffer;
         frame_buffer = nullptr;
-        print_line("ObsStyleMovieWriter: frame_buffer deleted");
     }
     
-    print_line("ObsStyleMovieWriter: Cleaning up post_merge_processor...");
     if (post_merge_processor) {
         delete post_merge_processor;
         post_merge_processor = nullptr;
-        print_line("ObsStyleMovieWriter: post_merge_processor deleted");
     }
     
-    print_line("ObsStyleMovieWriter: Clearing hybrid_audio_driver reference...");
     hybrid_audio_driver = nullptr; // Managed by MovieWriter, only clear reference
-    print_line("ObsStyleMovieWriter::cleanup_components() exit");
 }
 
 Error ObsStyleMovieWriter::setup_audio_capture() {
@@ -382,7 +328,9 @@ Error ObsStyleMovieWriter::setup_audio_capture() {
         return ERR_UNCONFIGURED;
     }
     
-    print_line("ObsStyleMovieWriter: Reusing MovieWriter's HybridAudioDriver");
+    if (obs_config.enable_debug_output) {
+        print_line("ObsStyleMovieWriter: Reusing MovieWriter's HybridAudioDriver");
+    }
     
     // Configure audio recorder
     IndependentAudioRecorder::AudioConfig audio_config;
@@ -405,31 +353,20 @@ Error ObsStyleMovieWriter::setup_audio_capture() {
     hybrid_audio_driver->enable_recording(true);
     
     // HybridAudioDriver has already been started and registered by MovieWriter, no need to repeat
-    print_line("ObsStyleMovieWriter: Using existing HybridAudioDriver from MovieWriter");
 #endif
     
     return OK;
 }
 
 void ObsStyleMovieWriter::restore_audio_driver() {
-    print_line("ObsStyleMovieWriter: restore_audio_driver() entry");
-    print_line(String("  hybrid_audio_driver: ") + (hybrid_audio_driver ? "valid" : "null"));
-    print_line(String("  audio_recorder: ") + (audio_recorder ? "valid" : "null"));
-    
     if (hybrid_audio_driver && audio_recorder) {
-        print_line("ObsStyleMovieWriter: About to call unregister_audio_recorder...");
         // Unregister audio recorder (but do not delete or stop HybridAudioDriver, it's managed by MovieWriter)
         hybrid_audio_driver->unregister_audio_recorder(audio_recorder);
-        print_line("ObsStyleMovieWriter: Audio recorder unregistered from HybridAudioDriver");
-    } else {
-        print_line("ObsStyleMovieWriter: Skipping audio recorder unregistration");
     }
     
-    print_line("ObsStyleMovieWriter: Clearing driver references...");
     // Only clear reference, do not delete object (HybridAudioDriver is managed by MovieWriter)
     hybrid_audio_driver = nullptr;
     original_audio_driver = nullptr;
-    print_line("ObsStyleMovieWriter: restore_audio_driver() exit");
 }
 
 void ObsStyleMovieWriter::update_recording_state(RecordingState new_state) {
