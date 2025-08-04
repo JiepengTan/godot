@@ -47,9 +47,6 @@ ObsStyleMovieWriter::ObsStyleMovieWriter() :
     if (ProjectSettings::get_singleton()->has_setting("movie_writer/obs_enable_repeat_frame_marking")) {
         obs_config.enable_repeat_frame_marking = GLOBAL_GET("movie_writer/obs_enable_repeat_frame_marking");
     }
-    if (ProjectSettings::get_singleton()->has_setting("movie_writer/obs_enable_debug_output")) {
-        obs_config.enable_debug_output = GLOBAL_GET("movie_writer/obs_enable_debug_output");
-    }
     if (ProjectSettings::get_singleton()->has_setting("movie_writer/obs_enable_post_merge")) {
         obs_config.enable_post_merge = GLOBAL_GET("movie_writer/obs_enable_post_merge");
     }
@@ -429,7 +426,6 @@ ObsStyleMovieWriter::ObsRecordingConfig ObsStyleMovieWriter::get_high_quality_co
     config.audio_buffer_seconds = 3;
     config.enable_timestamp_chunks = true;
     config.enable_repeat_frame_marking = true;
-    config.enable_debug_output = true;
     return config;
 }
 
@@ -442,7 +438,6 @@ ObsStyleMovieWriter::ObsRecordingConfig ObsStyleMovieWriter::get_standard_config
     config.audio_buffer_seconds = 2;
     config.enable_timestamp_chunks = true;
     config.enable_repeat_frame_marking = true;
-    config.enable_debug_output = true;
     return config;
 }
 

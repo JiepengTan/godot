@@ -50,7 +50,7 @@ public:
         bool enable_timestamp_chunks = true;      // Enable timestamp recording
         bool enable_repeat_frame_marking = true;  // Enable repeat frame marking
         bool enable_audio_monitoring = false;     // Enable audio monitoring
-        bool enable_debug_output = true;          // Enable debug output
+        bool enable_debug_output = false;          // Enable debug output
         
         // Post-merge configuration
         bool enable_post_merge = true;            // Enable post-recording file merge

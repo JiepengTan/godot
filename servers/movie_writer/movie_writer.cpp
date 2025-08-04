@@ -43,8 +43,8 @@
 #include "core/io/file_access.h"
 #endif
 
-void MovieDebugUtils::is_stdout_verbose() {
-	return OS::get_singleton()->is_stdout_verbose;
+bool MovieDebugUtils::is_stdout_verbose() {
+	return OS::get_singleton()->is_stdout_verbose();
 }
 
 MovieWriter *MovieWriter::writers[MovieWriter::MAX_WRITERS];

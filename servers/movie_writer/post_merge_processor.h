@@ -31,7 +31,7 @@ public:
     struct MergeConfig {
         MergeMethod method = METHOD_FFMPEG_SYSTEM;
         bool keep_intermediate_files = false;    // Keep original video/audio files after merge
-        bool enable_debug_output = true;        // Enable debug logging
+        bool enable_debug_output = false;        // Enable debug logging
         String ffmpeg_path = "ffmpeg";          // FFmpeg executable path
         
         // Interleaving strategy
