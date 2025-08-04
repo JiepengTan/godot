@@ -2180,7 +2180,7 @@ void AudioServer::set_audio_capture_interface(AudioCaptureInterface *p_interface
 	audio_capture_interface = p_interface;
 	capture_mutex.unlock();
 	
-	if (p_interface) {
+	if (p_interface && OS::get_singleton()->is_stdout_verbose()) {
 		print_line("AudioServer: Audio capture interface registered");
 	}
 }
@@ -2190,5 +2190,7 @@ void AudioServer::remove_audio_capture_interface() {
 	audio_capture_interface = nullptr;
 	capture_mutex.unlock();
 	
-	print_line("AudioServer: Audio capture interface removed");
+	if (OS::get_singleton()->is_stdout_verbose()) {
+		print_line("AudioServer: Audio capture interface removed");
+	}
 }

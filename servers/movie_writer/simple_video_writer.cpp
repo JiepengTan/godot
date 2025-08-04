@@ -8,6 +8,7 @@
 
 #include "simple_video_writer.h"
 #include "core/string/print_string.h"
+#include "core/os/os.h"
 
 SimpleVideoWriter::SimpleVideoWriter() {
 	frame_count = 0;
@@ -108,7 +109,9 @@ Error SimpleVideoWriter::open(const String &p_path, const Size2i &p_movie_size, 
 	f->store_32(0); // Number of frames (to be updated later)
 	f->store_buffer((const uint8_t *)"movi", 4);
 
-	print_line(String("SimpleVideoWriter: Starting video recording to ") + base_path);
+	if (OS::get_singleton()->is_stdout_verbose()) {
+		print_line(String("SimpleVideoWriter: Starting video recording to ") + base_path);
+	}
 	
 	return OK;
 }
@@ -176,5 +179,7 @@ void SimpleVideoWriter::close() {
 
 	f.unref();
 	
-	print_line(String("SimpleVideoWriter: Video recording completed, total frames: ") + String::num_int64(frame_count));
+	if (OS::get_singleton()->is_stdout_verbose()) {
+		print_line(String("SimpleVideoWriter: Video recording completed, total frames: ") + String::num_int64(frame_count));
+	}
 } 

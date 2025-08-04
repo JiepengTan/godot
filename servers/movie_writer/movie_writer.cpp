@@ -344,21 +344,11 @@ void MovieWriter::add_frame() {
 #else
 		// PC platform: Get captured audio data from HybridAudioDriver
 		if (MovieWriter::hybrid_driver) {
-		int requested_frames = mix_rate / fps;
-		int available_frames = MovieWriter::hybrid_driver->get_available_frames();
-		
-		// Get audio data
-		MovieWriter::hybrid_driver->get_captured_audio_data(audio_mix_buffer.ptr(), requested_frames);
-		
-		// Check audio quality
-		if (available_frames < requested_frames / 2) {
-			static int low_buffer_warnings = 0;
-			if (low_buffer_warnings < 5) { // Limit warning count
-				WARN_PRINT(vformat("MovieWriter: Low audio buffer (%d frames available, %d requested)", 
-						   available_frames, requested_frames));
-				low_buffer_warnings++;
-			}
-		}
+			int requested_frames = mix_rate / fps;
+			
+			// Get audio data
+			MovieWriter::hybrid_driver->get_captured_audio_data(audio_mix_buffer.ptr(), requested_frames);
+
 		} else {
 			// PC platform: fallback to offline mode
 			AudioDriverDummy::get_dummy_singleton()->mix_audio(mix_rate / fps, audio_mix_buffer.ptr());
