@@ -32,11 +32,12 @@ jobs:
     name: 🍎 macOS
     needs: static-checks
     uses: ./.github/workflows/macos_builds.yml
-
-  macos-build2:
-    name: 🍎 macOS
+    
+  macos-compatibility:
+    name: 🍎 macOS Compatibility
     needs: static-checks
     uses: ./.github/workflows/macos_compatibility_builds.yml
+
 
   windows-build:
     name: 🏁 Windows
