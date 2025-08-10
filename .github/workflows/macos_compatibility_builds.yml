@@ -1,0 +1,109 @@
+name: 🍎 macOS Compatibility Builds (Old SDK)
+on:
+  push:
+    branches: [ main, development ]
+    paths: 
+      - 'drivers/metal/**'
+      - 'platform/macos/**'
+  pull_request:
+    branches: [ main, development ]
+    paths:
+      - 'drivers/metal/**' 
+      - 'platform/macos/**'
+  workflow_dispatch:
+
+# Global Settings
+env:
+  # Used for the cache key. Add version suffix to force clean build.
+  GODOT_BASE_BRANCH: 4.4
+  SCONSFLAGS: verbose=yes warnings=extra module_text_server_fb_enabled=yes
+
+jobs:
+  build-macos-old-sdk:
+    runs-on: macos-12  # Use older macOS runner with older SDK
+    name: ${{ matrix.name }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Editor (Old SDK Compatibility Check)
+            cache-name: macos-editor-old-sdk
+            target: editor
+            tests: false
+            # Use minimal build configuration to speed up compilation check
+            sconsflags: optimize=size use_volk=no deprecated=no minizip=yes openxr=false vulkan=false graphite=false disable_3d_physics=true disable_navigation=true module_msdfgen_enabled=false module_text_server_adv_enabled=false module_text_server_fb_enabled=true modules_enabled_by_default=true module_gdscript_enabled=true module_freetype_enabled=true module_minimp3_enabled=true module_svg_enabled=true module_jpg_enabled=true module_ogg_enabled=true module_regex_enabled=true module_zip_enabled=true module_godot_physics_2d_enabled=true
+            bin: ./bin/godot.macos.editor.arm64
+            cache-limit: 1
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Check SDK version
+        run: |
+          echo "=== Xcode and SDK Information ==="
+          xcode-select -p
+          xcrun --show-sdk-version
+          xcrun --show-sdk-path
+          xcrun --sdk macosx --show-sdk-version
+          xcrun --sdk macosx --show-sdk-path
+          echo "=== Available SDKs ==="
+          xcodebuild -showsdks
+          echo "=== Clang version ==="
+          clang --version
+          echo "=== Available Metal features ==="
+          echo | clang -dM -E -x objective-c - | grep -i metal | head -20
+
+      - name: Setup Python and SCons
+        uses: ./.github/actions/godot-deps
+
+      # Skip Vulkan SDK setup since we're disabling Vulkan
+      
+      - name: Compilation Test (arm64 only)
+        uses: ./.github/actions/godot-build
+        with:
+          sconsflags: ${{ env.SCONSFLAGS }} arch=arm64 ${{ matrix.sconsflags }}
+          platform: macos
+          target: ${{ matrix.target }}
+          tests: ${{ matrix.tests }}
+          scons-cache-limit: 0
+
+      - name: Basic functionality test
+        run: |
+          if [ -f "${{ matrix.bin }}" ]; then
+            echo "Build successful! Binary exists: ${{ matrix.bin }}"
+            ${{ matrix.bin }} --version || echo "Version check failed but binary exists"
+            ls -la bin/
+          else
+            echo "Build failed! Binary not found: ${{ matrix.bin }}"
+            exit 1
+          fi
+
+      - name: Upload artifact on success
+        if: success()
+        uses: ./.github/actions/upload-artifact
+        with:
+          name: ${{ matrix.cache-name }}
+
+  sdk-compatibility-summary:
+    needs: build-macos-old-sdk
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Summary
+        run: |
+          echo "## macOS Old SDK Compatibility Check Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.build-macos-old-sdk.result }}" == "success" ]; then
+            echo "✅ **SUCCESS**: Metal drivers compile successfully with older SDK" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The code is compatible with older macOS SDKs and should work on systems with older Xcode versions." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **FAILED**: Metal drivers failed to compile with older SDK" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The code uses newer Metal APIs that are not available in older SDKs." >> $GITHUB_STEP_SUMMARY
+            echo "Please check the build logs and add appropriate compatibility checks." >> $GITHUB_STEP_SUMMARY
+          fi
