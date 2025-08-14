@@ -57,10 +57,6 @@ ObsStyleMovieWriter::ObsStyleMovieWriter() :
     if (ProjectSettings::get_singleton()->has_setting("movie_writer/obs_ffmpeg_path")) {
         obs_config.ffmpeg_path = GLOBAL_GET("movie_writer/obs_ffmpeg_path");
     }
-    if (ProjectSettings::get_singleton()->has_setting("movie_writer/obs_enable_web_auto_download")) {
-        enable_web_auto_download = GLOBAL_GET("movie_writer/obs_enable_web_auto_download");
-    }
-    
     // Initialize post-merge processor
     post_merge_processor = new PostMergeProcessor();
     
