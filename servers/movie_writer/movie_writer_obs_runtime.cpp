@@ -1,12 +1,12 @@
 /**************************************************************************/
-/*  obs_style_movie_writer.cpp                                           */
+/*  movie_writer_obs_runtime.cpp                                           */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
 /*                        https://godotengine.org                         */
 /**************************************************************************/
 
-#include "obs_style_movie_writer.h"
+#include "movie_writer_obs_runtime.h"
 #include "core/string/print_string.h"
 #include "core/config/project_settings.h"
 #include "servers/audio_server.h"

@@ -63,7 +63,7 @@
 #include "movie_writer/movie_writer_mjpeg.h"
 #include "movie_writer/movie_writer_pngwav.h"
 #include "movie_writer/movie_writer_webm.h"
-#include "movie_writer/obs_style_movie_writer.h"
+#include "movie_writer/movie_writer_obs_runtime.h"
 #include "rendering/renderer_rd/framebuffer_cache_rd.h"
 #include "rendering/renderer_rd/storage_rd/render_data_rd.h"
 #include "rendering/renderer_rd/storage_rd/render_scene_buffers_rd.h"
