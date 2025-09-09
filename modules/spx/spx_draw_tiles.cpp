@@ -41,6 +41,7 @@
 #include "spx_engine.h"
 #include "spx_ext_mgr.h"
 #include "spx_res_mgr.h"
+#include "spx_base_mgr.h"
 
 void LayerRenderer::_draw_axis(Node2D *parent_node, const DrawContext &ctx) {
 	Vector2 origin = ctx.layer_pos;
@@ -124,11 +125,6 @@ void SpxDrawTiles::_bind_methods() {
     ClassDB::bind_method(D_METHOD("clear_all_layers"), &SpxDrawTiles::clear_all_layers);
     ClassDB::bind_method(D_METHOD("enter_editor_mode"), &SpxDrawTiles::enter_editor_mode);
     ClassDB::bind_method(D_METHOD("exit_editor_mode"), &SpxDrawTiles::exit_editor_mode);
-
-    ClassDB::bind_method(D_METHOD("set_sprite_index", "index"), &SpxDrawTiles::set_sprite_index);
-    ClassDB::bind_method(D_METHOD("set_texture_path", "texture_path"), &SpxDrawTiles::set_texture_path);
-    ClassDB::bind_method(D_METHOD("place_sprite", "pos"), &SpxDrawTiles::place_sprite);
-    ClassDB::bind_method(D_METHOD("erase_sprite", "pos"), &SpxDrawTiles::erase_sprite);
 }
 
 void SpxDrawTiles::_notification(int p_what) {
@@ -228,6 +224,15 @@ void SpxDrawTiles::set_sprite_texture(GdString texture_path) {
     }                   
 
     set_texture(tex);
+}
+
+void SpxDrawTiles::place_sprites(GdArray positions) {
+    auto len = positions->size / 2;
+    for(int i = 0; i < len; i *= 2){
+        auto x = *(SpxBaseMgr::get_array<float>(positions, i));
+        auto y = *(SpxBaseMgr::get_array<float>(positions, i + 1));
+        place_sprite({x, -y});
+    }
 }
 
 void SpxDrawTiles::place_sprite(Vector2 pos) {

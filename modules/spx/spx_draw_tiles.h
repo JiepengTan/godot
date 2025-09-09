@@ -139,6 +139,7 @@ public:
     // spx interface
     void set_sprite_index(GdInt index);
     void set_sprite_texture(GdString texture_path);
+    void place_sprites(GdArray positions);
     void place_sprite(Vector2 pos);
     void erase_sprite(Vector2 pos);
 
