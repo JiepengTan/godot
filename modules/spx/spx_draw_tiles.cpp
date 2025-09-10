@@ -228,7 +228,7 @@ void SpxDrawTiles::set_sprite_texture(GdString texture_path) {
 
 void SpxDrawTiles::place_sprites(GdArray positions) {
     auto len = positions->size / 2;
-    for(int i = 0; i < len; i *= 2){
+    for(int i = 0; i < len; i += 2){
         auto x = *(SpxBaseMgr::get_array<float>(positions, i));
         auto y = *(SpxBaseMgr::get_array<float>(positions, i + 1));
         place_sprite({x, -y});
