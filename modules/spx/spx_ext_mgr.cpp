@@ -62,6 +62,10 @@ void SpxExtMgr::on_awake() {
 	debug_root = memnew(Node2D);
 	debug_root->set_name("debug_root");
 	get_spx_root()->add_child(debug_root);
+
+	pure_sprite_root = memnew(Node2D);
+	pure_sprite_root->set_name("pure_sprite_root");
+	
 }
 
 void SpxExtMgr::on_start() {
@@ -341,8 +345,13 @@ void SpxExtMgr::exit_tilemap_editor_mode() {
 		draw_tiles = nullptr;
     }
 }
+void SpxExtMgr::clear_pure_sprites(){
+	pure_sprite_root->queue_free();
+	pure_sprite_root = memnew(Node2D);
+	pure_sprite_root->set_name("pure_sprite_root");
+}
 
-void SpxExtMgr::create_pure_sprite(GdString texture_path, GdVec2 pos){
+void SpxExtMgr::create_pure_sprite(GdString texture_path, GdVec2 pos, GdInt zindex){
 	Sprite2D* sprite = memnew(Sprite2D);
 	auto path_str = SpxStr(texture_path);
 
@@ -355,6 +364,10 @@ void SpxExtMgr::create_pure_sprite(GdString texture_path, GdVec2 pos){
 		texture = resMgr->load_texture(path_str, true);
 	}
 	sprite->set_texture(texture);
-	sprite->set_position(pos);
+	sprite->set_position(Vector2(pos.x,-pos.y));
+	sprite->set_name(path_str.get_file());
+	pure_sprite_root->add_child(sprite);
+	print_line("create pure sprite ", pos, sprite->get_name());
+	sprite->set_z_index(zindex);
 }
 

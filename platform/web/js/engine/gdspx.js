@@ -469,14 +469,22 @@ gdspx_ext_exit_tilemap_editor_mode() {
 	_gdFuncPtr();
 
 }
-gdspx_ext_create_pure_sprite(texture_path,pos) {
+gdspx_ext_clear_pure_sprites() {
+	var _gdFuncPtr = Module._gdspx_ext_clear_pure_sprites; 
+	
+	_gdFuncPtr();
+
+}
+gdspx_ext_create_pure_sprite(texture_path,pos,zindex) {
 	var _gdFuncPtr = Module._gdspx_ext_create_pure_sprite; 
 	
 	var _arg0 = ToGdString(texture_path);
 	var _arg1 = ToGdVec2(pos);
-	_gdFuncPtr(_arg0, _arg1);
+	var _arg2 = ToGdInt(zindex);
+	_gdFuncPtr(_arg0, _arg1, _arg2);
 	FreeGdString(_arg0); 
 	FreeGdVec2(_arg1); 
+	FreeGdInt(_arg2); 
 
 }
 gdspx_input_get_mouse_pos() {

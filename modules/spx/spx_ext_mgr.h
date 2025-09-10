@@ -65,6 +65,8 @@ private:
 
 	SpxDrawTiles* draw_tiles = nullptr;
 
+	Node *pure_sprite_root;
+
 	static Mutex lock;
 private:
 	SpxPen *_get_pen(GdObj id);
@@ -126,7 +128,8 @@ public:
     }
 
 	// create sprites
-	void create_pure_sprite(GdString texture_path, GdVec2 pos);
+	void clear_pure_sprites();
+	void create_pure_sprite(GdString texture_path, GdVec2 pos, GdInt zindex);
 };
 
 #endif // SPX_EXT_MGR_H
