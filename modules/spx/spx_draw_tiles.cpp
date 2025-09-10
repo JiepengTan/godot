@@ -276,7 +276,7 @@ void SpxDrawTiles::set_texture_path(const String &texture_path) {
 }
 
 void SpxDrawTiles::place_tile(Vector2i coords) {
-    if (exit_editor || !tile_placing || !current_texture.is_valid()) 
+    if (exit_editor || !current_texture.is_valid()) 
         return;
 
     TileMapLayer *layer = _get_or_create_layer(current_layer_index);
