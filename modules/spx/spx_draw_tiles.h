@@ -108,7 +108,7 @@ private:
     HashMap<Ref<Texture2D>, Ref<ImageTexture>> texture_scaled_cache;
     int next_source_id = 1;
 
-    const Vector2i CELL_SIZE = Vector2i(64, 64);
+    Vector2i CELL_SIZE = Vector2i(16, 16);
     int current_layer_index = 0;
     const String UNIQUE_LAYER_PREFIX = "spx_draw_tiles_layer_";
 
@@ -160,6 +160,7 @@ public:
     void enter_editor_mode(){exit_editor = false;}
     void exit_editor_mode(){exit_editor = true;}
 
+    void set_tile_size(int size = 16);
 private:
     TileMapLayer* _get_or_create_layer(int layer_index);
     TileMapLayer* _get_layer(int layer_index);

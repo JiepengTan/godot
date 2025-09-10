@@ -285,12 +285,16 @@ void SpxExtMgr::debug_draw_rect(GdVec2 pos, GdVec2 size, GdColor color) {
 
 
 void SpxExtMgr::open_draw_tiles() {
+	open_draw_tiles_with_size(16);// default tile_size = 16
+}
+
+void SpxExtMgr::open_draw_tiles_with_size(GdInt tile_size) {
     if (draw_tiles != nullptr) {
         print_error("The draw tiles node already created");
         return;
     }
-
     draw_tiles = memnew(SpxDrawTiles);
+	draw_tiles->set_tile_size(tile_size);
     get_spx_root()->add_child(draw_tiles);
 }
 

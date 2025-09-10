@@ -247,6 +247,10 @@ void gdspx_ext_debug_draw_rect(GdVec2* pos,GdVec2* size,GdColor* color) {
 	 extMgr->debug_draw_rect(*pos, *size, *color);
 }
 EMSCRIPTEN_KEEPALIVE
+void gdspx_ext_open_draw_tiles_with_size(GdInt* tile_size) {
+	 extMgr->open_draw_tiles_with_size(*tile_size);
+}
+EMSCRIPTEN_KEEPALIVE
 void gdspx_ext_open_draw_tiles() {
 	 extMgr->open_draw_tiles();
 }

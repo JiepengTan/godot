@@ -107,6 +107,7 @@ public:
 	void debug_draw_rect(GdVec2 pos, GdVec2 size, GdColor color);
 
 	// draw tiles 
+	void open_draw_tiles_with_size(GdInt tile_size);
 	void open_draw_tiles();
 	void set_layer_index(GdInt index);
 	void set_tile(GdString texture_path);

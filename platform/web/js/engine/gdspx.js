@@ -403,6 +403,14 @@ gdspx_ext_debug_draw_rect(pos,size,color) {
 	FreeGdColor(_arg2); 
 
 }
+gdspx_ext_open_draw_tiles_with_size(tile_size) {
+	var _gdFuncPtr = Module._gdspx_ext_open_draw_tiles_with_size; 
+	
+	var _arg0 = ToGdInt(tile_size);
+	_gdFuncPtr(_arg0);
+	FreeGdInt(_arg0); 
+
+}
 gdspx_ext_open_draw_tiles() {
 	var _gdFuncPtr = Module._gdspx_ext_open_draw_tiles; 
 	

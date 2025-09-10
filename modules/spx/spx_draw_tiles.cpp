@@ -436,11 +436,12 @@ bool SpxDrawTiles::_create_tile(Ref<TileSetAtlasSource> atlas_source, const Vect
         return true;
 
     atlas_source->add_physics_layer(0);
+    auto halfSize = CELL_SIZE.x / 2;
     Vector<Vector2> collision_rect = {
-        Vector2(0, 0),
-        Vector2(CELL_SIZE.x, 0),
-        CELL_SIZE,
-        Vector2(0, CELL_SIZE.y)
+        Vector2(-halfSize, -halfSize),
+        Vector2(halfSize, -halfSize),
+        Vector2(halfSize,halfSize),
+        Vector2(-halfSize, halfSize)
     };
 
     tile_data->add_collision_polygon(0);
@@ -467,6 +468,10 @@ Ref<ImageTexture> SpxDrawTiles::_get_scaled_texture(Ref<Texture2D> texture) {
     texture_scaled_cache[texture] = scaled_tex;
 
     return scaled_tex;
+}
+
+void SpxDrawTiles::set_tile_size(int size){
+    CELL_SIZE = Vector2(size,size);
 }
 
 void SpxDrawTiles::_destroy_layers(){

@@ -261,6 +261,7 @@ typedef void (*GDExtensionSpxExtSetPenSizeTo)(GdObj obj, GdFloat size);
 typedef void (*GDExtensionSpxExtSetPenStampTexture)(GdObj obj, GdString texture_path);
 typedef void (*GDExtensionSpxExtDebugDrawCircle)(GdVec2 pos, GdFloat radius, GdColor color);
 typedef void (*GDExtensionSpxExtDebugDrawRect)(GdVec2 pos, GdVec2 size, GdColor color);
+typedef void (*GDExtensionSpxExtOpenDrawTilesWithSize)(GdInt tile_size);
 typedef void (*GDExtensionSpxExtOpenDrawTiles)();
 typedef void (*GDExtensionSpxExtSetLayerIndex)(GdInt index);
 typedef void (*GDExtensionSpxExtSetTile)(GdString texture_path);
