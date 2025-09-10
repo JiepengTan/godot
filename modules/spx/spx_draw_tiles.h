@@ -82,6 +82,7 @@ public:
     ~LayerRenderer() = default;
 
     void draw(Node2D *parent_node, const DrawContext & ctx);
+    void clear(Node2D *parent_node);
 };
 
 struct TileAction {
@@ -158,7 +159,7 @@ public:
     void clear_all_layers();
 
     void enter_editor_mode(){exit_editor = false;}
-    void exit_editor_mode(){exit_editor = true;}
+    void exit_editor_mode();
 
     void set_tile_size(int size = 16);
 private:

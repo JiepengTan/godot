@@ -104,6 +104,10 @@ void LayerRenderer::_draw_preview_texture(Node2D *parent_node, const DrawContext
 	}
 }
 
+void LayerRenderer::clear(Node2D *parent_node) {
+    RenderingServer::get_singleton()->canvas_item_clear(parent_node->get_canvas_item());
+}
+
 void LayerRenderer::draw(Node2D *parent_node, const DrawContext &ctx) {
     Vector2 local_mouse = ctx.map_layer->to_local(ctx.mouse_pos);
 	Vector2i hover_coords = ctx.map_layer->local_to_map(local_mouse);
@@ -148,7 +152,7 @@ void SpxDrawTiles::_ready() {
 void SpxDrawTiles::_draw() {
     if(exit_editor)
         return;
-        
+    
     TileMapLayer *layer = _get_layer(current_layer_index);
     if (!layer) 
         return;
@@ -472,6 +476,11 @@ Ref<ImageTexture> SpxDrawTiles::_get_scaled_texture(Ref<Texture2D> texture) {
 
 void SpxDrawTiles::set_tile_size(int size){
     CELL_SIZE = Vector2(size,size);
+}
+
+void SpxDrawTiles::exit_editor_mode(){
+    exit_editor = true;
+    renderer.clear(this);
 }
 
 void SpxDrawTiles::_destroy_layers(){
