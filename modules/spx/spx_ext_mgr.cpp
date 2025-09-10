@@ -341,3 +341,20 @@ void SpxExtMgr::exit_tilemap_editor_mode() {
 		draw_tiles = nullptr;
     }
 }
+
+void SpxExtMgr::create_pure_sprite(GdString texture_path, GdVec2 pos){
+	Sprite2D* sprite = memnew(Sprite2D);
+	auto path_str = SpxStr(texture_path);
+
+	Ref<Texture2D> texture = nullptr;
+	auto is_svg_mode = svgMgr->is_svg_file(path_str);
+	if (is_svg_mode){
+		int target_scale = 1;
+		texture = svgMgr->get_svg_image(path_str, target_scale);
+	}else{
+		texture = resMgr->load_texture(path_str, true);
+	}
+	sprite->set_texture(texture);
+	sprite->set_position(pos);
+}
+

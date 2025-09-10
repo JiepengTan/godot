@@ -124,6 +124,9 @@ public:
         }
         f();
     }
+
+	// create sprites
+	void create_pure_sprite(GdString texture_path, GdVec2 pos);
 };
 
 #endif // SPX_EXT_MGR_H

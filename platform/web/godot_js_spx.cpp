@@ -283,6 +283,10 @@ void gdspx_ext_exit_tilemap_editor_mode() {
 	 extMgr->exit_tilemap_editor_mode();
 }
 EMSCRIPTEN_KEEPALIVE
+void gdspx_ext_create_pure_sprite(GdString* texture_path,GdVec2* pos) {
+	 extMgr->create_pure_sprite(*texture_path, *pos);
+}
+EMSCRIPTEN_KEEPALIVE
 void gdspx_input_get_mouse_pos(GdVec2* ret_val) {
 	*ret_val = inputMgr->get_mouse_pos();
 }
