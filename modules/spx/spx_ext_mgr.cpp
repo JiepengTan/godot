@@ -334,3 +334,10 @@ void SpxExtMgr::close_draw_tiles() {
 		draw_tiles = nullptr;
     }
 }
+
+void SpxExtMgr::exit_tilemap_editor_mode() {
+	if (draw_tiles != nullptr) {
+		draw_tiles->exit_editor_mode();
+		draw_tiles = nullptr;
+    }
+}

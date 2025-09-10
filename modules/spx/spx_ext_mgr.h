@@ -115,6 +115,7 @@ public:
     void place_tile(GdVec2 pos);
     void erase_tile(GdVec2 pos);
 	void close_draw_tiles();
+	void exit_tilemap_editor_mode();
 	template<typename Func>
     void with_draw_tiles(Func f, const String error_msg = "The draw tiles node is null, first open it!!!") {
         if (draw_tiles == nullptr) {

@@ -463,6 +463,12 @@ gdspx_ext_close_draw_tiles() {
 	_gdFuncPtr();
 
 }
+gdspx_ext_exit_tilemap_editor_mode() {
+	var _gdFuncPtr = Module._gdspx_ext_exit_tilemap_editor_mode; 
+	
+	_gdFuncPtr();
+
+}
 gdspx_input_get_mouse_pos() {
 	var _gdFuncPtr = Module._gdspx_input_get_mouse_pos; 
 	var _retValue = AllocGdVec2();

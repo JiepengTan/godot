@@ -269,6 +269,7 @@ typedef void (*GDExtensionSpxExtPlaceTiles)(GdArray positions);
 typedef void (*GDExtensionSpxExtPlaceTile)(GdVec2 pos);
 typedef void (*GDExtensionSpxExtEraseTile)(GdVec2 pos);
 typedef void (*GDExtensionSpxExtCloseDrawTiles)();
+typedef void (*GDExtensionSpxExtExitTilemapEditorMode)();
 // SpxInput
 typedef void (*GDExtensionSpxInputGetMousePos)(GdVec2* ret_value);
 typedef void (*GDExtensionSpxInputGetKey)(GdInt key, GdBool* ret_value);

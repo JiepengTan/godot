@@ -279,6 +279,10 @@ void gdspx_ext_close_draw_tiles() {
 	 extMgr->close_draw_tiles();
 }
 EMSCRIPTEN_KEEPALIVE
+void gdspx_ext_exit_tilemap_editor_mode() {
+	 extMgr->exit_tilemap_editor_mode();
+}
+EMSCRIPTEN_KEEPALIVE
 void gdspx_input_get_mouse_pos(GdVec2* ret_val) {
 	*ret_val = inputMgr->get_mouse_pos();
 }
