@@ -42,6 +42,7 @@ void CollisionShape2D::_shape_changed() {
 void CollisionShape2D::set_spx_debug_color(const Color &p_color) {
 	is_enable_spx_debug = true;
 	debug_color = p_color;
+	queue_redraw();
 }
 
 void CollisionShape2D::_update_in_shape_owner(bool p_xform_only) {
