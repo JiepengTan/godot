@@ -128,7 +128,8 @@ void SpxPathFinder::_process_rectangle_shape(Node2D *owner, CollisionShape2D *sh
 }
 
 void SpxPathFinder::_process_static_obstacles(Node2D *body, bool add) {
-
+    if( !body->is_visible_in_tree()) return;
+    
     for (int j = 0; j < body->get_child_count(); j++) {
         Node *child = body->get_child(j);
 
@@ -169,24 +170,33 @@ void SpxPathFinder::_process_tilemap_obstacles(TileMapLayer *layer, int p_layer_
                 continue;
             }
 
+            Vector2 min_pt = poly[0];
+            Vector2 max_pt = poly[0];
+            for (int k = 1; k < poly.size(); ++k) {
+                min_pt = min_pt.min(poly[k]);
+                max_pt = max_pt.max(poly[k]);
+            }
+
+            Vector2 poly_size = max_pt - min_pt;
+            if (poly_size.x <= cached_cell_size.x && poly_size.y <= cached_cell_size.y) {
+                continue;
+            }
+
             Vector<Vector2> world_poly;
             world_poly.resize(poly.size());
             for (int k = 0; k < poly.size(); ++k) {
                 world_poly.write[k] = xform.xform(cell_local + poly[k]);
             }
 
-            Rect2 poly_aabb;
-            for (int k = 0; k < world_poly.size(); k++) {
-                if (k == 0) {
-                    poly_aabb.position = world_poly[k];
-                    poly_aabb.size = Vector2(0, 0);
-                } else {
-                    poly_aabb.expand_to(world_poly[k]);
-                }
+            Vector2 min_w = world_poly[0];
+            Vector2 max_w = world_poly[0];
+            for (int k = 1; k < world_poly.size(); ++k) {
+                min_w = min_w.min(world_poly[k]);
+                max_w = max_w.max(world_poly[k]);
             }
 
-            Vector2i min_cell = _world_to_cell(poly_aabb.position);
-            Vector2i max_cell = _world_to_cell(poly_aabb.position + poly_aabb.size);
+            Vector2i min_cell = _world_to_cell(min_w);
+            Vector2i max_cell = _world_to_cell(max_w);
 
             for (int cx = min_cell.x; cx <= max_cell.x; ++cx) {
                 for (int cy = min_cell.y; cy <= max_cell.y; ++cy) {
@@ -334,7 +344,7 @@ void SpxPathFinder::add_all_obstacles(Node *root) {
             if (StaticBody2D *body = Object::cast_to<StaticBody2D>(child)) {
                 _process_static_obstacles(body);
             } else if (SpxSprite *sprite = Object::cast_to<SpxSprite>(child)) {
-                if(sprite->get_physics_mode() == SpxSprite::PhysicsMode::STATIC && sprite->is_visible_in_tree())
+                if(sprite->get_physics_mode() == SpxSprite::PhysicsMode::STATIC)
                     _process_static_obstacles(sprite);
             } else if (TileMapLayer *layer = Object::cast_to<TileMapLayer>(child)) {
                 _process_tilemap_obstacles(layer);

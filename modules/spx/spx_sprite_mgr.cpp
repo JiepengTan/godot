@@ -41,10 +41,13 @@
 #include "scene/resources/packed_scene.h"
 #include "spx_engine.h"
 #include "spx_res_mgr.h"
+#include "spx_ext_mgr.h"
 #include "spx_physic_mgr.h"
+#include "spx_layer_sorter.h"
 #include "spx_sprite.h"
 #include "core/typedefs.h"
 
+#define extMgr SpxEngine::get_singleton()->get_ext()
 #define physicMgr SpxEngine::get_singleton()->get_physic()
 #define SPX_CALLBACK SpxEngine::get_singleton()->get_callbacks()
 
@@ -117,6 +120,31 @@ void SpxSpriteMgr::on_destroy() {
 void SpxSpriteMgr::on_update(float delta) {
 	SpxBaseMgr::on_update(delta);
 	_check_pixel_collision_events();
+
+	// Collect all sortable sprites from both SpxSpriteMgr and SpxExtMgr
+	Vector<ISortableSprite*> all_sortables;
+
+	// Add SpxSprites
+	for (auto& pair : id_objects) {
+		if (pair.value) {
+			all_sortables.push_back(pair.value);
+		}
+	}
+
+	// Add pure sprites from SpxExtMgr
+
+	extMgr->collect_sortable_sprites(all_sortables);
+
+	// Unified sorting
+	SpxLayerSorter::instance().update(all_sortables);
+}
+
+void SpxSpriteMgr::collect_sortable_sprites(Vector<ISortableSprite*>& out) {
+	for (auto& pair : id_objects) {
+		if (pair.value) {
+			out.push_back(pair.value);
+		}
+	}
 }
 
 SpxSprite *SpxSpriteMgr::get_sprite(GdObj obj) {
@@ -1046,4 +1074,15 @@ void SpxSpriteMgr::_check_pixel_collision_events() {
 			SPX_CALLBACK->func_on_trigger_enter(trigger.id2, trigger.id1);
 		}
 	}
+}
+
+void SpxSpriteMgr::set_pivot(GdObj obj, GdVec2 pivot){
+	check_and_get_sprite_v()
+	pivot.y = - pivot.y;
+	sprite->set_pivot(pivot);
+}
+GdVec2 SpxSpriteMgr::get_pivot(GdObj obj){
+	check_and_get_sprite_r(GdVec2())
+	auto pivot= sprite->get_pivot();
+	return GdVec2(pivot.x,-pivot.y);
 }

@@ -50,6 +50,27 @@
 #define SPX_CALLBACK SpxEngine::get_singleton()->get_callbacks()
 #define spriteMgr SpxEngine::get_singleton()->get_sprite()
 
+
+void SpxStaticSprite::_notification(int p_what) {
+	switch (p_what) {
+		case NOTIFICATION_DRAW: {
+			_draw();
+			break;
+		}
+		default:
+			break;
+	}
+}
+
+void SpxStaticSprite::_draw() {
+	if (!Spx::debug_mode) {
+		return;
+	}
+	if (collider2d != nullptr) {
+		collider2d->set_spx_debug_color(Color(0, 0, 1, 0.2));
+	}
+}
+
 Node *SpxSprite::get_component(Node *node, StringName name, GdBool recursive) {
 	for (int i = 0; i < node->get_child_count(); ++i) {
 		Node *child = node->get_child(i);

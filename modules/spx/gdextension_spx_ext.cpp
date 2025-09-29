@@ -256,6 +256,15 @@ static void gdextension_spx_ext_clear_pure_sprites() {
 static void gdextension_spx_ext_create_pure_sprite(GdString texture_path,GdVec2 pos,GdInt zindex) {
 	 extMgr->create_pure_sprite(texture_path, pos, zindex);
 }
+static void gdextension_spx_ext_create_render_sprite(GdString texture_path,GdVec2 pos,GdFloat degree,GdVec2 scale,GdInt zindex,GdVec2 pivot,GdObj* ret_val) {
+	*ret_val = extMgr->create_render_sprite(texture_path, pos, degree, scale, zindex, pivot);
+}
+static void gdextension_spx_ext_create_static_sprite(GdString texture_path,GdVec2 pos,GdFloat degree,GdVec2 scale,GdInt zindex,GdVec2 pivot,GdInt collider_type,GdVec2 collider_pivot,GdArray collider_params,GdObj* ret_val) {
+	*ret_val = extMgr->create_static_sprite(texture_path, pos, degree, scale, zindex, pivot, collider_type, collider_pivot, collider_params);
+}
+static void gdextension_spx_ext_destroy_pure_sprite(GdObj id) {
+	 extMgr->destroy_pure_sprite(id);
+}
 static void gdextension_spx_ext_setup_path_finder_with_size(GdVec2 grid_size,GdVec2 cell_size,GdBool with_jump,GdBool with_debug) {
 	 extMgr->setup_path_finder_with_size(grid_size, cell_size, with_jump, with_debug);
 }
@@ -267,6 +276,9 @@ static void gdextension_spx_ext_set_obstacle(GdObj obj,GdBool enabled) {
 }
 static void gdextension_spx_ext_find_path(GdVec2 p_from,GdVec2 p_to,GdBool with_jump,GdArray* ret_val) {
 	*ret_val = extMgr->find_path(p_from, p_to, with_jump);
+}
+static void gdextension_spx_ext_set_layer_sorter_mode(GdInt mode) {
+	 extMgr->set_layer_sorter_mode(mode);
 }
 static void gdextension_spx_input_get_mouse_pos(GdVec2* ret_val) {
 	*ret_val = inputMgr->get_mouse_pos();
@@ -435,6 +447,12 @@ static void gdextension_spx_sprite_set_physic_process(GdObj obj,GdBool is_on) {
 }
 static void gdextension_spx_sprite_set_type_name(GdObj obj,GdString type_name) {
 	 spriteMgr->set_type_name(obj, type_name);
+}
+static void gdextension_spx_sprite_set_pivot(GdObj obj,GdVec2 pivot) {
+	 spriteMgr->set_pivot(obj, pivot);
+}
+static void gdextension_spx_sprite_get_pivot(GdObj obj,GdVec2* ret_val) {
+	*ret_val = spriteMgr->get_pivot(obj);
 }
 static void gdextension_spx_sprite_set_child_position(GdObj obj,GdString path,GdVec2 pos) {
 	 spriteMgr->set_child_position(obj, path, pos);
@@ -972,10 +990,14 @@ void gdextension_spx_setup_interface() {
 	REGISTER_SPX_INTERFACE_FUNC(spx_ext_exit_tilemap_editor_mode);
 	REGISTER_SPX_INTERFACE_FUNC(spx_ext_clear_pure_sprites);
 	REGISTER_SPX_INTERFACE_FUNC(spx_ext_create_pure_sprite);
+	REGISTER_SPX_INTERFACE_FUNC(spx_ext_create_render_sprite);
+	REGISTER_SPX_INTERFACE_FUNC(spx_ext_create_static_sprite);
+	REGISTER_SPX_INTERFACE_FUNC(spx_ext_destroy_pure_sprite);
 	REGISTER_SPX_INTERFACE_FUNC(spx_ext_setup_path_finder_with_size);
 	REGISTER_SPX_INTERFACE_FUNC(spx_ext_setup_path_finder);
 	REGISTER_SPX_INTERFACE_FUNC(spx_ext_set_obstacle);
 	REGISTER_SPX_INTERFACE_FUNC(spx_ext_find_path);
+	REGISTER_SPX_INTERFACE_FUNC(spx_ext_set_layer_sorter_mode);
 	REGISTER_SPX_INTERFACE_FUNC(spx_input_get_mouse_pos);
 	REGISTER_SPX_INTERFACE_FUNC(spx_input_get_key);
 	REGISTER_SPX_INTERFACE_FUNC(spx_input_get_mouse_state);
@@ -1032,6 +1054,8 @@ void gdextension_spx_setup_interface() {
 	REGISTER_SPX_INTERFACE_FUNC(spx_sprite_set_process);
 	REGISTER_SPX_INTERFACE_FUNC(spx_sprite_set_physic_process);
 	REGISTER_SPX_INTERFACE_FUNC(spx_sprite_set_type_name);
+	REGISTER_SPX_INTERFACE_FUNC(spx_sprite_set_pivot);
+	REGISTER_SPX_INTERFACE_FUNC(spx_sprite_get_pivot);
 	REGISTER_SPX_INTERFACE_FUNC(spx_sprite_set_child_position);
 	REGISTER_SPX_INTERFACE_FUNC(spx_sprite_get_child_position);
 	REGISTER_SPX_INTERFACE_FUNC(spx_sprite_set_child_rotation);

@@ -34,6 +34,7 @@
 #include "gdextension_spx_ext.h"
 #include "spx_base_mgr.h"
 
+
 class SpxPhysicDefine{
 private:
 	static GdFloat global_gravity;
@@ -59,7 +60,14 @@ public:
     ~SpxRaycastInfo() = default;
 	GdArray ToArray();
 };
-
+enum class ColliderType {
+	NONE = 0,
+	AUTO = 1,
+	CIRCLE = 2,
+	RECT = 3,
+	CAPSULE = 4,
+	POLYGON = 5
+};
 class SpxPhysicMgr : SpxBaseMgr {
 	SPXCLASS(SpxPhysicMgr, SpxBaseMgr)
 
@@ -70,6 +78,7 @@ private:
 public:
 	bool is_collision_by_pixel;
 	void on_awake() override;
+	
 
 public:
 	virtual ~SpxPhysicMgr() = default; // Added virtual destructor to fix -Werror=non-virtual-dtor

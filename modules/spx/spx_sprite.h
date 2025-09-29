@@ -35,6 +35,7 @@
 #include "scene/2d/node_2d.h"
 #include "scene/2d/physics/character_body_2d.h"
 #include "scene/2d/physics/physics_body_2d.h"
+#include "scene/2d/physics/static_body_2d.h"
 #include "scene/2d/sprite_2d.h"
 #include "spx.h"
 
@@ -43,7 +44,72 @@ class AnimatedSprite2D;
 class Area2D;
 class CollisionShape2D;
 class VisibleOnScreenNotifier2D;
-class SpxSprite : public CharacterBody2D {
+
+// Interface for sortable sprites
+class ISortableSprite {
+public:
+	virtual ~ISortableSprite() = default;
+	virtual GdObj get_sort_id() const = 0;
+	virtual Point2 get_sort_position() const = 0;
+	virtual void set_sort_z_index(int z) = 0;
+	virtual int get_sort_z_index() const = 0;
+	virtual bool is_node_valid() const = 0;
+};
+
+// SpxRenderSprite - Wrapper for Sprite2D with sortable interface
+class SpxRenderSprite : public Sprite2D, public ISortableSprite {
+	GDCLASS(SpxRenderSprite, Sprite2D);
+
+private:
+	GdObj sort_id = 0;
+	Vector2 pivot_offset;
+
+
+public:
+	SpxRenderSprite() = default;
+	~SpxRenderSprite() override = default;
+
+	void set_sort_id(GdObj id) { sort_id = id; }
+	GdObj get_sort_id_internal() const { return sort_id; }
+
+	// ISortableSprite interface implementation
+	GdObj get_sort_id() const override { return sort_id; }
+	Point2 get_sort_position() const override { return get_position() + pivot_offset; }
+	void set_sort_z_index(int z) override { set_z_index(z); }
+	int get_sort_z_index() const override { return get_z_index(); }
+	bool is_node_valid() const override { return is_inside_tree(); }
+	void set_pivot(GdVec2 pivot){pivot_offset = pivot;}
+	GdVec2 get_pivot(){return pivot_offset;}
+};
+
+// SpxStaticSprite - Wrapper for StaticBody2D with sortable interface
+class SpxStaticSprite : public StaticBody2D, public ISortableSprite {
+	GDCLASS(SpxStaticSprite, StaticBody2D);
+
+private:
+	GdObj sort_id = 0;
+	Vector2 pivot_offset;
+
+public:
+	CollisionShape2D *collider2d;
+
+	void set_sort_id(GdObj id) { sort_id = id; }
+	GdObj get_sort_id_internal() const { return sort_id; }
+
+	// ISortableSprite interface implementation
+	GdObj get_sort_id() const override { return sort_id; }
+	Point2 get_sort_position() const override { return get_position() + pivot_offset; }
+	void set_sort_z_index(int z) override { set_z_index(z); }
+	int get_sort_z_index() const override { return get_z_index(); }
+	bool is_node_valid() const override { return is_inside_tree(); }
+	void set_pivot(GdVec2 pivot){pivot_offset = pivot;}
+	GdVec2 get_pivot(){return pivot_offset;}
+protected:
+	void _notification(int p_what);
+	void _draw();
+};
+
+class SpxSprite : public CharacterBody2D, public ISortableSprite {
 	GDCLASS(SpxSprite, CharacterBody2D);
 
 public:
@@ -57,6 +123,8 @@ public:
 
 private:
 	GdObj gid;
+
+	Vector2 pivot_offset; // Pivot offset for sorting
 
 	// Physics mode related variables
 	PhysicsMode physics_mode = NO_PHYSICS;  // Current physics mode
@@ -94,6 +162,7 @@ private:
 	String current_svg_anim_key; // Name of the current SVG animation
 	String current_anim_name; // Name of the current animation
 	
+
 	void update_anim_scale();
 	Vector2 _get_actual_render_scale();
 	int _get_actual_match_render_scale();
@@ -260,6 +329,16 @@ public:
 	void set_render_scale(GdVec2 scale);
 	GdVec2 get_render_scale();
 	GdString get_current_anim_name();
+
+	void set_pivot(GdVec2 pivot){pivot_offset = pivot;}
+	GdVec2 get_pivot(){return pivot_offset;}
+
+	// ISortableSprite interface implementation
+	GdObj get_sort_id() const override { return gid; }
+	Point2 get_sort_position() const override { return get_position() + pivot_offset; }
+	void set_sort_z_index(int z) override { set_z_index(z); }
+	int get_sort_z_index() const override { return get_z_index(); }
+	bool is_node_valid() const override { return is_inside_tree(); }
 };
 
 template <typename T>

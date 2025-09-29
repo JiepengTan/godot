@@ -331,6 +331,18 @@ void gdspx_ext_create_pure_sprite(GdString* texture_path,GdVec2* pos,GdInt* zind
 	 extMgr->create_pure_sprite(*texture_path, *pos, *zindex);
 }
 EMSCRIPTEN_KEEPALIVE
+void gdspx_ext_create_render_sprite(GdString* texture_path,GdVec2* pos,GdFloat* degree,GdVec2* scale,GdInt* zindex,GdVec2* pivot,GdObj* ret_val) {
+	*ret_val = extMgr->create_render_sprite(*texture_path, *pos, *degree, *scale, *zindex, *pivot);
+}
+EMSCRIPTEN_KEEPALIVE
+void gdspx_ext_create_static_sprite(GdString* texture_path,GdVec2* pos,GdFloat* degree,GdVec2* scale,GdInt* zindex,GdVec2* pivot,GdInt* collider_type,GdVec2* collider_pivot,GdArray* collider_params,GdObj* ret_val) {
+	*ret_val = extMgr->create_static_sprite(*texture_path, *pos, *degree, *scale, *zindex, *pivot, *collider_type, *collider_pivot, *collider_params);
+}
+EMSCRIPTEN_KEEPALIVE
+void gdspx_ext_destroy_pure_sprite(GdObj* id) {
+	 extMgr->destroy_pure_sprite(*id);
+}
+EMSCRIPTEN_KEEPALIVE
 void gdspx_ext_setup_path_finder_with_size(GdVec2* grid_size,GdVec2* cell_size,GdBool* with_jump,GdBool* with_debug) {
 	 extMgr->setup_path_finder_with_size(*grid_size, *cell_size, *with_jump, *with_debug);
 }
@@ -345,6 +357,10 @@ void gdspx_ext_set_obstacle(GdObj* obj,GdBool* enabled) {
 EMSCRIPTEN_KEEPALIVE
 void gdspx_ext_find_path(GdVec2* p_from,GdVec2* p_to,GdBool* with_jump,GdArray* ret_val) {
 	*ret_val = extMgr->find_path(*p_from, *p_to, *with_jump);
+}
+EMSCRIPTEN_KEEPALIVE
+void gdspx_ext_set_layer_sorter_mode(GdInt* mode) {
+	 extMgr->set_layer_sorter_mode(*mode);
 }
 EMSCRIPTEN_KEEPALIVE
 void gdspx_input_get_mouse_pos(GdVec2* ret_val) {
@@ -569,6 +585,14 @@ void gdspx_sprite_set_physic_process(GdObj* obj,GdBool* is_on) {
 EMSCRIPTEN_KEEPALIVE
 void gdspx_sprite_set_type_name(GdObj* obj,GdString* type_name) {
 	 spriteMgr->set_type_name(*obj, *type_name);
+}
+EMSCRIPTEN_KEEPALIVE
+void gdspx_sprite_set_pivot(GdObj* obj,GdVec2* pivot) {
+	 spriteMgr->set_pivot(*obj, *pivot);
+}
+EMSCRIPTEN_KEEPALIVE
+void gdspx_sprite_get_pivot(GdObj* obj,GdVec2* ret_val) {
+	*ret_val = spriteMgr->get_pivot(*obj);
 }
 EMSCRIPTEN_KEEPALIVE
 void gdspx_sprite_set_child_position(GdObj* obj,GdString* path,GdVec2* pos) {

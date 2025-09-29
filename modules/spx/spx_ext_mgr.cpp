@@ -35,12 +35,20 @@
 #include "scene/2d/line_2d.h"
 #include "scene/2d/sprite_2d.h"
 #include "scene/2d/polygon_2d.h"
+#include "scene/2d/physics/static_body_2d.h"
+#include "scene/2d/physics/collision_shape_2d.h"
+#include "scene/resources/2d/capsule_shape_2d.h"
+#include "scene/resources/2d/circle_shape_2d.h"
+#include "scene/resources/2d/rectangle_shape_2d.h"
 #include "spx.h"
 #include "spx_engine.h"
 #include "spx_pen.h"
 #include "spx_res_mgr.h"
 #include "spx_sprite.h"
 #include "spx_draw_tiles.h"
+#include "spx_layer_sorter.h"
+#include "spx_physic_mgr.h"
+
 #include <cmath>
 
 #define resMgr SpxEngine::get_singleton()->get_res()
@@ -53,6 +61,7 @@
 	}
 
 Mutex SpxExtMgr::lock;
+
 
 void SpxExtMgr::on_awake() {
 	SpxBaseMgr::on_awake();
@@ -439,29 +448,167 @@ void SpxExtMgr::exit_tilemap_editor_mode() {
 }
 
 void SpxExtMgr::clear_pure_sprites(){
-	pure_sprite_root->queue_free();
+	id_pure_sprites.clear();
+	if (pure_sprite_root) {
+		pure_sprite_root->queue_free();
+		pure_sprite_root = memnew(Node2D);
+		pure_sprite_root->set_name("pure_sprite_root");
+		get_spx_root()->add_child(pure_sprite_root);
+	}
 }
 
 void SpxExtMgr::create_pure_sprite(GdString texture_path, GdVec2 pos, GdInt zindex){
 	if (pure_sprite_root == nullptr) {
 		return;
 	}
-	Sprite2D* sprite = memnew(Sprite2D);
-	auto path_str = SpxStr(texture_path);
+	create_render_sprite(texture_path, pos, 0, GdVec2(1, 1), zindex, GdVec2(0,0));
+}
 
-	Ref<Texture2D> texture = nullptr;
-	auto is_svg_mode = svgMgr->is_svg_file(path_str);
-	if (is_svg_mode){
-		int target_scale = 1;
-		texture = svgMgr->get_svg_image(path_str, target_scale);
-	}else{
-		texture = resMgr->load_texture(path_str, true);
+GdObj SpxExtMgr::create_render_sprite(GdString texture_path, GdVec2 pos, GdFloat degree, GdVec2 scale, GdInt zindex, GdVec2 pivot){
+	if (pure_sprite_root == nullptr) {
+		return NULL_OBJECT_ID;
 	}
+
+	SpxRenderSprite* sprite = memnew(SpxRenderSprite);
+	sprite->set_pivot(GdVec2(pivot.x, -pivot.y));
+	auto path_str = SpxStr(texture_path);
+	Ref<Texture2D> texture = resMgr->load_texture(path_str, true);
 	sprite->set_texture(texture);
-	sprite->set_position(Vector2(pos.x,-pos.y));
+	sprite->set_position(Vector2(pos.x, -pos.y));
+	sprite->set_rotation_degrees(degree);
+	sprite->set_scale(Vector2(scale.x, scale.y));
 	sprite->set_name(path_str.get_file());
-	pure_sprite_root->add_child(sprite);
 	sprite->set_z_index(zindex);
+
+	GdObj id = get_unique_id();
+	sprite->set_sort_id(id);
+	id_pure_sprites[id] = sprite;
+
+	pure_sprite_root->add_child(sprite);
+
+	return id;
+}
+
+GdObj SpxExtMgr::create_static_sprite(GdString texture_path, GdVec2 pos,GdFloat degree,GdVec2 scale, GdInt zindex, GdVec2 pivot, GdInt collider_type, GdVec2 collider_pivot, GdArray collider_params){
+	if (pure_sprite_root == nullptr) {
+		return NULL_OBJECT_ID;
+	}
+	auto type = (ColliderType)collider_type;
+	if(type == ColliderType::NONE){
+		return create_render_sprite(texture_path, pos, degree, scale, zindex, pivot);
+	}
+
+	auto path_str = SpxStr(texture_path);
+	// Create StaticBody2D
+	SpxStaticSprite* static_body = memnew(SpxStaticSprite);
+	static_body->set_pivot(GdVec2(pivot.x, -pivot.y));
+	static_body->set_position(Vector2(pos.x, -pos.y));
+	static_body->set_rotation_degrees(degree);
+	static_body->set_scale(Vector2(scale.x, scale.y));
+	static_body->set_name(path_str.get_file());
+
+	// Load and create sprite child
+	Sprite2D* sprite = memnew(Sprite2D);
+	Ref<Texture2D> texture = resMgr->load_texture(path_str, true);
+	sprite->set_texture(texture);
+	sprite->set_z_index(zindex);
+	static_body->add_child(sprite);   
+
+	// Create collision shape (default: rectangle matching texture size)
+	CollisionShape2D* collision_shape = memnew(CollisionShape2D);
+
+	static_body->collider2d = collision_shape;
+	collision_shape->set_position(collider_pivot);
+	static_body->add_child(collision_shape);
+	auto data_len =  collider_params == nullptr ? 0 : collider_params->size;
+	switch (type)
+	{
+	case ColliderType::NONE:
+		if (texture.is_valid()) {
+			Ref<RectangleShape2D> rect = memnew(RectangleShape2D);
+			Vector2 texture_size = texture->get_size();
+			rect->set_size(texture_size);
+			collision_shape->set_shape(rect);
+		}
+		break;
+	case ColliderType::CIRCLE: {
+		Ref<CircleShape2D> circle = memnew(CircleShape2D);
+		if (data_len > 0) {
+			auto radius = *(SpxBaseMgr::get_array<real_t>(collider_params, 0));
+			circle->set_radius(radius);
+		}
+		collision_shape->set_shape(circle);
+		break;
+	}
+	case ColliderType::RECT: {
+		Ref<RectangleShape2D> rect = memnew(RectangleShape2D);
+		if (data_len >= 2) {
+			auto width = *(SpxBaseMgr::get_array<real_t>(collider_params, 0));
+			auto height = *(SpxBaseMgr::get_array<real_t>(collider_params, 1));
+			rect->set_size(Vector2(width, height));
+		}
+		collision_shape->set_shape(rect);
+		break;
+	}
+	case ColliderType::CAPSULE: {
+		Ref<CapsuleShape2D> capsule = memnew(CapsuleShape2D);
+		if (data_len >= 2) {
+			auto radius = *(SpxBaseMgr::get_array<real_t>(collider_params, 0));
+			auto height = *(SpxBaseMgr::get_array<real_t>(collider_params, 1));
+			capsule->set_radius(radius/2);
+			capsule->set_height(height);
+		}
+		collision_shape->set_shape(capsule);
+		break;
+	}
+	case ColliderType::POLYGON: {
+		Ref<ConvexPolygonShape2D> polygon = memnew(ConvexPolygonShape2D);
+		Vector<Vector2> points = {};
+		auto len = data_len;
+		for (int i = 0; i + 1 < len; i += 2) {
+			auto x = *(SpxBaseMgr::get_array<real_t>(collider_params, i));
+			auto y = *(SpxBaseMgr::get_array<real_t>(collider_params, i + 1));
+			points.append(Vector2(x, y));
+		}
+		polygon->set_points(points);
+		collision_shape->set_shape(polygon);
+		break;
+	}
+	default:
+		print_error("Invalid collider type: " + itos((int)type));
+		break;
+	}
+
+	// Assign unique ID and register
+	GdObj id = get_unique_id();
+	static_body->set_sort_id(id);
+	id_pure_sprites[id] = static_body;
+
+	// Add to scene tree
+	pure_sprite_root->add_child(static_body);
+
+	return id;
+}
+
+void SpxExtMgr::destroy_pure_sprite(GdObj id) {
+	if (id_pure_sprites.has(id)) {
+		auto sprite = id_pure_sprites[id];
+		id_pure_sprites.erase(id);
+
+		// Cast to Node2D to remove from scene tree
+		Node2D* node = dynamic_cast<Node2D*>(sprite);
+		if (node && node->is_inside_tree()) {
+			node->queue_free();
+		}
+	}
+}
+
+void SpxExtMgr::collect_sortable_sprites(Vector<ISortableSprite*>& out) {
+	for (auto& pair : id_pure_sprites) {
+		if (pair.value && pair.value->is_node_valid()) {
+			out.push_back(pair.value);
+		}
+	}
 }
 
 void SpxExtMgr::setup_path_finder_with_size(GdVec2 grid_size, GdVec2 cell_size, GdBool with_jump, GdBool with_debug) {
@@ -488,4 +635,8 @@ GdArray SpxExtMgr::find_path(GdVec2 p_from, GdVec2 p_to, GdBool with_jump) {
 	}
 
 	return path_finder->find_path_spx(p_from, p_to);
+}
+
+void SpxExtMgr::set_layer_sorter_mode(GdInt mode) {
+	SpxLayerSorter::instance().set_mode((LayerSortMode)mode);
 }

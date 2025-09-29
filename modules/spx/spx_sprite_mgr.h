@@ -34,11 +34,13 @@
 #include "gdextension_spx_ext.h"
 #include "scene/2d/animated_sprite_2d.h"
 #include "spx_base_mgr.h"
+#include "spx_layer_sorter.h"
 #include "core/templates/hash_map.h"
 #include <functional>
 #include <unordered_set>
 
 class SpxSprite;
+class ISortableSprite;
 
 typedef std::function<bool(GdColor, GdColor)> ColorCheckFunc;
 #include <functional>
@@ -95,6 +97,7 @@ public:
 
 private:
 	RBMap<GdObj, SpxSprite *> id_objects;
+
 	std::unordered_set<TriggerPair> bounding_collision_pairs;
 	std::unordered_set<TriggerPair> pixel_collision_pairs;
 
@@ -120,6 +123,7 @@ public:
 	void on_trigger_exit(GdInt self_id, GdInt other_id);
 	GdObj _create_sprite(GdString path, GdBool is_backdrop);
 	void destroy_all_sprites();
+	void collect_sortable_sprites(Vector<ISortableSprite*>& out);
 public:
 	void set_dont_destroy_on_load(GdObj obj);
 	// process
@@ -128,6 +132,9 @@ public:
 
 	void set_type_name(GdObj obj,GdString type_name);
 
+	void set_pivot(GdObj obj, GdVec2 pivot);
+	GdVec2 get_pivot(GdObj obj);
+	
 	// children
 	void set_child_position(GdObj obj, GdString path, GdVec2 pos);
 	GdVec2 get_child_position(GdObj obj, GdString path);
