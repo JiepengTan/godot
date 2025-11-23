@@ -32,6 +32,13 @@ jobs:
             tests: false
             artifact: true
 
+          - name: Template worker mode (target=template_release, worker=yes)
+            cache-name: web-worker-template
+            target: template_release
+            sconsflags: threads=yes proxy_to_pthread=yes
+            tests: false
+            artifact: true
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
