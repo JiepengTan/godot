@@ -38,6 +38,7 @@ public:
 	static inline bool debug_mode;
 	static inline bool unzip_game_date_on_start;
 	static inline String project_data_path;
+	static inline bool restart_requested;
 public:
 	static void register_extension_functions();
 	static void set_debug_mode(bool enable);

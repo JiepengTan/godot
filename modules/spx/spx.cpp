@@ -40,6 +40,7 @@
 #include "spx_sprite.h"
 #include "spx_ui.h"
 #include "core/io/dir_access.h"
+#include "core/os/thread.h"
 
 //#define MINIZIP_ENABLED
 #ifdef MINIZIP_ENABLED
@@ -99,6 +100,7 @@ void Spx::unpack_game_data() {
 
 void Spx::on_start(void *p_tree) {
 	initialed = true;
+	restart_requested = false;  // Initialize restart flag to false
 	if (!SpxEngine::has_initialed()) {
 		return;
 	}
@@ -130,6 +132,14 @@ void Spx::on_update(double delta) {
 		return;
 	}
 
+	// Check if restart was requested from a non-main thread
+	if (restart_requested) {
+		restart_requested = false;  // Clear the flag first
+		print_verbose("Spx::on_update - Executing deferred restart from main thread");
+		SPX_ENGINE->restart();
+		return;  // Skip the normal update after restart
+	}
+
 	SPX_ENGINE->on_update(delta);
 }
 
@@ -141,6 +151,7 @@ void Spx::on_destroy() {
 	print_verbose("Spx::on_destroy");
 	SPX_ENGINE->on_destroy();
 	initialed = false;
+	restart_requested = false;
 }
 
 void Spx::reset(int exit_code) {
@@ -158,7 +169,16 @@ void Spx::restart() {
 		return;
 	}
 	print_verbose("Spx::restart");
-	SPX_ENGINE->restart();
+
+	// Check if we're on the main thread
+	if (Thread::is_main_thread()) {
+		// If we're on the main thread, restart immediately
+		SPX_ENGINE->restart();
+	} else {
+		// If we're not on the main thread, set the restart flag
+		restart_requested = true;
+		print_verbose("Spx::restart - Restart requested from non-main thread, will restart in main thread");
+	}
 }
 
 void Spx::pause() {
