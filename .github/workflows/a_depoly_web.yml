@@ -50,11 +50,77 @@ env:
   EM_CACHE_FOLDER: "emsdk-cache"
 
 jobs:
-  web-editor-build:
-    name: 🌐 Web Editor Build
+  web-build:
+    name: 🌐 Web Build (${{ matrix.target }} - ${{ matrix.mode }})
     if: contains(inputs.platforms, 'web') || contains(inputs.platforms, 'all')
     runs-on: ubuntu-22.04
     timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Editor builds
+          - target: editor
+            mode: editor
+            threads_flag: threads=no
+            extra_flags: debug_symbols=no
+            cache_key: web-editor
+            source_file: bin/godot.web.editor.wasm32.nothreads.zip
+            artifact_prefix: web-editor
+            artifact_suffix: ""
+            output_file: editor-web.zip
+            release_file: editor-web.zip
+          # Template builds
+          - target: template_release
+            mode: normal
+            threads_flag: threads=no
+            extra_flags: ""
+            cache_key: web-template-normal
+            source_file: bin/godot.web.template_release.wasm32.nothreads.zip
+            artifact_prefix: web-template
+            artifact_suffix: ""
+            output_file: web.zip
+            release_file: web.zip
+          - target: template_release
+            mode: threads
+            threads_flag: threads=yes
+            extra_flags: ""
+            cache_key: web-template-threads
+            source_file: bin/godot.web.template_release.wasm32.zip
+            artifact_prefix: web-template
+            artifact_suffix: "-threads"
+            output_file: web-threads.zip
+            release_file: web-threads.zip
+          - target: template_release
+            mode: worker
+            threads_flag: threads=yes proxy_to_pthread=yes
+            extra_flags: ""
+            cache_key: web-template-worker
+            source_file: bin/godot.web.template_release.wasm32.zip
+            artifact_prefix: web-template
+            artifact_suffix: "-worker"
+            output_file: web-worker.zip
+            release_file: web-worker.zip
+          - target: template_release
+            mode: minigame
+            threads_flag: threads=no
+            extra_flags: ""
+            cache_key: web-template-minigame
+            source_file: bin/godot.web.template_release.wasm32.nothreads.zip
+            artifact_prefix: web-template
+            artifact_suffix: "-minigame"
+            output_file: web-minigame.zip
+            release_file: web-minigame.zip
+          - target: template_release
+            mode: miniprogram
+            threads_flag: threads=no
+            extra_flags: ""
+            cache_key: web-template-miniprogram
+            source_file: bin/godot.web.template_release.wasm32.nothreads.zip
+            artifact_prefix: web-template
+            artifact_suffix: "-miniprogram"
+            output_file: web-miniprogram.zip
+            release_file: web-miniprogram.zip
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -67,381 +133,51 @@ jobs:
         with:
           version: ${{env.EM_VERSION}}
           actions-cache-folder: ${{env.EM_CACHE_FOLDER}}
-          cache-key: emsdk-web-editor-${{inputs.godot_base_branch}}-${{github.ref}}
+          cache-key: emsdk-${{ matrix.cache_key }}-${{inputs.godot_base_branch}}-${{github.ref}}
       
       - name: Verify Emscripten Installation
         run: |
           emcc -v
 
-      # Set up shared cache for Web Editor builds
+      # Set up shared cache for Web builds
       - name: Set up build cache
         uses: actions/cache@v4
         with:
           path: ${{github.workspace}}/.scons-cache/
           # Do not use SHA in cache key to allow cache reuse across commits
-          key: web-editor-${{inputs.godot_base_branch}}-${{github.ref}}
+          key: ${{ matrix.cache_key }}-${{inputs.godot_base_branch}}-${{github.ref}}
           restore-keys: |
-            web-editor-${{inputs.godot_base_branch}}-
-            web-editor-
+            ${{ matrix.cache_key }}-${{inputs.godot_base_branch}}-
+            ${{ matrix.cache_key }}-
 
       - name: Setup Python and SCons
         uses: ./.github/actions/godot-deps
 
-      # Build Web Editor
-      - name: Build Web Editor
+      # Build Web
+      - name: Build Web (${{ matrix.target }} - ${{ matrix.mode }})
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=web target=editor threads=no debug_symbols=no ${{ inputs.common_args }}
+          sconsflags: platform=web target=${{ matrix.target }} ${{ matrix.threads_flag }} ${{ matrix.extra_flags }} ${{ inputs.common_args }} ${{ matrix.target == 'editor' && inputs.editor_args || inputs.release_args }}
           platform: web
-          target: editor
+          target: ${{ matrix.target }}
 
       - name: Prepare Files
         run: |
           mkdir -p artifacts
-          cp bin/godot.web.editor.wasm32.nothreads.zip artifacts/editor-web.zip
+          cp ${{ matrix.source_file }} artifacts/${{ matrix.output_file }}
 
-      - name: Upload Web Editor Build Results
+      - name: Upload Web Build Results
         uses: actions/upload-artifact@v4
         with:
-          name: web-editor-${{ inputs.version }}
-          path: artifacts/editor-web.zip
+          name: ${{ matrix.artifact_prefix }}${{ matrix.artifact_suffix }}-${{ inputs.version }}
+          path: artifacts/${{ matrix.output_file }}
           retention-days: 14
 
       - name: Publish to GitHub Release
         if: inputs.event_name == 'release'
         uses: softprops/action-gh-release@v1
         with:
-          files: artifacts/editor-web.zip
-          tag_name: ${{ inputs.release_tag }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  web-template-build:
-    name: 🌐 Web Template Build
-    if: contains(inputs.platforms, 'web') || contains(inputs.platforms, 'all')
-    runs-on: ubuntu-22.04
-    timeout-minutes: 90
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      # Setup Emscripten
-      - name: Setup Emscripten
-        uses: mymindstorm/setup-emsdk@v14
-        with:
-          version: ${{env.EM_VERSION}}
-          actions-cache-folder: ${{env.EM_CACHE_FOLDER}}
-          cache-key: emsdk-web-template-${{inputs.godot_base_branch}}-${{github.ref}}
-      
-      - name: Verify Emscripten Installation
-        run: |
-          emcc -v
-
-      # Set up shared cache for Web Template builds
-      - name: Set up build cache
-        uses: actions/cache@v4
-        with:
-          path: ${{github.workspace}}/.scons-cache/
-          # Do not use SHA in cache key to allow cache reuse across commits
-          key: web-template-${{inputs.godot_base_branch}}-${{github.ref}}
-          restore-keys: |
-            web-template-${{inputs.godot_base_branch}}-
-            web-template-
-
-      - name: Setup Python and SCons
-        uses: ./.github/actions/godot-deps
-
-      # Build Web template_release
-      - name: Build Web Template Release
-        uses: ./.github/actions/godot-build
-        with:
-          sconsflags: platform=web target=template_release threads=no ${{ inputs.common_args }} ${{ inputs.release_args }}
-          platform: web
-          target: template_release
-
-      - name: Prepare Files
-        run: |
-          mkdir -p artifacts
-          cp bin/godot.web.template_release.wasm32.nothreads.zip artifacts/web.zip
-
-      - name: Upload Web Template Build Results
-        uses: actions/upload-artifact@v4
-        with:
-          name: web-template-${{ inputs.version }}
-          path: artifacts/web.zip
-          retention-days: 14
-
-      - name: Publish to GitHub Release
-        if: inputs.event_name == 'release'
-        uses: softprops/action-gh-release@v1
-        with:
-          files: artifacts/web.zip
-          tag_name: ${{ inputs.release_tag }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-          
-  web-template-build-threads:
-    name: 🌐 Web Template Build (threads)
-    if: contains(inputs.platforms, 'web') || contains(inputs.platforms, 'all')
-    runs-on: ubuntu-22.04
-    timeout-minutes: 90
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      # Setup Emscripten
-      - name: Setup Emscripten
-        uses: mymindstorm/setup-emsdk@v14
-        with:
-          version: ${{env.EM_VERSION}}
-          actions-cache-folder: ${{env.EM_CACHE_FOLDER}}
-          cache-key: emsdk-web-template-${{inputs.godot_base_branch}}-${{github.ref}}
-      
-      - name: Verify Emscripten Installation
-        run: |
-          emcc -v
-
-      # Set up shared cache for Web Template builds
-      - name: Set up build cache
-        uses: actions/cache@v4
-        with:
-          path: ${{github.workspace}}/.scons-cache/
-          # Do not use SHA in cache key to allow cache reuse across commits
-          key: web-template-${{inputs.godot_base_branch}}-${{github.ref}}
-          restore-keys: |
-            web-template-${{inputs.godot_base_branch}}-
-            web-template-
-
-      - name: Setup Python and SCons
-        uses: ./.github/actions/godot-deps
-
-      # Build Web template_release
-      - name: Build Web Template Release
-        uses: ./.github/actions/godot-build
-        with:
-          sconsflags: platform=web target=template_release threads=yes ${{ inputs.common_args }} ${{ inputs.release_args }}
-          platform: web
-          target: template_release
-
-      - name: Prepare Files
-        run: |
-          mkdir -p artifacts
-          cp bin/godot.web.template_release.wasm32.zip artifacts/web-threads.zip
-
-      - name: Upload Web Template Build Results
-        uses: actions/upload-artifact@v4
-        with:
-          name: web-template-threads-${{ inputs.version }}
-          path: artifacts/web-threads.zip
-          retention-days: 14
-
-      - name: Publish to GitHub Release
-        if: inputs.event_name == 'release'
-        uses: softprops/action-gh-release@v1
-        with:
-          files: artifacts/web-threads.zip
-          tag_name: ${{ inputs.release_tag }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-
-  web-template-build-worker:
-    name: 🌐 Web Template Build (worker)
-    if: contains(inputs.platforms, 'web') || contains(inputs.platforms, 'all')
-    runs-on: ubuntu-22.04
-    timeout-minutes: 90
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      # Setup Emscripten
-      - name: Setup Emscripten
-        uses: mymindstorm/setup-emsdk@v14
-        with:
-          version: ${{env.EM_VERSION}}
-          actions-cache-folder: ${{env.EM_CACHE_FOLDER}}
-          cache-key: emsdk-web-template-${{inputs.godot_base_branch}}-${{github.ref}}
-
-      - name: Verify Emscripten Installation
-        run: |
-          emcc -v
-
-      # Set up shared cache for Web Template builds
-      - name: Set up build cache
-        uses: actions/cache@v4
-        with:
-          path: ${{github.workspace}}/.scons-cache/
-          # Do not use SHA in cache key to allow cache reuse across commits
-          key: web-template-${{inputs.godot_base_branch}}-${{github.ref}}
-          restore-keys: |
-            web-template-${{inputs.godot_base_branch}}-
-            web-template-
-
-      - name: Setup Python and SCons
-        uses: ./.github/actions/godot-deps
-
-      # Build Web template_release with worker mode
-      - name: Build Web Template Release (Worker)
-        uses: ./.github/actions/godot-build
-        with:
-          sconsflags: platform=web target=template_release threads=yes proxy_to_pthread=yes ${{ inputs.common_args }} ${{ inputs.release_args }}
-          platform: web
-          target: template_release
-
-      - name: Prepare Files
-        run: |
-          mkdir -p artifacts
-          cp bin/godot.web.template_release.wasm32.zip artifacts/web-worker.zip
-
-      - name: Upload Web Template Build Results
-        uses: actions/upload-artifact@v4
-        with:
-          name: web-template-worker-${{ inputs.version }}
-          path: artifacts/web-worker.zip
-          retention-days: 14
-
-      - name: Publish to GitHub Release
-        if: inputs.event_name == 'release'
-        uses: softprops/action-gh-release@v1
-        with:
-          files: artifacts/web-worker.zip
-          tag_name: ${{ inputs.release_tag }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-
-  web-template-build-minigame:
-    name: 🌐 Web Template Build (minigame)
-    if: contains(inputs.platforms, 'web') || contains(inputs.platforms, 'all')
-    runs-on: ubuntu-22.04
-    timeout-minutes: 90
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      # Setup Emscripten
-      - name: Setup Emscripten
-        uses: mymindstorm/setup-emsdk@v14
-        with:
-          version: ${{env.EM_VERSION}}
-          actions-cache-folder: ${{env.EM_CACHE_FOLDER}}
-          cache-key: emsdk-web-template-${{inputs.godot_base_branch}}-${{github.ref}}
-
-      - name: Verify Emscripten Installation
-        run: |
-          emcc -v
-
-      # Set up shared cache for Web Template builds
-      - name: Set up build cache
-        uses: actions/cache@v4
-        with:
-          path: ${{github.workspace}}/.scons-cache/
-          # Do not use SHA in cache key to allow cache reuse across commits
-          key: web-template-${{inputs.godot_base_branch}}-${{github.ref}}
-          restore-keys: |
-            web-template-${{inputs.godot_base_branch}}-
-            web-template-
-
-      - name: Setup Python and SCons
-        uses: ./.github/actions/godot-deps
-
-      # Build Web template_release with minigame mode
-      - name: Build Web Template Release (Minigame)
-        uses: ./.github/actions/godot-build
-        with:
-          sconsflags: platform=web target=template_release threads=no ${{ inputs.common_args }} ${{ inputs.release_args }}
-          platform: web
-          target: template_release
-
-      - name: Prepare Files
-        run: |
-          mkdir -p artifacts
-          cp bin/godot.web.template_release.wasm32.nothreads.zip artifacts/web-minigame.zip
-
-      - name: Upload Web Template Build Results
-        uses: actions/upload-artifact@v4
-        with:
-          name: web-template-minigame-${{ inputs.version }}
-          path: artifacts/web-minigame.zip
-          retention-days: 14
-
-      - name: Publish to GitHub Release
-        if: inputs.event_name == 'release'
-        uses: softprops/action-gh-release@v1
-        with:
-          files: artifacts/web-minigame.zip
-          tag_name: ${{ inputs.release_tag }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-
-  web-template-build-miniprogram:
-    name: 🌐 Web Template Build (miniprogram)
-    if: contains(inputs.platforms, 'web') || contains(inputs.platforms, 'all')
-    runs-on: ubuntu-22.04
-    timeout-minutes: 90
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      # Setup Emscripten
-      - name: Setup Emscripten
-        uses: mymindstorm/setup-emsdk@v14
-        with:
-          version: ${{env.EM_VERSION}}
-          actions-cache-folder: ${{env.EM_CACHE_FOLDER}}
-          cache-key: emsdk-web-template-${{inputs.godot_base_branch}}-${{github.ref}}
-
-      - name: Verify Emscripten Installation
-        run: |
-          emcc -v
-
-      # Set up shared cache for Web Template builds
-      - name: Set up build cache
-        uses: actions/cache@v4
-        with:
-          path: ${{github.workspace}}/.scons-cache/
-          # Do not use SHA in cache key to allow cache reuse across commits
-          key: web-template-${{inputs.godot_base_branch}}-${{github.ref}}
-          restore-keys: |
-            web-template-${{inputs.godot_base_branch}}-
-            web-template-
-
-      - name: Setup Python and SCons
-        uses: ./.github/actions/godot-deps
-
-      # Build Web template_release with miniprogram mode
-      - name: Build Web Template Release (Miniprogram)
-        uses: ./.github/actions/godot-build
-        with:
-          sconsflags: platform=web target=template_release threads=no ${{ inputs.common_args }} ${{ inputs.release_args }}
-          platform: web
-          target: template_release
-
-      - name: Prepare Files
-        run: |
-          mkdir -p artifacts
-          cp bin/godot.web.template_release.wasm32.nothreads.zip artifacts/web-miniprogram.zip
-
-      - name: Upload Web Template Build Results
-        uses: actions/upload-artifact@v4
-        with:
-          name: web-template-miniprogram-${{ inputs.version }}
-          path: artifacts/web-miniprogram.zip
-          retention-days: 14
-
-      - name: Publish to GitHub Release
-        if: inputs.event_name == 'release'
-        uses: softprops/action-gh-release@v1
-        with:
-          files: artifacts/web-miniprogram.zip
+          files: artifacts/${{ matrix.release_file }}
           tag_name: ${{ inputs.release_tag }}
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
