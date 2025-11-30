@@ -157,7 +157,7 @@ jobs:
       - name: Build Web (${{ matrix.target }} - ${{ matrix.mode }})
         uses: ./.github/actions/godot-build
         with:
-          sconsflags: platform=web target=${{ matrix.target }} ${{ matrix.threads_flag }} ${{ matrix.extra_flags }} ${{ inputs.common_args }} ${{ matrix.target == 'editor' && inputs.editor_args || inputs.release_args }}
+          sconsflags: platform=web target=${{ matrix.target }} ${{ matrix.threads_flag }} ${{ matrix.extra_flags }} ${{ inputs.common_args }} ${{ matrix.target == 'template_release' && inputs.release_args || '' }}
           platform: web
           target: ${{ matrix.target }}
 
