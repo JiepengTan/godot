@@ -39,6 +39,20 @@ jobs:
             tests: false
             artifact: true
 
+          - name: Template minigame mode (target=template_release, minigame=yes)
+            cache-name: web-minigame-template
+            target: template_release
+            sconsflags: threads=no
+            tests: false
+            artifact: true
+
+          - name: Template miniprogram mode (target=template_release, miniprogram=yes)
+            cache-name: web-miniprogram-template
+            target: template_release
+            sconsflags: threads=no
+            tests: false
+            artifact: true
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
