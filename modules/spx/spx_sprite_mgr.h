@@ -116,7 +116,7 @@ public:
 	void on_start() override;
 	void on_destroy() override;
 	void on_update(float delta) override;
-	void on_reset() override;
+	void on_reset(int reset_code) override;
 
 	SpxSprite *get_sprite(GdObj obj);
 	void on_sprite_destroy(SpxSprite *sprite);

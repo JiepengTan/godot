@@ -50,7 +50,6 @@ public:
 	static void set_debug_mode(bool enable);
 
 	static void register_types();
-	static void unpack_game_data();
 	static void on_start(void *p_tree);
 	static void on_fixed_update(double delta);
 	static void on_update(double delta);

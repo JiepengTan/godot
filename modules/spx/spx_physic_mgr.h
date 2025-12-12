@@ -78,7 +78,7 @@ private:
 public:
 	bool is_collision_by_pixel;
 	void on_awake() override;
-	void on_reset() override;
+	void on_reset(int reset_code) override;
 	
 
 public:
@@ -88,7 +88,7 @@ public:
 	GdInt check_touched_camera_boundaries(GdObj obj);
 	GdBool check_touched_camera_boundary(GdObj obj,GdInt board_type);
 	void set_collision_system_type(GdBool is_collision_by_alpha);
-	
+
 	// configs
 	void set_global_gravity(GdFloat gravity);
 	GdFloat get_global_gravity();

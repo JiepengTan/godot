@@ -66,7 +66,7 @@ public:
 	void on_awake() override;
 	void on_update(float delta) override;
 	void on_destroy() override;
-	void on_reset() override;
+	void on_reset(int reset_code) override;
 
 	void debug_draw_circle(GdVec2 pos, GdFloat radius, GdColor color);
 	void debug_draw_rect(GdVec2 pos, GdVec2 size, GdColor color);

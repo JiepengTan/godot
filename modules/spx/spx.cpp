@@ -39,6 +39,9 @@
 #include "spx_input_proxy.h"
 #include "spx_sprite.h"
 #include "spx_ui.h"
+#include "spx_draw_tiles.h"
+#include "spx_path_finder.h"
+#include "spx_callback_proxy.h"
 #include "core/io/dir_access.h"
 #include "core/os/thread.h"
 
@@ -69,33 +72,10 @@ void Spx::set_debug_mode(bool enable) {
 void Spx::register_types() {
 	ClassDB::register_class<SpxSprite>();
 	ClassDB::register_class<SpxInputProxy>();
-}
-
-void Spx::unpack_game_data() {
-	if (!project_data_path.is_empty() && !unzip_game_date_on_start) {
-#ifdef MINIZIP_ENABLED
-		Ref<ZIPReader> zip = memnew(ZIPReader);
-		if (zip->open(project_data_path) == OK) {
-			String target_dir = project_data_path.get_base_dir();
-			DirAccess::make_dir_recursive_absolute(target_dir);
-			PackedStringArray zfiles = zip->get_files();
-			for (int i = 0; i < zfiles.size(); ++i) {
-				String zfile = zfiles[i];
-				PackedByteArray pdata = zip->read_file(zfile, false);
-				String out_path = target_dir + String("/") + zfile;
-				DirAccess::make_dir_recursive_absolute(out_path.get_base_dir());
-				Ref<FileAccess> fout = FileAccess::open(out_path, FileAccess::WRITE);
-				if (fout.is_valid()) {
-					fout->store_buffer(pdata);
-				}
-			}
-			zip->close();
-			unzip_game_date_on_start = true;
-		} 
-#else
-		print_line("Minizip is not enabled, project data zip is not supported");
-#endif
-	}
+	ClassDB::register_class<SpxDrawTiles>();
+	ClassDB::register_class<SpxPathFinder>();
+	ClassDB::register_class<PathDebugDrawer>();
+	ClassDB::register_class<SpxCallbackProxy>();
 }
 
 void Spx::on_start(void *p_tree) {
@@ -149,7 +129,7 @@ void Spx::on_update(double delta) {
 		// Read exit code BEFORE clearing the flag to avoid TOCTOU race condition
 		int exit_code = reset_exit_code.get();
 		reset_requested.clear();  // Clear the flag after reading
-		SPX_ENGINE->on_reset();
+		SPX_ENGINE->on_reset(exit_code);
 		auto callback = SPX_ENGINE->get_on_runtime_reset();
 		if (callback != nullptr) {
 			callback(exit_code);
@@ -202,11 +182,7 @@ void Spx::reset(int exit_code) {
 	// Check if we're on the main thread
 	if (Thread::is_main_thread()) {
 		// If we're on the main thread, reset immediately
-		SPX_ENGINE->on_reset();
-		auto callback = SPX_ENGINE->get_on_runtime_reset();
-		if (callback != nullptr) {
-			callback(exit_code);
-		}
+		SPX_ENGINE->on_reset(exit_code);
 	} else {
 		// If we're not on the main thread, set the reset flag
 		// Write data first, then set flag to ensure happens-before ordering

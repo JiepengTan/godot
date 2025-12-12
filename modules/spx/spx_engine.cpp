@@ -337,43 +337,14 @@ void SpxEngine::restart() {
 	}
 }
 
-void SpxEngine::on_reset() {
+void SpxEngine::on_reset(int reset_code) {
 	if (is_spx_reset) {
 		return;
 	}
 
 	is_spx_reset = true;
 	capture_last_frame();
-	do_reset();
-}
-
-void SpxEngine::do_reset() {
-	if (callbacks.func_on_engine_reset != nullptr) {
-		callbacks.func_on_engine_reset();
-	}
-
-	for (auto mgr : mgrs) {
-		mgr->on_reset();
-	}
-
-	SvgManager::get_singleton()->reset(false);
-
-	if (!tree || !delay_proxy) {
-		return;
-	}
-
-
-	_disconnect_reset_timer();
-
-	reset_timer = tree->create_timer(RESET_PAUSE_DELAY_SEC);
-	delay_proxy->callback = [this]() {
-		this->_pause_pure();
-	};
-
-	reset_timer->connect(
-		"timeout",
-		on_timeout_callable
-	);
+	_do_reset(reset_code);
 }
 
 // SPX Pause functionality implementation with thread safety
@@ -497,6 +468,39 @@ void SpxEngine::_on_godot_pause_changed(bool is_godot_paused) {
 			callbacks.func_on_engine_pause(is_spx_paused);
 		}
 	}
+}
+
+void SpxEngine::_do_reset(int reset_code) {
+	if (callbacks.func_on_engine_reset != nullptr) {
+		callbacks.func_on_engine_reset();
+	}
+
+	for (auto mgr : mgrs) {
+		mgr->on_reset(reset_code);
+	}
+
+	SvgManager::get_singleton()->reset(false);
+
+	if (!tree || !delay_proxy) {
+		return;
+	}
+
+
+	_disconnect_reset_timer();
+
+	reset_timer = tree->create_timer(RESET_PAUSE_DELAY_SEC);
+	delay_proxy->callback = [this, reset_code]() {
+		this->_pause_pure();
+		auto callback = get_on_runtime_reset();
+		if (callback != nullptr) {
+			callback(reset_code);
+		}
+	};
+
+	reset_timer->connect(
+		"timeout",
+		on_timeout_callable
+	);
 }
 
 void SpxEngine::_pause_pure() {

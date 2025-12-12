@@ -107,10 +107,10 @@ void SpxAudioMgr::on_update(float delta) {
 	lock.unlock();
 }
 
-void SpxAudioMgr::on_reset() {
+void SpxAudioMgr::on_reset(int reset_code) {
 	lock.lock();
 	for (const KeyValue<GdObj, SpxAudio *> &E : id_audios) {
-		E.value->on_reset();
+		E.value->on_reset(reset_code);
 	}
 
 	id_audios.clear();

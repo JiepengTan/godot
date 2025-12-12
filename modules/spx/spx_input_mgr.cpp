@@ -42,7 +42,7 @@ void SpxInputMgr::on_start() {
 	input_proxy->ready();
 }
 
-void SpxInputMgr::on_reset() {
+void SpxInputMgr::on_reset(int reset_code) {
 	if(input_proxy) {
 		input_proxy->queue_free();
 	}

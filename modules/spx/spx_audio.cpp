@@ -85,7 +85,7 @@ void SpxAudio::stop_all() {
 }
 
 void SpxAudio::on_destroy() {
-	on_reset();
+	on_reset(0);
 }
 
 void SpxAudio::on_update(float delta) {
@@ -116,7 +116,7 @@ void SpxAudio::on_update(float delta) {
 	}
 }
 
-void SpxAudio::on_reset() {
+void SpxAudio::on_reset(int reset_code) {
 	stop_all();
 	// free the bus
 	if (bus_id != SpxAudioBusPool::BUS_SFX) {

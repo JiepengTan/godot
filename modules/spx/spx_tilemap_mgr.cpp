@@ -56,7 +56,7 @@ void SpxTilemapMgr::on_destroy() {
 	SpxBaseMgr::on_destroy();
 }
 
-void SpxTilemapMgr::on_reset() {
+void SpxTilemapMgr::on_reset(int reset_code) {
 	close_draw_tiles();
 }
 

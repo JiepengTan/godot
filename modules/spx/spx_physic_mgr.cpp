@@ -98,7 +98,7 @@ void SpxPhysicMgr::on_awake() {
 	is_collision_by_pixel = true;
 }
 
-void SpxPhysicMgr::on_reset() {
+void SpxPhysicMgr::on_reset(int reset_code) {
 }
 
 SpxRaycastInfo SpxPhysicMgr::_raycast(GdVec2 from, GdVec2 to,GdArray ignore_sprites,GdInt collision_mask,GdBool collide_with_areas,GdBool collide_with_bodies) {

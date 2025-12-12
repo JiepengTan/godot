@@ -141,7 +141,7 @@ void SpxSpriteMgr::on_update(float delta) {
 	SpxLayerSorter::instance().update(all_sortables);
 }
 
-void SpxSpriteMgr::on_reset() {
+void SpxSpriteMgr::on_reset(int reset_code) {
 	default_texture_anim = "default";
 	dont_destroy_root->queue_free();
 	dont_destroy_root = memnew(Node2D);

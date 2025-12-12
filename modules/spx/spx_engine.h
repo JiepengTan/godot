@@ -150,9 +150,7 @@ public:
 	void on_fixed_update(float delta) override;
 	void on_update(float delta) override;
 	void on_destroy() override;
-	void on_reset() override;
-
-	void do_reset();
+	void on_reset(int reset_code) override;
 
 	void on_exit(int exit_code) override;
 
@@ -173,6 +171,7 @@ private:
 	// Internal methods for Godot pause synchronization
 	void _on_godot_pause_changed(bool is_godot_paused);
 
+	void _do_reset(int reset_code);
 	void _pause_pure();
 	void _resume_pure();
 	void _disconnect_reset_timer();

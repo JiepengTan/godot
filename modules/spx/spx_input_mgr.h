@@ -42,7 +42,7 @@ class SpxInputMgr : SpxBaseMgr {
 public:
 	virtual ~SpxInputMgr() = default; // Added virtual destructor to fix -Werror=non-virtual-dtor
 	virtual void on_start() override;
-	void on_reset() override;
+	void on_reset(int reset_code) override;
 protected:
 	SpxInputProxy *input_proxy;
 public:

@@ -96,7 +96,7 @@ void SpxPenMgr::on_destroy() {
 	SpxBaseMgr::on_destroy();
 }
 
-void SpxPenMgr::on_reset() {
+void SpxPenMgr::on_reset(int reset_code) {
 	lock.lock();
 	for (auto pen : id_pens) {
 		pen.value->on_destroy();

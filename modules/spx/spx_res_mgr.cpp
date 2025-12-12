@@ -65,7 +65,7 @@ void SpxResMgr::on_awake() {
 	anim_frames.instantiate();
 }
 
-void SpxResMgr::on_reset() {
+void SpxResMgr::on_reset(int reset_code) {
 	animation_frame_offsets.clear();
 	anim_frames->clear_all();
 }

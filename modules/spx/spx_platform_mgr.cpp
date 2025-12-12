@@ -40,7 +40,7 @@ void SpxPlatformMgr::on_awake() {
 	persistant_data_dir = ::OS::get_singleton()->get_user_data_dir();
 }
 
-void SpxPlatformMgr::on_reset() {
+void SpxPlatformMgr::on_reset(int reset_code) {
 	set_stretch_mode(false);
 }
 

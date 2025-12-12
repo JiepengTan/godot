@@ -51,7 +51,7 @@
 
 #include <cmath>
 
-void SpxNavigationMgr::on_reset() {
+void SpxNavigationMgr::on_reset(int reset_code) {
 	if(path_finder.is_valid()){
 		path_finder->reset();
 		path_finder = nullptr;

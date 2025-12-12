@@ -94,7 +94,7 @@ void SpxUiMgr::on_awake() {
 	get_spx_root()->add_child(owner);
 }
 
-void SpxUiMgr::on_reset() {
+void SpxUiMgr::on_reset(int reset_code) {
 	owner->queue_free();
 	owner = memnew(CanvasLayer);
 	owner->set_name(get_class_name());

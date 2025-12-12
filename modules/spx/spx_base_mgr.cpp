@@ -86,7 +86,7 @@ void SpxBaseMgr::on_destroy() {
 	}
 }
 
-void SpxBaseMgr::on_reset() {
+void SpxBaseMgr::on_reset(int reset_code) {
 }
 
 void SpxBaseMgr::on_exit(int exit_code) {

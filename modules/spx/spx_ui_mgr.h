@@ -48,7 +48,7 @@ private:
 
 public:
 	void on_awake() override;
-	void on_reset() override;
+	void on_reset(int reset_code) override;
 
 	void on_node_destroy(SpxUi *node);
 	SpxUi* on_create_node(Control *control,GdInt type,bool is_attach = true);

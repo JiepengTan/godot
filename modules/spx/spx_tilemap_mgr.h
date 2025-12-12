@@ -41,7 +41,7 @@ class SpxTilemapMgr : SpxBaseMgr {
 public:
 	virtual ~SpxTilemapMgr() = default;
 	void on_destroy() override;
-	void on_reset() override;
+	void on_reset(int reset_code) override;
 
 private:
 	SpxDrawTiles* draw_tiles = nullptr;

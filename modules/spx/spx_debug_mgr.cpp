@@ -86,7 +86,7 @@ void SpxDebugMgr::on_destroy() {
 	SpxBaseMgr::on_destroy();
 }
 
-void SpxDebugMgr::on_reset() {
+void SpxDebugMgr::on_reset(int reset_code) {
 	_clear_debug_shapes();
 }
 
