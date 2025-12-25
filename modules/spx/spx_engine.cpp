@@ -53,6 +53,7 @@
 #include "spx_navigation_mgr.h"
 #include "spx_pen_mgr.h"
 #include "spx_tilemap_mgr.h"
+#include "spx_tilemapparser_mgr.h"
 #include "spx_callback_proxy.h"
 
 SpxEngine *SpxEngine::singleton = nullptr;
@@ -152,6 +153,8 @@ void SpxEngine::register_callbacks(GDExtensionSpxCallbackInfoPtr callback_ptr) {
 	singleton->mgrs.append((SpxBaseMgr *)singleton->pen);
 	singleton->tilemap = memnew(SpxTilemapMgr);
 	singleton->mgrs.append((SpxBaseMgr *)singleton->tilemap);
+	singleton->tilemapparser = memnew(SpxTilemapparserMgr);
+	singleton->mgrs.append((SpxBaseMgr *)singleton->tilemapparser);
 	
 	singleton->callbacks = *(SpxCallbackInfo *)callback_ptr;
 	singleton->global_id = 1;
@@ -310,6 +313,7 @@ void SpxEngine::on_destroy() {
 	memdelete(navigation);
 	memdelete(pen);
 	memdelete(tilemap);
+	memdelete(tilemapparser);
 
 	mgrs.clear();
 	singleton = nullptr;

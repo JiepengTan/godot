@@ -2531,6 +2531,48 @@ gdspx_tilemap_exit_tilemap_editor_mode() {
 	_gdFuncPtr();
 
 }
+gdspx_tilemapparser_load_tilemap(json_path) {
+	var _gdFuncPtr = Module._gdspx_tilemapparser_load_tilemap; 
+	
+	var _arg0 = ToGdString(json_path);
+	_gdFuncPtr(_arg0);
+	FreeGdString(_arg0); 
+
+}
+gdspx_tilemapparser_unload_tilemap(name) {
+	var _gdFuncPtr = Module._gdspx_tilemapparser_unload_tilemap; 
+	
+	var _arg0 = ToGdString(name);
+	_gdFuncPtr(_arg0);
+	FreeGdString(_arg0); 
+
+}
+gdspx_tilemapparser_destroy_all_tilemaps() {
+	var _gdFuncPtr = Module._gdspx_tilemapparser_destroy_all_tilemaps; 
+	
+	_gdFuncPtr();
+
+}
+gdspx_tilemapparser_has_tilemap(name) {
+	var _gdFuncPtr = Module._gdspx_tilemapparser_has_tilemap; 
+	var _retValue = AllocGdBool();
+	var _arg0 = ToGdString(name);
+	_gdFuncPtr(_arg0, _retValue);
+	FreeGdString(_arg0); 
+	var _finalRetValue = ToJsBool(_retValue);
+	FreeGdBool(_retValue); 
+	return _finalRetValue
+}
+gdspx_tilemapparser_get_tilemap_layer_count(name) {
+	var _gdFuncPtr = Module._gdspx_tilemapparser_get_tilemap_layer_count; 
+	var _retValue = AllocGdInt();
+	var _arg0 = ToGdString(name);
+	_gdFuncPtr(_arg0, _retValue);
+	FreeGdString(_arg0); 
+	var _finalRetValue = ToJsInt(_retValue);
+	FreeGdInt(_retValue); 
+	return _finalRetValue
+}
 gdspx_ui_bind_node(obj,rel_path) {
 	var _gdFuncPtr = Module._gdspx_ui_bind_node; 
 	var _retValue = AllocGdObj();

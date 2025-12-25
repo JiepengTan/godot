@@ -55,6 +55,7 @@ class SpxDebugMgr;
 class SpxNavigationMgr;
 class SpxPenMgr;
 class SpxTilemapMgr;
+class SpxTilemapparserMgr;
 class SpxCallbackProxy;
 
 typedef void (*GDExtensionSpxGlobalRuntimePanicCallback)(GdString msg);
@@ -89,6 +90,7 @@ private:
 	SpxNavigationMgr *navigation;
 	SpxPenMgr *pen;
 	SpxTilemapMgr *tilemap;
+	SpxTilemapparserMgr *tilemapparser;
 
 	SpxCallbackProxy *delay_proxy = nullptr;
 
@@ -107,6 +109,7 @@ public:
 	SpxNavigationMgr *get_navigation() { return navigation; }
 	SpxPenMgr *get_pen() { return pen; }
 	SpxTilemapMgr *get_tilemap() { return tilemap; }
+	SpxTilemapparserMgr *get_tilemapparser() { return tilemapparser; }
 
 private:
 	SceneTree *tree;
