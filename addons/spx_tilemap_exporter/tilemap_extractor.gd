@@ -276,4 +276,3 @@ func _extract_layer(layer: TileMapLayer) -> Dictionary:
 	}
 	
 	return data
-

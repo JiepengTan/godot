@@ -122,4 +122,3 @@ func _show_info(message: String) -> void:
 	dialog.canceled.connect(dialog.queue_free)
 	get_editor_interface().get_base_control().add_child(dialog)
 	dialog.popup_centered()
-
