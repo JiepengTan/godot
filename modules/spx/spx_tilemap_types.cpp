@@ -308,6 +308,10 @@ bool SpxTileMapData::from_json(const Dictionary &dict) {
 	version = dict.get("version", 1);
 	name = dict.get("name", "");
 
+	if (dict.has("node_offset")) {
+		node_offset = _parse_vector2(dict["node_offset"]);
+	}
+
 	if (dict.has("tileset")) {
 		if (!tileset.from_json(dict["tileset"])) {
 			return false;
@@ -331,6 +335,7 @@ Dictionary SpxTileMapData::to_json() const {
 	Dictionary dict;
 	dict["version"] = version;
 	dict["name"] = name;
+	dict["node_offset"] = _vector2_to_array(node_offset);
 	dict["tileset"] = tileset.to_json();
 
 	Array layers_arr;

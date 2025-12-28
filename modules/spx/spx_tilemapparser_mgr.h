@@ -66,7 +66,7 @@ private:
 	Ref<TileSet> _create_tileset(const SpxTileSetData &data, const String &base_path);
 	void _create_atlas_source(Ref<TileSet> tileset, const SpxTileSetSourceData &data, const String &base_path);
 	void _setup_tile_physics(TileData *tile_data, const SpxTileData &data);
-	TileMapLayer *_create_tilemap_layer(const SpxTileMapLayerData &data, Ref<TileSet> tileset);
+	TileMapLayer *_create_tilemap_layer(const SpxTileMapLayerData &data, Ref<TileSet> tileset, const Vector2 &node_offset);
 
 	// Helper methods
 	String _get_base_path(const String &json_path);

@@ -121,6 +121,7 @@ struct SpxTileMapLayerData {
 struct SpxTileMapData {
 	int version = 1;
 	String name;
+	Vector2 node_offset; // Center offset in pixels for positioning tilemap at origin
 	SpxTileSetData tileset;
 	Vector<SpxTileMapLayerData> layers;
 

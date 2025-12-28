@@ -99,7 +99,7 @@ void SpxTilemapparserMgr::load_tilemap(GdString json_path) {
 	// Create TileMapLayers
 	Vector<TileMapLayer *> layers;
 	for (int i = 0; i < data.layers.size(); i++) {
-		TileMapLayer *layer = _create_tilemap_layer(data.layers[i], tileset);
+		TileMapLayer *layer = _create_tilemap_layer(data.layers[i], tileset, data.node_offset);
 		if (layer != nullptr) {
 			// Add to scene tree
 			Node *spx_root = get_spx_root();
@@ -113,7 +113,6 @@ void SpxTilemapparserMgr::load_tilemap(GdString json_path) {
 	// Store layers in cache
 	tilemap_layers[tilemap_name] = layers;
 
-	print_line("SpxTilemapparserMgr: Successfully loaded tilemap: " + tilemap_name + " with " + itos(layers.size()) + " layers");
 }
 
 void SpxTilemapparserMgr::unload_tilemap(GdString name) {
@@ -295,7 +294,7 @@ void SpxTilemapparserMgr::_setup_tile_physics(TileData *tile_data, const SpxTile
 	}
 }
 
-TileMapLayer *SpxTilemapparserMgr::_create_tilemap_layer(const SpxTileMapLayerData &data, Ref<TileSet> tileset) {
+TileMapLayer *SpxTilemapparserMgr::_create_tilemap_layer(const SpxTileMapLayerData &data, Ref<TileSet> tileset, const Vector2 &node_offset) {
 	TileMapLayer *layer = memnew(TileMapLayer);
 
 	// Set layer name
@@ -304,8 +303,8 @@ TileMapLayer *SpxTilemapparserMgr::_create_tilemap_layer(const SpxTileMapLayerDa
 	// Set z_index
 	layer->set_z_index(data.z_index);
 
-	// Set offset (position)
-	layer->set_position(data.offset);
+	// Set offset (position) - combine layer offset with tilemap node offset for centering
+	layer->set_position(data.offset + node_offset);
 
 	// Set enabled
 	layer->set_enabled(data.enabled);
