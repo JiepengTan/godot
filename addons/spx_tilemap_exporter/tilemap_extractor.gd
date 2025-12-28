@@ -34,6 +34,18 @@ func export_tilemap(layers: Array[TileMapLayer], export_path: String) -> ExportR
 		result.error = "No TileSet found in any TileMapLayer"
 		return result
 	
+	# Calculate bounds and center offset to position tilemap at world origin (0, 0)
+	var tile_size = tileset.tile_size
+	var bounds = _calculate_tilemap_bounds(layers, tile_size)
+	var center_offset_tiles = _calculate_center_offset(bounds)
+	
+	# Convert tile offset to pixel offset
+	var pixel_offset_x = center_offset_tiles.x * tile_size.x
+	var pixel_offset_y = center_offset_tiles.y * tile_size.y
+	print("TileMap bounds: ", bounds)
+	print("TileMap center offset (tiles): ", center_offset_tiles)
+	print("TileMap center offset (pixels): (%d, %d)" % [pixel_offset_x, pixel_offset_y])
+	
 	# Get export directory
 	var export_dir = export_path.get_base_dir()
 	
@@ -41,6 +53,7 @@ func export_tilemap(layers: Array[TileMapLayer], export_path: String) -> ExportR
 	var json_data: Dictionary = {
 		"version": 1,
 		"name": export_path.get_file().get_basename(),
+		"node_offset": [pixel_offset_x, pixel_offset_y],
 		"tileset": _extract_tileset(tileset, export_dir, result),
 		"layers": _extract_layers(layers)
 	}
@@ -246,6 +259,53 @@ func _extract_tile_physics(tile_data: TileData, tileset: TileSet) -> Array:
 			physics_array.append(layer_physics)
 	
 	return physics_array
+
+
+# ============================================================================
+# TileMap Centering - Calculate bounds and apply offset to center at origin
+# ============================================================================
+
+## Calculate the bounding box of all tiles across all layers in world coordinates (tile units)
+## Takes into account each layer's global position (transform offset)
+func _calculate_tilemap_bounds(layers: Array[TileMapLayer], tile_size: Vector2i) -> Rect2i:
+	var min_x: int = 0x7FFFFFFF  # INT32_MAX
+	var max_x: int = -0x80000000  # INT32_MIN
+	var min_y: int = 0x7FFFFFFF
+	var max_y: int = -0x80000000
+	var has_tiles: bool = false
+	
+	for layer in layers:
+		# Convert layer global position (pixels) to tile offset
+		var global_pos = layer.global_position
+		var layer_offset_x: int = floori(global_pos.x / tile_size.x)
+		var layer_offset_y: int = floori(global_pos.y / tile_size.y)
+		
+		var used_cells = layer.get_used_cells()
+		for cell in used_cells:
+			has_tiles = true
+			# Add layer offset to get world tile coordinates
+			var world_x = cell.x + layer_offset_x
+			var world_y = cell.y + layer_offset_y
+			min_x = mini(min_x, world_x)
+			max_x = maxi(max_x, world_x)
+			min_y = mini(min_y, world_y)
+			max_y = maxi(max_y, world_y)
+	
+	if not has_tiles:
+		return Rect2i(0, 0, 0, 0)
+	
+	return Rect2i(min_x, min_y, max_x - min_x + 1, max_y - min_y + 1)
+
+
+## Calculate the offset needed to center the tilemap at origin (0, 0)
+func _calculate_center_offset(bounds: Rect2i) -> Vector2i:
+	if bounds.size == Vector2i.ZERO:
+		return Vector2i.ZERO
+	
+	# Calculate center of the bounds and return negative offset to center at origin
+	var center_x: int = bounds.position.x + bounds.size.x / 2
+	var center_y: int = bounds.position.y + bounds.size.y / 2
+	return Vector2i(-center_x, -center_y)
 
 
 # ============================================================================
