@@ -247,7 +247,12 @@ void SpxTilemapparserMgr::_create_atlas_source(Ref<TileSet> tileset, const SpxTi
 	atlas->set_margins(data.margins);
 	atlas->set_separation(data.separation);
 
-	// Create tiles
+	// Add source to tileset FIRST - this is required so that TileData can access
+	// the TileSet's physics layers configuration. When add_source is called,
+	// it triggers set_tile_set() which initializes the physics array in TileData.
+	tileset->add_source(atlas, data.id);
+
+	// Create tiles (now TileData will have correct physics layer count)
 	for (int i = 0; i < data.tiles.size(); i++) {
 		const SpxTileData &tile_data = data.tiles[i];
 
@@ -260,9 +265,6 @@ void SpxTilemapparserMgr::_create_atlas_source(Ref<TileSet> tileset, const SpxTi
 			_setup_tile_physics(td, tile_data);
 		}
 	}
-
-	// Add source to tileset
-	tileset->add_source(atlas, data.id);
 }
 
 void SpxTilemapparserMgr::_setup_tile_physics(TileData *tile_data, const SpxTileData &data) {
