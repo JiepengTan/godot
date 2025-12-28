@@ -16,7 +16,8 @@ class ExportResult:
 
 
 ## Main export function
-func export_tilemap(layers: Array[TileMapLayer], export_path: String) -> ExportResult:
+## textures_subdir: subdirectory name for textures (e.g., "tilemap" for _export/scene/tilemap/)
+func export_tilemap(layers: Array[TileMapLayer], export_path: String, textures_subdir: String = "textures") -> ExportResult:
 	var result = ExportResult.new()
 	
 	if layers.is_empty():
@@ -54,7 +55,7 @@ func export_tilemap(layers: Array[TileMapLayer], export_path: String) -> ExportR
 		"version": 1,
 		"name": export_path.get_file().get_basename(),
 		"node_offset": [pixel_offset_x, pixel_offset_y],
-		"tileset": _extract_tileset(tileset, export_dir, result),
+		"tileset": _extract_tileset(tileset, export_dir, textures_subdir, result),
 		"layers": _extract_layers(layers)
 	}
 	
@@ -77,12 +78,12 @@ func export_tilemap(layers: Array[TileMapLayer], export_path: String) -> ExportR
 # TileSet Extraction
 # ============================================================================
 
-func _extract_tileset(tileset: TileSet, export_dir: String, result: ExportResult) -> Dictionary:
+func _extract_tileset(tileset: TileSet, export_dir: String, textures_subdir: String, result: ExportResult) -> Dictionary:
 	var data: Dictionary = {
 		"tile_size": [tileset.tile_size.x, tileset.tile_size.y],
 		"tile_shape": _get_tile_shape_string(tileset.tile_shape),
 		"physics_layers": _extract_physics_layers(tileset),
-		"sources": _extract_sources(tileset, export_dir, result)
+		"sources": _extract_sources(tileset, export_dir, textures_subdir, result)
 	}
 	return data
 
@@ -115,7 +116,7 @@ func _extract_physics_layers(tileset: TileSet) -> Array:
 	return layers
 
 
-func _extract_sources(tileset: TileSet, export_dir: String, result: ExportResult) -> Array:
+func _extract_sources(tileset: TileSet, export_dir: String, textures_subdir: String, result: ExportResult) -> Array:
 	var sources: Array = []
 	var source_count = tileset.get_source_count()
 	
@@ -125,7 +126,7 @@ func _extract_sources(tileset: TileSet, export_dir: String, result: ExportResult
 		
 		# Only support TileSetAtlasSource
 		if source is TileSetAtlasSource:
-			var source_data = _extract_atlas_source(source as TileSetAtlasSource, source_id, tileset, export_dir, result)
+			var source_data = _extract_atlas_source(source as TileSetAtlasSource, source_id, tileset, export_dir, textures_subdir, result)
 			sources.append(source_data)
 		else:
 			push_warning("Skipping non-atlas source with ID: %d" % source_id)
@@ -133,12 +134,12 @@ func _extract_sources(tileset: TileSet, export_dir: String, result: ExportResult
 	return sources
 
 
-func _extract_atlas_source(source: TileSetAtlasSource, source_id: int, tileset: TileSet, export_dir: String, result: ExportResult) -> Dictionary:
+func _extract_atlas_source(source: TileSetAtlasSource, source_id: int, tileset: TileSet, export_dir: String, textures_subdir: String, result: ExportResult) -> Dictionary:
 	var texture = source.get_texture()
 	var texture_filename = ""
 	
 	if texture:
-		texture_filename = _copy_texture(texture, export_dir, result)
+		texture_filename = _copy_texture(texture, export_dir, textures_subdir, result)
 	
 	var data: Dictionary = {
 		"id": source_id,
@@ -157,9 +158,7 @@ func _extract_atlas_source(source: TileSetAtlasSource, source_id: int, tileset: 
 # Texture Copy
 # ============================================================================
 
-const TEXTURES_SUBDIR = "textures"
-
-func _copy_texture(texture: Texture2D, export_dir: String, result: ExportResult) -> String:
+func _copy_texture(texture: Texture2D, export_dir: String, textures_subdir: String, result: ExportResult) -> String:
 	var texture_path = texture.resource_path
 	if texture_path.is_empty():
 		push_warning("Texture has no resource path, skipping copy")
@@ -168,7 +167,7 @@ func _copy_texture(texture: Texture2D, export_dir: String, result: ExportResult)
 	var filename = texture_path.get_file()
 	
 	# Create textures subdirectory
-	var textures_dir = export_dir.path_join(TEXTURES_SUBDIR)
+	var textures_dir = export_dir.path_join(textures_subdir)
 	if not DirAccess.dir_exists_absolute(textures_dir):
 		var err = DirAccess.make_dir_recursive_absolute(textures_dir)
 		if err != OK:
@@ -183,16 +182,16 @@ func _copy_texture(texture: Texture2D, export_dir: String, result: ExportResult)
 	# Check if file already exists at destination
 	if FileAccess.file_exists(dest_path):
 		# File already copied (maybe from another source using same texture)
-		return TEXTURES_SUBDIR.path_join(filename)
+		return textures_subdir.path_join(filename)
 	
 	# Copy the file
 	var err = DirAccess.copy_absolute(source_global_path, dest_path)
 	if err != OK:
 		push_warning("Failed to copy texture: %s -> %s (error: %d)" % [source_global_path, dest_path, err])
-		return TEXTURES_SUBDIR.path_join(filename)  # Still return the path even if copy failed
+		return textures_subdir.path_join(filename)  # Still return the path even if copy failed
 	
 	result.texture_count += 1
-	return TEXTURES_SUBDIR.path_join(filename)
+	return textures_subdir.path_join(filename)
 
 
 # ============================================================================
