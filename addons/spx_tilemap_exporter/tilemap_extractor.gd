@@ -276,7 +276,7 @@ func _calculate_tilemap_bounds(layers: Array[TileMapLayer], tile_size: Vector2i)
 	
 	for layer in layers:
 		# Convert layer global position (pixels) to tile offset
-		var global_pos = layer.global_position
+		var global_pos = layer.position
 		var layer_offset_x: int = floori(global_pos.x / tile_size.x)
 		var layer_offset_y: int = floori(global_pos.y / tile_size.y)
 		
