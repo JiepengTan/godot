@@ -88,12 +88,6 @@ void initialize_spine_godot_module(ModuleInitializationLevel level) {
 		EditorPlugins::add_plugin_class(StringName("SpineEditorPlugin"));
 #endif
 	}
-	if (level == MODULE_INITIALIZATION_LEVEL_CORE) {
-		GDREGISTER_CLASS(SpineAtlasResourceFormatLoader);
-		GDREGISTER_CLASS(SpineAtlasResourceFormatSaver);
-		GDREGISTER_CLASS(SpineSkeletonFileResourceFormatLoader);
-		GDREGISTER_CLASS(SpineSkeletonFileResourceFormatSaver);
-	}
 	if (level != MODULE_INITIALIZATION_LEVEL_SCENE) return;
 #else
 #if VERSION_MAJOR > 3
@@ -116,12 +110,10 @@ void register_spine_godot_types() {
 #endif
 	spine::Bone::setYDown(true);
 
-#ifndef SPINE_GODOT_EXTENSION
 	GDREGISTER_CLASS(SpineAtlasResourceFormatLoader);
 	GDREGISTER_CLASS(SpineAtlasResourceFormatSaver);
 	GDREGISTER_CLASS(SpineSkeletonFileResourceFormatLoader);
 	GDREGISTER_CLASS(SpineSkeletonFileResourceFormatSaver);
-#endif
 
 	GDREGISTER_CLASS(SpineObjectWrapper);
 	GDREGISTER_CLASS(SpineAtlasResource);
