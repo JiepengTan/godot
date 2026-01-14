@@ -2,9 +2,6 @@
 name: SpxSprite Spine 集成
 overview: 采用方案 E (代理模式) 在 SpxSprite 中集成 Spine 支持，将 spine-godot 作为独立模块集成到 modules 目录，确保所有 SPX API 在 Spine 模式下可用。
 todos:
-  - id: spine-module
-    content: 将 spine-godot 作为独立模块迁移到 modules/spine_godot
-    status: pending
   - id: spine-mgr
     content: 创建 SpxSpineMgr 资源管理器（含路径转换和缓存）
     status: pending
@@ -75,71 +72,6 @@ graph TB
     SpxSpineMgr -->|缓存| SpineSkeletonDataResource
     SpxSpineMgr -->|路径转换| SpxResMgr
     SpxResMgr -->|update_caches| SpxSpineMgr
-```
-
----
-
-## 2. 模块集成方案
-
-### 2.1 spine_godot 模块迁移
-
-**来源**: `spine-godot/spine_godot/` → `modules/spine_godot/`
-
-**[modules/spine_godot/config.py](modules/spine_godot/config.py)**:
-
-```python
-def can_build(env, platform):
-    return True
-
-def configure(env):
-    pass
-
-def get_doc_classes():
-    return [
-        "SpineSprite",
-        "SpineAtlasResource",
-        "SpineSkeletonDataResource",
-        "SpineSkeletonFileResource",
-        "SpineSkeleton",
-        "SpineAnimationState",
-        # ... 其他类
-    ]
-
-def get_doc_path():
-    return "docs"
-```
-
-**[modules/spine_godot/SCsub](modules/spine_godot/SCsub)**:
-
-```python
-Import('env')
-
-env_spine = env.Clone()
-env_spine.Append(CPPPATH=["#modules/spine_godot/spine-cpp/include"])
-env_spine.add_source_files(env.modules_sources, "spine-cpp/src/spine/*.cpp")
-env_spine.add_source_files(env.modules_sources, "*.cpp")
-
-if not env_spine.msvc:
-    env_spine.Append(CXXFLAGS=["-Wno-inconsistent-missing-override"])
-```
-
-### 2.2 SPX 模块依赖配置
-
-**[modules/spx/SCsub](modules/spx/SCsub)** 修改:
-
-```python
-Import("env")
-Import("env_modules")
-
-env_spx = env_modules.Clone()
-
-# 添加 Spine 头文件路径
-env_spx.Append(CPPPATH=[
-    "#modules/spine_godot",
-    "#modules/spine_godot/spine-cpp/include"
-])
-
-env_spx.add_source_files(env.modules_sources, "*.cpp")
 ```
 
 ---
