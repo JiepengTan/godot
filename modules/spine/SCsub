@@ -1,24 +1,15 @@
-#!/usr/bin/env python
-from misc.utility.scons_hints import *
+Import('env')
 
-Import("env")
-Import("env_modules")
-
-env_spine_godot = env_modules.Clone()
-
-# Spine C++ 运行时的头文件路径
-env_spine_godot.Append(CPPPATH=["spine-cpp/include"])
-
-# 如果是生成 VS 项目，也需要添加到主 env
+# Need to add the include path to env so the vsproj generator consumes it.
 if env["vsproj"]:
-    env.Append(CPPPATH=["#modules/spine/spine-cpp/include"])
+    env.Append(CPPPATH=["#../spine_godot/spine-cpp/include"])
 
-# 编译 spine-cpp 源文件
-env_spine_godot.add_source_files(env.modules_sources, "spine-cpp/src/spine/*.cpp")
+env_spine_runtime = env.Clone()
+env_spine_runtime.Append(CPPPATH=["#../spine_godot/spine-cpp/include"])
+env_spine_runtime.add_source_files(env.modules_sources, "spine-cpp/src/spine/*.cpp")
+env_spine_runtime.add_source_files(env.modules_sources, "*.cpp")
 
-# 编译 spine_godot 绑定文件
-env_spine_godot.add_source_files(env.modules_sources, "*.cpp")
-
-# Clang 下禁用 override 警告
-if not env_spine_godot.msvc:
-    env_spine_godot.Append(CXXFLAGS=["-Wno-inconsistent-missing-override"])
+# Needed on Clang to not have a gazillion -Winconsistent-missing-override warnings for GDCLASS
+# I do not understand why other modules using GDCLASS do not have this issue when compiling.
+if not env_spine_runtime.msvc:
+    env_spine_runtime.Append(CXXFLAGS=["-Wno-inconsistent-missing-override"])

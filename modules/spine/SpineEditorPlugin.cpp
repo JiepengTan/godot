@@ -178,11 +178,24 @@ Error SpineBinaryResourceImportPlugin::import(const String &source_file, const S
 
 #ifdef SPINE_GODOT_EXTENSION
 SpineEditorPlugin::SpineEditorPlugin() {
-	add_import_plugin(memnew(SpineAtlasResourceImportPlugin));
-	add_import_plugin(memnew(SpineJsonResourceImportPlugin));
-	add_import_plugin(memnew(SpineBinaryResourceImportPlugin));
-	add_inspector_plugin(memnew(SpineSkeletonDataResourceInspectorPlugin));
-	// add_inspector_plugin(memnew(SpineSpriteInspectorPlugin));
+	atlas_import_plugin = Ref<EditorImportPlugin>(memnew(SpineAtlasResourceImportPlugin));
+	json_import_plugin = Ref<EditorImportPlugin>(memnew(SpineJsonResourceImportPlugin));
+	binary_import_plugin = Ref<EditorImportPlugin>(memnew(SpineBinaryResourceImportPlugin));
+	skeleton_data_inspector_plugin = Ref<EditorInspectorPlugin>(memnew(SpineSkeletonDataResourceInspectorPlugin));
+
+	add_import_plugin(atlas_import_plugin);
+	add_import_plugin(json_import_plugin);
+	add_import_plugin(binary_import_plugin);
+	add_inspector_plugin(skeleton_data_inspector_plugin);
+}
+
+void SpineEditorPlugin::_notification(int p_what) {
+	if (p_what == NOTIFICATION_PREDELETE) {
+		remove_import_plugin(atlas_import_plugin);
+		remove_import_plugin(json_import_plugin);
+		remove_import_plugin(binary_import_plugin);
+		remove_inspector_plugin(skeleton_data_inspector_plugin);
+	}
 }
 #else
 SpineEditorPlugin::SpineEditorPlugin(EditorNode *node) {

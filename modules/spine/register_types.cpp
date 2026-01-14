@@ -77,7 +77,7 @@ static void editor_init_callback() {
 #endif
 
 #ifdef SPINE_GODOT_EXTENSION
-void initialize_spine_module(ModuleInitializationLevel level) {
+void initialize_spine_godot_module(ModuleInitializationLevel level) {
 	if (level == MODULE_INITIALIZATION_LEVEL_EDITOR) {
 #ifdef TOOLS_ENABLED
 		GDREGISTER_CLASS(SpineAtlasResourceImportPlugin);
@@ -88,10 +88,16 @@ void initialize_spine_module(ModuleInitializationLevel level) {
 		EditorPlugins::add_plugin_class(StringName("SpineEditorPlugin"));
 #endif
 	}
+	if (level == MODULE_INITIALIZATION_LEVEL_CORE) {
+		GDREGISTER_CLASS(SpineAtlasResourceFormatLoader);
+		GDREGISTER_CLASS(SpineAtlasResourceFormatSaver);
+		GDREGISTER_CLASS(SpineSkeletonFileResourceFormatLoader);
+		GDREGISTER_CLASS(SpineSkeletonFileResourceFormatSaver);
+	}
 	if (level != MODULE_INITIALIZATION_LEVEL_SCENE) return;
 #else
 #if VERSION_MAJOR > 3
-void initialize_spine_module(ModuleInitializationLevel level) {
+void initialize_spine_godot_module(ModuleInitializationLevel level) {
 	if (level == MODULE_INITIALIZATION_LEVEL_EDITOR) {
 #ifdef TOOLS_ENABLED
 		EditorNode::add_init_callback(editor_init_callback);
@@ -101,7 +107,7 @@ void initialize_spine_module(ModuleInitializationLevel level) {
 	}
 	if (level != MODULE_INITIALIZATION_LEVEL_CORE) return;
 #else
-void register_spine_types() {
+void register_spine_godot_types() {
 #ifdef TOOLS_ENABLED
 	EditorNode::add_init_callback(editor_init_callback);
 	GDREGISTER_CLASS(SpineEditorPropertyAnimationMixes);
@@ -110,10 +116,12 @@ void register_spine_types() {
 #endif
 	spine::Bone::setYDown(true);
 
+#ifndef SPINE_GODOT_EXTENSION
 	GDREGISTER_CLASS(SpineAtlasResourceFormatLoader);
 	GDREGISTER_CLASS(SpineAtlasResourceFormatSaver);
 	GDREGISTER_CLASS(SpineSkeletonFileResourceFormatLoader);
 	GDREGISTER_CLASS(SpineSkeletonFileResourceFormatSaver);
+#endif
 
 	GDREGISTER_CLASS(SpineObjectWrapper);
 	GDREGISTER_CLASS(SpineAtlasResource);
@@ -195,14 +203,14 @@ void register_spine_types() {
 }
 
 #if VERSION_MAJOR > 3
-void uninitialize_spine_module(ModuleInitializationLevel level) {
+void uninitialize_spine_godot_module(ModuleInitializationLevel level) {
 	if (level == MODULE_INITIALIZATION_LEVEL_SCENE) {
 		SpineSprite::clear_statics();
 		return;
 	}
 	if (level != MODULE_INITIALIZATION_LEVEL_CORE) return;
 #else
-void unregister_spine_types() {
+void unregister_spine_godot_types() {
 #endif
 #ifdef SPINE_GODOT_EXTENSION
 	ResourceLoader::get_singleton()->remove_resource_format_loader(atlas_loader);
@@ -221,9 +229,9 @@ void unregister_spine_types() {
 #ifdef SPINE_GODOT_EXTENSION
 extern "C" GDExtensionBool GDE_EXPORT spine_godot_library_init(GDExtensionInterfaceGetProcAddress p_get_proc_address, GDExtensionClassLibraryPtr p_library, GDExtensionInitialization *r_initialization) {
 	GDExtensionBinding::InitObject init_obj(p_get_proc_address, p_library, r_initialization);
-	init_obj.register_initializer(initialize_spine_module);
-	init_obj.register_terminator(uninitialize_spine_module);
-	init_obj.set_minimum_library_initialization_level(MODULE_INITIALIZATION_LEVEL_SCENE);
+	init_obj.register_initializer(initialize_spine_godot_module);
+	init_obj.register_terminator(uninitialize_spine_godot_module);
+	init_obj.set_minimum_library_initialization_level(MODULE_INITIALIZATION_LEVEL_CORE);
 	return init_obj.init();
 }
 #endif

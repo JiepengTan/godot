@@ -35,9 +35,9 @@
 #ifndef SPINE_GODOT_EXTENSION
 #include "modules/register_module_types.h"
 #endif
-void initialize_spine_module(ModuleInitializationLevel level);
-void uninitialize_spine_module(ModuleInitializationLevel level);
+void initialize_spine_godot_module(ModuleInitializationLevel level);
+void uninitialize_spine_godot_module(ModuleInitializationLevel level);
 #else
-void register_spine_types();
-void unregister_spine_types();
+void register_spine_godot_types();
+void unregister_spine_godot_types();
 #endif

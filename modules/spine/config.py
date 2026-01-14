@@ -1,5 +1,5 @@
 def can_build(env, platform):
-    return env.get("module_spine_godot_enabled", True)
+    return True
 
 def configure(env):
     pass
