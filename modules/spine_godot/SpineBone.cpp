@@ -182,12 +182,12 @@ Ref<SpineBone> SpineBone::get_parent() {
 	return parent_ref;
 }
 
-Array SpineBone::get_children() {
+	Array SpineBone::get_children() {
 	Array result;
 	SPINE_CHECK(get_spine_object(), result)
 	auto children = get_spine_object()->getChildren();
 	result.resize((int) children.size());
-	for (int i = 0; i < children.size(); ++i) {
+	for (size_t i = 0; i < children.size(); ++i) {
 		auto child = children[i];
 		Ref<SpineBone> bone_ref(memnew(SpineBone));
 		bone_ref->set_spine_object(get_spine_owner(), child);
@@ -488,7 +488,11 @@ void SpineBone::set_global_transform(Transform2D transform) {
 	Vector2 local_scale = scale;
 	spine::Bone *parent = bone->getParent();
 	if (parent) {
-		parent->worldToLocal(local_position.x, local_position.y, local_position.x, local_position.y);
+		float local_x = (float)local_position.x;
+		float local_y = (float)local_position.y;
+		parent->worldToLocal((float)local_position.x, (float)local_position.y, local_x, local_y);
+		local_position.x = local_x;
+		local_position.y = local_y;
 	}
 	bone->setX(local_position.x);
 	bone->setY(local_position.y);
