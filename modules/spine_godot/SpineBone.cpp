@@ -42,7 +42,7 @@ void SpineBone::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("parent_to_world", "local_position"), &SpineBone::parent_to_world);
 	ClassDB::bind_method(D_METHOD("world_to_local_rotation", "world_rotation"), &SpineBone::world_to_local_rotation);
 	ClassDB::bind_method(D_METHOD("local_to_world_rotation", "local_rotation"), &SpineBone::local_to_world_rotation);
-	ClassDB::bind_method(D_METHOD("rotate_world"), &SpineBone::rotate_world);
+	ClassDB::bind_method(D_METHOD("rotate_world", "degrees"), &SpineBone::rotate_world);
 	ClassDB::bind_method(D_METHOD("get_world_to_local_rotation_x"), &SpineBone::get_world_to_local_rotation_x);
 	ClassDB::bind_method(D_METHOD("get_world_to_local_rotation_y"), &SpineBone::get_world_to_local_rotation_y);
 	ClassDB::bind_method(D_METHOD("get_data"), &SpineBone::get_data);
